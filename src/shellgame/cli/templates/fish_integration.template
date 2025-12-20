@@ -1,0 +1,121 @@
+# ShellGame shell integration for Fish
+# SHELLGAME_WRAPPER is set in the environment by the launcher
+
+# Define the binary path
+# $binary_path is a space-separated list of quoted strings (e.g. "'python' 'script.py'")
+# We set it without quotes so Fish parses it as a list.
+set -gx SHELLGAME_BINARY $binary_path
+
+# Track whether we've already autostarted (to avoid double-start).
+set -gx SHELLGAME_AUTO_STARTED 0
+
+$dev_shortcuts
+
+# Internal eval function for protocol commands.
+# - Uses `builtin cd` to bypass user-facing cd hooks when the game needs to teleport.
+# - Handles `exit` explicitly to avoid leaking protocol marker lines on remove/exit flows.
+function __shellgame_eval
+    # Split the command string into words
+    set -l words (string split " " -- $argv)
+    set -l cmd $words[1]
+    if test "$cmd" = "cd"
+        builtin cd $words[2..-1]
+    else if test "$cmd" = "exit"
+        exit 0
+    else
+        eval $argv
+    end
+end
+
+function pwd
+    command pwd
+    # Record usage for game verification
+    set -l user_dir "/tmp/shellgame-$USER"
+    if test -d "$user_dir"
+        touch "$user_dir/.pwd_used"
+    end
+end
+
+# Level-specific `cd` wrapper hooks are injected here (generated from Python).
+# The injected code should define a `cd` function.
+$cd_hook
+
+# Default cd implementation (used when no hook is injected).
+if not functions -q cd
+    function cd
+        builtin cd $argv
+    end
+end
+
+function shellgame
+    # Create temp files for stderr processing
+    set stderr_file (mktemp)
+
+    # Detect if this is a remove command - we'll need to exit the subshell after success.
+    set -l is_remove_cmd 0
+    if test (count $argv) -ge 1; and test "$argv[1]" = "remove"
+        set is_remove_cmd 1
+    end
+
+    # Run the actual command and capture stderr
+    # Execute directly as a list (SHELLGAME_BINARY is a list)
+    $SHELLGAME_BINARY $argv 2>$stderr_file
+    set exit_code $status
+
+    # Process stderr for shell commands and regular output
+    if test -f "$stderr_file"
+        while read -l line
+            # Keep exact output except for removing a single trailing CR.
+            # Do NOT trim generally; it can corrupt legitimate stderr.
+            set line (string replace -r '\r$' '' -- "$line")
+
+            # Anchored minimal protocol:
+            # - only lines starting exactly with __SHELLGAME_EXEC__
+            # - shell command is the remainder of the line
+            if string match -rq '^__SHELLGAME_EXEC__' -- "$line"
+                set shell_cmd (string replace -r '^__SHELLGAME_EXEC__' '' -- "$line")
+
+                # Special-case exit: stop processing immediately and exit the wrapped subshell.
+                if string match -rq '^exit(\s|$)' -- "$shell_cmd"
+                    rm -f $stderr_file
+                    exit 0
+                end
+
+                # Use __shellgame_eval to bypass user-facing cd hooks for protocol commands.
+                # This allows the game to teleport even when cd hooks would reject the path.
+                __shellgame_eval $shell_cmd
+            else
+                echo "$line" >&2
+            end
+        end < $stderr_file
+    end
+
+    rm -f $stderr_file
+
+    # If remove succeeded, exit the subshell cleanly.
+    # We do this here (after processing stderr) rather than relying on a protocol directive,
+    # because Click's confirmation prompt can interfere with stderr capture timing.
+    if test $is_remove_cmd -eq 1; and test $exit_code -eq 0
+        exit 0
+    end
+
+    return $exit_code
+end
+
+# Autocomplete for shellgame
+function __fish_shellgame_needs_command
+    set cmd (commandline -opc)
+    if test (count $cmd) -eq 1
+        return 0
+    end
+    return 1
+end
+
+complete -c shellgame -f -n "__fish_shellgame_needs_command" -a "init hint submit status reset remove exit"
+
+# Autostart block (runs once when integration is sourced).
+# This must be at the end so the shellgame function is already defined.
+if test "$SHELLGAME_AUTO_STARTED" = "0"
+    set -gx SHELLGAME_AUTO_STARTED 1
+    shellgame
+end

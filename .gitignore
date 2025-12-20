@@ -1,0 +1,102 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python cache files (redundant but harmless)
+.pyc
+.pyo
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# uv (package manager + cache)
+.uv/
+.uv-cache/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# setuptools-scm
+_version.py
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+# NOTE: Do not ignore *.spec — we commit `shellgame.spec` as part of the release build.
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# pytest-xdist
+.pytest_cache/v/cache/lastfailed
+.pytest_cache/v/cache/nodeids
+
+# Type checkers / linters
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyright/
+.pylint.d/
+.ruff_cache/
+.pyre/
+.pytype/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+*~
+.fuse_hidden*
+.directory
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs (project-wide)
+*.log

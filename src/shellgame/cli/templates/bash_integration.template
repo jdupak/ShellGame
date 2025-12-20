@@ -1,0 +1,134 @@
+# ShellGame shell integration for Bash
+# SHELLGAME_WRAPPER is set in the environment by the launcher
+
+# Disable shell features that can interfere with the game.
+unset PROMPT_COMMAND
+set +o histexpand
+shopt -u checkwinsize 2>/dev/null || true
+
+# `$binary_path` is injected by Python. It may contain spaces and/or multiple argv parts.
+# Store it as a bash argv array so we can execute it reliably (without fragile splitting).
+declare -a SHELLGAME_BINARY_ARR
+eval "SHELLGAME_BINARY_ARR=($binary_path)"
+
+$dev_shortcuts
+
+# Internal eval function for protocol commands.
+# - Uses `builtin cd` to bypass user-facing cd hooks when the game needs to teleport.
+# - Handles `exit` explicitly to prevent any leaking of protocol marker lines on stdout/stderr.
+__shellgame_eval() {
+    local cmd="$1"
+    if [ "$cmd" = "cd" ]; then
+        shift
+        builtin cd "$@"
+    elif [ "$cmd" = "exit" ]; then
+        # Exit the wrapped subshell immediately.
+        builtin exit 0
+    else
+        eval "$@"
+    fi
+}
+
+pwd() {
+    command pwd
+    # Record usage for game verification
+    local user_dir="/tmp/shellgame-$USER"
+    if [ -d "$user_dir" ]; then
+        touch "$user_dir/.pwd_used"
+    fi
+}
+
+# Level-specific `cd` wrapper hooks are injected here (generated from Python).
+# The injected code must define a `cd()` function.
+# If it does not, we provide a safe default `cd()` below.
+$cd_hook
+
+# Default cd implementation (used when no hook is injected).
+if ! declare -F cd >/dev/null 2>&1; then
+cd() {
+    builtin cd "$@"
+}
+fi
+
+shellgame() {
+    local stderr_file
+    stderr_file="$(mktemp)"
+
+    # Detect if this is a remove command - we'll need to exit the subshell after success.
+    local is_remove_cmd=0
+    if [ "${1:-}" = "remove" ]; then
+        is_remove_cmd=1
+    fi
+
+    # Execute the launcher as argv (array), never via eval/string splitting.
+    "${SHELLGAME_BINARY_ARR[@]}" "$@" 2>"$stderr_file"
+    local exit_code=$?
+
+    if [ -f "$stderr_file" ]; then
+        while IFS= read -r line; do
+            # Keep exact output except for removing a single trailing CR.
+            # Do NOT trim generally; it can corrupt legitimate stderr.
+            line="${line%$'\r'}"
+
+            # Only treat lines that start with the marker as directives.
+            # This prevents leaking protocol lines to the user.
+            if [[ "$line" == __SHELLGAME_EXEC__* ]]; then
+                local shell_cmd="${line#__SHELLGAME_EXEC__}"
+
+                # Special-case exit: ensure we do not execute any cleanup below that could
+                # accidentally echo the directive, and exit immediately.
+                if [[ "$shell_cmd" == exit* ]]; then
+                    rm -f "$stderr_file"
+                    builtin exit 0
+                fi
+
+                # Use __shellgame_eval to bypass user-facing cd hooks for protocol commands.
+                # This allows the game to teleport even when cd hooks would reject the path.
+                __shellgame_eval $shell_cmd
+            else
+                echo "$line" >&2
+            fi
+        done < "$stderr_file"
+    fi
+
+    rm -f "$stderr_file"
+
+    # If remove succeeded, exit the subshell cleanly.
+    # We do this here (after processing stderr) rather than relying on a protocol directive,
+    # because Click's confirmation prompt can interfere with stderr capture timing.
+    if [ "$is_remove_cmd" = "1" ] && [ "$exit_code" = "0" ]; then
+        builtin exit 0
+    fi
+
+    return $exit_code
+}
+
+_shellgame_completions()
+{
+  local cur opts
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  opts="init hint submit status reset remove exit"
+
+  if [ $COMP_CWORD -eq 1 ]; then
+    COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+  fi
+}
+complete -F _shellgame_completions shellgame
+
+# Export the function so it's available in the shell
+export -f shellgame
+
+# Autostart block (runs once when integration is sourced).
+# This must be at the end so the shellgame function is already defined.
+if [ -z "${SHELLGAME_AUTO_STARTED:-}" ]; then
+    export SHELLGAME_AUTO_STARTED=1
+    if [ "${SHELLGAME_SUBSHELL_DEBUG:-}" = "1" ]; then
+        echo "[shellgame][debug][bash] autostarting shellgame..." >&2
+        set -x
+        shellgame
+        { set +x; } 2>/dev/null || true
+    else
+        shellgame
+    fi
+fi
