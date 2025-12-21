@@ -1,6 +1,7 @@
 """Level registry for managing all game levels."""
 
-from typing import Dict, Optional, List
+from typing import Optional
+
 from shellgame.levels.base import Level
 
 
@@ -9,8 +10,8 @@ class LevelRegistry:
 
     def __init__(self) -> None:
         """Initialize level registry."""
-        self.levels: Dict[str, Level] = {}
-        self._level_order: List[str] = []
+        self.levels: dict[str, Level] = {}
+        self._level_order: list[str] = []
 
     def register(self, level: Level) -> None:
         """
@@ -23,7 +24,7 @@ class LevelRegistry:
         if level.id not in self._level_order:
             self._level_order.append(level.id)
 
-    def register_all(self, levels: List[Level]) -> None:
+    def register_all(self, levels: list[Level]) -> None:
         """
         Register multiple levels.
 
@@ -63,7 +64,7 @@ class LevelRegistry:
         except ValueError:
             return None
 
-    def get_all_in_section(self, section: int) -> List[Level]:
+    def get_all_in_section(self, section: int) -> list[Level]:
         """
         Get all levels in a section.
 
@@ -75,18 +76,16 @@ class LevelRegistry:
         """
         return [level for level in self.levels.values() if level.section == section]
 
-    def get_core_levels(self) -> List[Level]:
+    def get_core_levels(self) -> list[Level]:
         """
         Get all core (non-optional, non-extension) levels.
 
         Returns:
             List of core levels
         """
-        return [
-            level for level in self.levels.values() if not level.optional and not level.extension
-        ]
+        return [level for level in self.levels.values() if not level.optional and not level.extension]
 
-    def list_levels(self) -> List[Level]:
+    def list_levels(self) -> list[Level]:
         """
         Get all levels in order.
 

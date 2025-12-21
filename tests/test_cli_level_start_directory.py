@@ -5,6 +5,8 @@ These tests lock in path-mapping behavior so it doesn't regress.
 
 from pathlib import Path
 
+from typing import Any
+
 from shellgame.cli.commands import get_level_start_directory
 from shellgame.levels.sections.section1 import Level1_1
 
@@ -16,9 +18,7 @@ def test_get_level_start_directory_selected_levels(tmp_path: Path) -> None:
     assert get_level_start_directory("0.0", workspace) == workspace
 
     # A representative "starts somewhere specific" level.
-    assert (
-        get_level_start_directory("1.4", workspace) == workspace / "level-1" / "alpha"
-    )
+    assert get_level_start_directory("1.4", workspace) == workspace / "level-1" / "alpha"
 
     # 1.5 is a navigation task; it must not start at the goal directory.
     assert get_level_start_directory("1.5", workspace) == workspace / "level-1"
@@ -30,7 +30,7 @@ def test_get_level_start_directory_selected_levels(tmp_path: Path) -> None:
     assert get_level_start_directory("999.9", workspace) is None
 
 
-def test_level1_1_requires_pwd_marker(tmp_path: Path, monkeypatch) -> None:
+def test_level1_1_requires_pwd_marker(tmp_path: Path, monkeypatch: Any) -> None:
     """Level 1.1 should require evidence that `pwd` was used."""
 
     # Fake state object with just the fields Level1_1.validate expects.
@@ -38,6 +38,7 @@ def test_level1_1_requires_pwd_marker(tmp_path: Path, monkeypatch) -> None:
         def __init__(self, username: str, workspace: Path) -> None:
             self.username = username
             self.workspace = workspace
+            self.current_level = "1.1"
 
     username = "testuser"
     state = _State(username=username, workspace=tmp_path / "workspace")
@@ -80,6 +81,7 @@ def test_level1_1_wrong_answer_does_not_spoil_expected(tmp_path: Path) -> None:
         def __init__(self, username: str, workspace: Path) -> None:
             self.username = username
             self.workspace = workspace
+            self.current_level = "1.1"
 
     username = "testuser"
     state = _State(username=username, workspace=tmp_path / "workspace")

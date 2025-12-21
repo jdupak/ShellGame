@@ -1,7 +1,9 @@
 """Section 10: Wildcards."""
 
-from typing import Tuple, Any, Optional
+import shutil
 from pathlib import Path
+from typing import Any, Optional
+
 from shellgame.levels.base import Level
 from shellgame.validation.validators import FileExistsValidator, MultiValidator
 
@@ -22,7 +24,7 @@ class Level10_0(Level):
         """No setup needed."""
         pass
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Always valid."""
         return True, "Jdeme na to!"
 
@@ -76,7 +78,7 @@ Po splnění úkolu odevzdejte: `shellgame submit`""",
         for f in (level_dir / "images").glob("*"):
             f.unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate copy."""
         base = "level-10/star/images"
 
@@ -139,7 +141,7 @@ Po splnění úkolu odevzdejte: `shellgame submit`""",
         for f in (level_dir / "short_data").glob("*"):
             f.unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate copy."""
         base = "level-10/question/short_data"
 
@@ -202,7 +204,7 @@ Po splnění úkolu odevzdejte: `shellgame submit`""",
         for f in (level_dir / "ab_files").glob("*"):
             f.unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate copy."""
         base = "level-10/brackets/ab_files"
 
@@ -268,7 +270,7 @@ Po splnění úkolu odevzdejte: `shellgame submit`""",
         for f in (level_dir / "lowercase").glob("*"):
             f.unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate copy."""
         base = "level-10/ranges/lowercase"
 
@@ -328,8 +330,6 @@ rm temp*    → smaže vše začínající na temp
 
     def setup(self, workspace: Path) -> None:
         """Create challenge files."""
-        import shutil
-
         challenge_dir = workspace / "level-10" / "challenge"
 
         if challenge_dir.exists():
@@ -355,7 +355,7 @@ rm temp*    → smaže vše začínající na temp
         (challenge_dir / "script.sh").write_text("#!/bin/bash\n")
         (challenge_dir / "config.json").write_text("{}")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:  # noqa: PLR0911
         """Validate wildcard knowledge."""
         if answer is None:
             return False, "Zadejte odpověď ve formátu: počet_log,počet_txt,název_csv"

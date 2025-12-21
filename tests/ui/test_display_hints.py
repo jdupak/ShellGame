@@ -10,7 +10,6 @@ These tests validate the UX contract around:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
 
 from rich.console import Console
 
@@ -21,13 +20,13 @@ from shellgame.ui.display import Display
 class _FakeState:
     """Minimal state shape required by Display.show_level_hint()."""
 
-    level_hints_used: Dict[str, int] = field(default_factory=dict)
+    level_hints_used: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
 class _FakeLevel:
     id: str
-    hints: List[str]
+    hints: list[str]
 
 
 def _make_display() -> tuple[Display, Console]:

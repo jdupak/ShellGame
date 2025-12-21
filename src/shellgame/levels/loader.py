@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from shellgame.levels.base import Level
 from shellgame.levels.registry import get_registry
 from shellgame.levels.sections import (
     section0,
@@ -17,10 +18,6 @@ from shellgame.levels.sections import (
     section10,
     section11,
 )
-
-from typing import Dict, List
-
-from shellgame.levels.base import Level
 
 
 def initialize_levels() -> None:
@@ -80,11 +77,11 @@ class LevelLoader:
     """Loads and manages game levels."""
 
     def __init__(self) -> None:
-        self._levels: Dict[str, Level] = {}
-        self._sections: Dict[int, List[Level]] = {}
+        self._levels: dict[str, Level] = {}
+        self._sections: dict[int, list[Level]] = {}
         self._load_levels()
 
-    def _register_section(self, levels: List[Level]) -> None:
+    def _register_section(self, levels: list[Level]) -> None:
         """Index a batch of levels by id and section."""
         for level in levels:
             self._levels[level.id] = level

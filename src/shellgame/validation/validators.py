@@ -4,28 +4,24 @@ This module provides reusable validation components for checking
 user answers in ShellGame levels.
 """
 
-from typing import (
-    Tuple,
-    Optional,
-    List,
-    Dict,
-    Union,
-    Sequence,
-    Protocol,
-    runtime_checkable,
-)
-from pathlib import Path
 import os
 import stat
 import subprocess
+from collections.abc import Sequence
+from pathlib import Path
+from typing import (
+    Optional,
+    Protocol,
+    Union,
+    runtime_checkable,
+)
 
-from shellgame.protocols import GameStateProtocol
-from shellgame.messages import Messages
 from shellgame.markers import MarkerManager
-
+from shellgame.messages import Messages
+from shellgame.protocols import GameStateProtocol
 
 # Type alias for validation results
-ValidationResult = Tuple[bool, str]
+ValidationResult = tuple[bool, str]
 
 # Type alias for state parameter (can be GameStateProtocol or raw Path)
 StateOrPath = Union[GameStateProtocol, Path]
@@ -148,9 +144,7 @@ class IntegerValidator(Validator):
 
         if actual == self.expected:
             return True, Messages.CORRECT
-        return False, Messages.EXPECTED_GOT_INT.format(
-            expected=self.expected, actual=actual
-        )
+        return False, Messages.EXPECTED_GOT_INT.format(expected=self.expected, actual=actual)
 
 
 class BasenameValidator(Validator):
@@ -304,7 +298,7 @@ class MultiValidator(Validator):
 class OrderedListValidator(Validator):
     """Validates an ordered list of strings."""
 
-    def __init__(self, expected: List[str], case_sensitive: bool = True):
+    def __init__(self, expected: list[str], case_sensitive: bool = True):
         """Initialize ordered list validator.
 
         Args:
@@ -370,9 +364,7 @@ class FileTypeValidator(Validator):
 
             if self.expected_type.lower() in output.lower():
                 return True, Messages.CORRECT
-            return False, Messages.FILE_TYPE_MISMATCH.format(
-                expected=self.expected_type, actual=output
-            )
+            return False, Messages.FILE_TYPE_MISMATCH.format(expected=self.expected_type, actual=output)
         except subprocess.CalledProcessError:
             return False, "Nepodařilo se určit typ souboru."
         except FileNotFoundError:
@@ -406,9 +398,8 @@ class CopyValidator(Validator):
 
         # Check content matches
         try:
-            if not source.is_dir():
-                if source.read_bytes() != dest.read_bytes():
-                    return False, Messages.COPY_CONTENT_MISMATCH
+            if not source.is_dir() and source.read_bytes() != dest.read_bytes():
+                return False, Messages.COPY_CONTENT_MISMATCH
         except Exception as e:
             return False, f"Chyba při kontrole souborů: {e}"
 
@@ -472,18 +463,14 @@ class PermissionValidator(Validator):
         if self.expected_mode.isdigit():
             if mode_octal == self.expected_mode:
                 return True, Messages.PERMISSION_CORRECT
-            return False, Messages.PERMISSION_MISMATCH.format(
-                expected=self.expected_mode, actual=mode_octal
-            )
+            return False, Messages.PERMISSION_MISMATCH.format(expected=self.expected_mode, actual=mode_octal)
 
         # If expected is string (e.g. rwxr-xr-x)
         current_perms = mode_str[1:]  # Skip type char
 
         if self.expected_mode == current_perms:
             return True, Messages.PERMISSION_CORRECT
-        return False, Messages.PERMISSION_MISMATCH.format(
-            expected=self.expected_mode, actual=current_perms
-        )
+        return False, Messages.PERMISSION_MISMATCH.format(expected=self.expected_mode, actual=current_perms)
 
 
 class ExecutableValidator(Validator):
@@ -527,10 +514,7 @@ class CurrentDirectoryValidator(Validator):
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
         cwd_name = Path.cwd().name
         if cwd_name == self.expected_name:
-            msg = (
-                self.success_message
-                or f"Správně! Jste v adresáři '{self.expected_name}'."
-            )
+            msg = self.success_message or f"Správně! Jste v adresáři '{self.expected_name}'."
             return True, msg
 
         if self.error_message:
@@ -565,7 +549,7 @@ class MarkerValidator(Validator):
 class CommonMistakeValidator(Validator):
     """Checks for common mistakes and provides specific feedback."""
 
-    def __init__(self, mistakes: Dict[Union[str, Tuple[str, ...]], str]):
+    def __init__(self, mistakes: dict[Union[str, tuple[str, ...]], str]):
         """Initialize common mistake validator.
 
         Args:
@@ -635,9 +619,7 @@ class DirectoryAndAnswerValidator(Validator):
         if answer is None:
             if Path.cwd().name == self.expected_dirname:
                 return True, self.success_message
-            return False, Messages.wrong_directory(
-                Path.cwd().name, self.expected_dirname
-            )
+            return False, Messages.wrong_directory(Path.cwd().name, self.expected_dirname)
 
         # Check answer
         if answer.strip() == self.expected_dirname:

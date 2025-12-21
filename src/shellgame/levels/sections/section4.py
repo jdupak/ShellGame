@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Any
 
 from typing_extensions import override
 
@@ -35,9 +36,7 @@ class Level4_0(Level):
         return
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Always valid."""
         return True, "Jdeme na to!"
 
@@ -79,7 +78,7 @@ Odevzdejte název vytvořeného souboru.
 
         (workspace / "level-4" / "creation").mkdir(parents=True, exist_ok=True)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: str | None, state: Any) -> tuple[bool, str]:
         """Validate file creation."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -127,13 +126,11 @@ Odevzdejte název vytvořeného adresáře.
         """Ensure clean slate."""
         target = workspace / "level-4" / "creation" / "data"
         if target.exists():
-            import shutil
-
             shutil.rmtree(target)
 
         (workspace / "level-4" / "creation").mkdir(parents=True, exist_ok=True)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: str | None, state: Any) -> tuple[bool, str]:
         """Validate directory creation."""
         if answer is None:
             return False, "Musíte zadat název adresáře."
@@ -157,7 +154,8 @@ class Level4_3(Level):
             title="Vytváření zanořených adresářů",
             instructions="""# Level 4.3: Vytváření zanořených adresářů
 
-Pokud chcete vytvořit celou cestu adresářů najednou (např. `projekt/src/main`), příkaz `mkdir` by normálně selhal, pokud rodičovské adresáře neexistují.
+Pokud chcete vytvořit celou cestu adresářů najednou (např. `projekt/src/main`),
+příkaz `mkdir` by normálně selhal, pokud rodičovské adresáře neexistují.
 Přepínač `-p` (parents) řekne příkazu `mkdir`, aby vytvořil i všechny chybějící rodičovské adresáře.
 
 ## Úkol:
@@ -181,13 +179,11 @@ Odevzdejte celou cestu, kterou jste vytvořili.
         """Ensure clean slate."""
         target = workspace / "level-4" / "nested" / "projekt"
         if target.exists():
-            import shutil
-
             shutil.rmtree(target)
 
         (workspace / "level-4" / "nested").mkdir(parents=True, exist_ok=True)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: str | None, state: Any) -> tuple[bool, str]:
         """Validate nested directory creation."""
         if answer is None:
             return False, "Musíte zadat cestu."
@@ -244,7 +240,7 @@ Odevzdejte název smazaného souboru.
         cleanup_dir.mkdir(parents=True, exist_ok=True)
         (cleanup_dir / "stary_log.txt").write_text("old data")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: str | None, state: Any) -> tuple[bool, str]:
         """Validate file deletion."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -254,9 +250,7 @@ Odevzdejte název smazaného souboru.
         if not success:
             return False, msg
 
-        file_val = FileExistsValidator(
-            "level-4/cleanup/stary_log.txt", should_exist=False
-        )
+        file_val = FileExistsValidator("level-4/cleanup/stary_log.txt", should_exist=False)
         return file_val.validate(answer, state.workspace)
 
 
@@ -297,7 +291,7 @@ Odevzdejte název smazaného adresáře.
         temp_dir.mkdir(parents=True, exist_ok=True)
         (temp_dir / "junk.txt").write_text("junk")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: str | None, state: Any) -> tuple[bool, str]:
         """Validate directory deletion."""
         if answer is None:
             return False, "Musíte zadat název adresáře."
@@ -346,13 +340,11 @@ Odevzdejte název kořenového adresáře projektu.
         """Ensure clean slate."""
         target = workspace / "level-4" / "project" / "web"
         if target.exists():
-            import shutil
-
             shutil.rmtree(target)
 
         (workspace / "level-4" / "project").mkdir(parents=True, exist_ok=True)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: str | None, state: Any) -> tuple[bool, str]:
         """Validate project structure."""
         if answer is None:
             return False, "Musíte zadat název projektu."
@@ -412,7 +404,7 @@ Odevzdejte název adresáře, který jste vyčistili.
         (mess_dir / "junk.tmp").write_text("")
         (mess_dir / "keep_me.txt").write_text("important")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: str | None, state: Any) -> tuple[bool, str]:
         """Validate cleanup."""
         if answer is None:
             return False, "Musíte zadat název adresáře."
@@ -480,8 +472,6 @@ rm -r adresar       → Smazat adresář s obsahem
 
         # Clean slate
         if challenge_dir.exists():
-            import shutil
-
             shutil.rmtree(challenge_dir)
 
         challenge_dir.mkdir(parents=True, exist_ok=True)
@@ -490,7 +480,7 @@ rm -r adresar       → Smazat adresář s obsahem
         (challenge_dir / "delete_me.txt").write_text("Delete this!\n")
         (challenge_dir / "empty_dir").mkdir(exist_ok=True)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: str | None, state: Any) -> tuple[bool, str]:  # noqa: PLR0911
         """Validate structure."""
         if answer is None:
             return False, "Musíte zadat heslo."

@@ -30,7 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-import shellgame.cli.subshell as subshell
+from shellgame.cli import subshell
 
 
 @dataclass
@@ -51,7 +51,7 @@ class _FakeNamedTemp:
         self.name = name
         self._writes: list[str] = []
 
-    def __enter__(self) -> "_FakeNamedTemp":
+    def __enter__(self) -> _FakeNamedTemp:
         return self
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
@@ -98,7 +98,7 @@ class _Console:
         self.printed.append(msg)
 
 
-def test_launch_subshell_bash_critical_flags(monkeypatch) -> None:
+def test_launch_subshell_bash_critical_flags(monkeypatch: Any) -> None:
     """CRITICAL: Verify bash is launched correctly.
 
     - Must use --rcfile with integration script directly
@@ -111,7 +111,7 @@ def test_launch_subshell_bash_critical_flags(monkeypatch) -> None:
     unlink = _UnlinkRecorder()
     console = _Console()
 
-    def fake_run(args: list[str], env: dict[str, str] | None = None) -> None:
+    def fake_run(args: list[str], env: dict[str, str] | None = None, **kwargs: Any) -> None:
         calls.append(_RunCall(args=args, env=env))
 
     monkeypatch.setattr(subshell.tempfile, "NamedTemporaryFile", temp_factory)
@@ -154,14 +154,14 @@ def test_launch_subshell_bash_critical_flags(monkeypatch) -> None:
 
 
 def test_launch_subshell_fish_suppresses_greeting_and_sources_script(
-    monkeypatch,
+    monkeypatch: Any,
 ) -> None:
     calls: list[_RunCall] = []
     temp_factory = _TempFactory()
     unlink = _UnlinkRecorder()
     console = _Console()
 
-    def fake_run(args: list[str], env: dict[str, str] | None = None) -> None:
+    def fake_run(args: list[str], env: dict[str, str] | None = None, **kwargs: Any) -> None:
         calls.append(_RunCall(args=args, env=env))
 
     monkeypatch.setattr(subshell.tempfile, "NamedTemporaryFile", temp_factory)
@@ -196,12 +196,12 @@ def test_launch_subshell_fish_suppresses_greeting_and_sources_script(
     assert console.printed == []
 
 
-def test_launch_subshell_unknown_shell_raises_and_cleans_script(monkeypatch) -> None:
+def test_launch_subshell_unknown_shell_raises_and_cleans_script(monkeypatch: Any) -> None:
     calls: list[_RunCall] = []
     temp_factory = _TempFactory()
     unlink = _UnlinkRecorder()
 
-    def fake_run(args: list[str], env: dict[str, str] | None = None) -> None:
+    def fake_run(args: list[str], env: dict[str, str] | None = None, **kwargs: Any) -> None:
         calls.append(_RunCall(args=args, env=env))
 
     monkeypatch.setattr(subshell.tempfile, "NamedTemporaryFile", temp_factory)
@@ -213,7 +213,7 @@ def test_launch_subshell_unknown_shell_raises_and_cleans_script(monkeypatch) -> 
 
     try:
         subshell.launch_subshell("zsh", devmode=False)
-        assert False, "expected ValueError"
+        raise AssertionError("expected ValueError")
     except ValueError as e:
         assert "Nepodporovaný shell" in str(e)
 

@@ -1,11 +1,12 @@
 """State management for game persistence."""
 
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, Optional
-from pydantic import BaseModel, Field, ConfigDict, field_serializer
 import json
 import tempfile
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class LevelCompletion(BaseModel):
@@ -27,12 +28,12 @@ class GameState(BaseModel):
     start_time: datetime
 
     # Completion stats (what the player sees in `status`)
-    levels_complete: Dict[str, LevelCompletion] = Field(default_factory=dict)
+    levels_complete: dict[str, LevelCompletion] = Field(default_factory=dict)
 
     # Tracking (used to compute completion stats)
-    level_attempts: Dict[str, int] = Field(default_factory=dict)
-    level_hints_used: Dict[str, int] = Field(default_factory=dict)
-    level_started_at: Dict[str, datetime] = Field(default_factory=dict)
+    level_attempts: dict[str, int] = Field(default_factory=dict)
+    level_hints_used: dict[str, int] = Field(default_factory=dict)
+    level_started_at: dict[str, datetime] = Field(default_factory=dict)
 
     # Pydantic v2 configuration (replaces deprecated class-based Config)
     model_config = ConfigDict(
@@ -49,7 +50,7 @@ class GameState(BaseModel):
         return v.isoformat()
 
     @field_serializer("level_started_at")
-    def _serialize_level_started_at(self, v: Dict[str, datetime]) -> Dict[str, str]:
+    def _serialize_level_started_at(self, v: dict[str, datetime]) -> dict[str, str]:
         return {k: dt.isoformat() for k, dt in v.items()}
 
     def model_dump_json(self, **kwargs) -> str:  # type: ignore
@@ -79,7 +80,7 @@ class StateManager:
             return None
 
         try:
-            with open(self.state_file, "r") as f:
+            with open(self.state_file) as f:
                 data = json.load(f)
 
             # Convert string paths and dates back to proper types
@@ -88,18 +89,11 @@ class StateManager:
 
             # Convert completed_at strings back to datetime
             for level_data in data.get("levels_complete", {}).values():
-                level_data["completed_at"] = datetime.fromisoformat(
-                    level_data["completed_at"]
-                )
+                level_data["completed_at"] = datetime.fromisoformat(level_data["completed_at"])
 
             # Convert level_started_at strings back to datetime
-            if "level_started_at" in data and isinstance(
-                data["level_started_at"], dict
-            ):
-                data["level_started_at"] = {
-                    k: datetime.fromisoformat(v)
-                    for k, v in data["level_started_at"].items()
-                }
+            if "level_started_at" in data and isinstance(data["level_started_at"], dict):
+                data["level_started_at"] = {k: datetime.fromisoformat(v) for k, v in data["level_started_at"].items()}
 
             return GameState(**data)
         except (json.JSONDecodeError, KeyError, ValueError, TypeError) as e:
@@ -118,9 +112,7 @@ class StateManager:
         self.state_dir.mkdir(parents=True, exist_ok=True)
 
         # Atomic write: temp file + rename
-        with tempfile.NamedTemporaryFile(
-            mode="w", dir=self.state_dir, delete=False, suffix=".json"
-        ) as tmp:
+        with tempfile.NamedTemporaryFile(mode="w", dir=self.state_dir, delete=False, suffix=".json") as tmp:
             tmp.write(state.model_dump_json())
             tmp_path = tmp.name
 
@@ -166,19 +158,13 @@ class StateManager:
         """Increment attempt counter for a level."""
         state.level_attempts[level_id] = state.level_attempts.get(level_id, 0) + 1
 
-    def record_hint_used(
-        self, state: GameState, *, level_id: str, count: int = 1
-    ) -> None:
+    def record_hint_used(self, state: GameState, *, level_id: str, count: int = 1) -> None:
         """Increment hint counter for a level."""
         if count <= 0:
             return
-        state.level_hints_used[level_id] = (
-            state.level_hints_used.get(level_id, 0) + count
-        )
+        state.level_hints_used[level_id] = state.level_hints_used.get(level_id, 0) + count
 
-    def ensure_level_started(
-        self, state: GameState, *, level_id: str, now: Optional[datetime] = None
-    ) -> None:
+    def ensure_level_started(self, state: GameState, *, level_id: str, now: Optional[datetime] = None) -> None:
         """Ensure a per-level start time exists (for time tracking)."""
         if level_id in state.level_started_at:
             return

@@ -1,13 +1,12 @@
 """Section 9: Error Streams."""
 
-from typing import Tuple, Any, Optional
+import shutil
 from pathlib import Path
-import os
+from typing import Any, Optional
+
 from shellgame.levels.base import Level
 from shellgame.validation.validators import (
     StringValidator,
-    FileExistsValidator,
-    FileContentValidator,
 )
 
 
@@ -27,7 +26,7 @@ class Level9_0(Level):
         """No setup needed."""
         pass
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Always valid."""
         return True, "Jdeme na to!"
 
@@ -73,9 +72,7 @@ Odevzdejte název vytvořeného souboru.
         level_dir = workspace / "level-9"
         level_dir.mkdir(parents=True, exist_ok=True)
 
-        script_content = (
-            "#!/bin/bash\n" "echo 'This is normal output'\n" "echo 'This is an error message' >&2\n"
-        )
+        script_content = "#!/bin/bash\necho 'This is normal output'\necho 'This is an error message' >&2\n"
 
         script_path = level_dir / "buggy.sh"
         script_path.write_text(script_content)
@@ -85,7 +82,7 @@ Odevzdejte název vytvořeného souboru.
         if (level_dir / "errors.log").exists():
             (level_dir / "errors.log").unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate error log creation."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -146,17 +143,13 @@ Odevzdejte název souboru.
         # Ensure script exists
         script_path = level_dir / "buggy.sh"
         if not script_path.exists():
-            script_content = (
-                "#!/bin/bash\n"
-                "echo 'This is normal output'\n"
-                "echo 'This is an error message' >&2\n"
-            )
+            script_content = "#!/bin/bash\necho 'This is normal output'\necho 'This is an error message' >&2\n"
             script_path.write_text(script_content)
             script_path.chmod(0o755)
 
         (level_dir / "errors.log").write_text("Old error 1\n")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate append."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -221,7 +214,7 @@ Odevzdejte název souboru.
         if (level_dir / "all_output.log").exists():
             (level_dir / "all_output.log").unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate all output."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -280,7 +273,7 @@ Odevzdejte název speciálního souboru, který jste použili.
         """No setup needed."""
         pass
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate /dev/null usage."""
         if answer is None:
             return False, "Zadejte speciální soubor, který jste použili."
@@ -332,8 +325,6 @@ Formát: `chyby,výstup` (např. `3,5`)
 
     def setup(self, workspace: Path) -> None:
         """Create mixed output script."""
-        import shutil
-
         challenge_dir = workspace / "level-9" / "challenge"
 
         if challenge_dir.exists():
@@ -354,7 +345,7 @@ echo "Line 3 - final output"
         )
         script.chmod(0o755)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate line counts."""
         if answer is None:
             return False, "Zadejte odpověď ve formátu: počet_chyb,počet_výstupů"

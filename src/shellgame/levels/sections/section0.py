@@ -30,9 +30,7 @@ class Level0_0(Level):
         pass
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Always valid, just moving to next level."""
         return True, "Vítejte ve hře!"
 
@@ -68,9 +66,7 @@ Odevzdejte pomocí: `shellgame submit start`
         pass
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Validate that answer is 'start'."""
         if answer is None:
             return False, "Musíte zadat heslo: shellgame submit start"

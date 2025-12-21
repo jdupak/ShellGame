@@ -1,14 +1,14 @@
 """Unit tests for workspace management."""
 
-import pytest
 from pathlib import Path
-from shellgame.workspace.builder import WorkspaceManager, FileSpec, DirSpec
+
+from shellgame.workspace.builder import DirSpec, FileSpec, WorkspaceManager
 
 
 class TestFileSpec:
     """Test FileSpec."""
 
-    def test_create_file_spec(self):
+    def test_create_file_spec(self) -> None:
         """Test creating a file specification."""
         spec = FileSpec("test.txt", "content", 0o644)
 
@@ -20,7 +20,7 @@ class TestFileSpec:
 class TestDirSpec:
     """Test DirSpec."""
 
-    def test_create_dir_spec(self):
+    def test_create_dir_spec(self) -> None:
         """Test creating a directory specification."""
         spec = DirSpec("testdir", 0o755)
 
@@ -31,7 +31,7 @@ class TestDirSpec:
 class TestWorkspaceManager:
     """Test WorkspaceManager."""
 
-    def test_init_workspace(self, tmp_path):
+    def test_init_workspace(self, tmp_path: Path) -> None:
         """Test initializing workspace."""
         # Use tmp_path for testing
         manager = WorkspaceManager("testuser")
@@ -42,7 +42,7 @@ class TestWorkspaceManager:
         assert result.exists()
         assert result.is_dir()
 
-    def test_build_structure(self, tmp_path):
+    def test_build_structure(self, tmp_path: Path) -> None:
         """Test building directory structure."""
         manager = WorkspaceManager("testuser")
         manager.workspace_root = tmp_path / "workspace"
@@ -61,7 +61,7 @@ class TestWorkspaceManager:
         content = (manager.workspace_root / "level-1" / "alpha" / "test.txt").read_text()
         assert content == "content"
 
-    def test_validate_integrity(self, tmp_path):
+    def test_validate_integrity(self, tmp_path: Path) -> None:
         """Test workspace integrity validation."""
         manager = WorkspaceManager("testuser")
         manager.workspace_root = Path("/tmp/shellgame-testuser")
@@ -75,7 +75,7 @@ class TestWorkspaceManager:
         # Cleanup
         manager.cleanup()
 
-    def test_cleanup(self, tmp_path):
+    def test_cleanup(self, tmp_path: Path) -> None:
         """Test workspace cleanup."""
         manager = WorkspaceManager("testuser")
         manager.workspace_root = tmp_path / "workspace"
@@ -87,7 +87,7 @@ class TestWorkspaceManager:
 
         assert not manager.workspace_root.exists()
 
-    def test_clear_directory(self, tmp_path):
+    def test_clear_directory(self, tmp_path: Path) -> None:
         """Test clearing a directory."""
         manager = WorkspaceManager("testuser")
         manager.workspace_root = tmp_path / "workspace"

@@ -33,16 +33,14 @@ Bash autostart policy:
 
 from __future__ import annotations
 
-from importlib import resources
-from string import Template
-
 import os
 import shlex
 import subprocess
 import sys
 import tempfile
+from importlib import resources
 from pathlib import Path
-from typing import Optional
+from string import Template
 
 from shellgame.cli.hooks import generate_bash_cd_hooks, generate_fish_cd_hooks
 
@@ -75,10 +73,10 @@ def _render_template(
     )
 
 
-def _read_proc_comm(pid: int) -> Optional[str]:
+def _read_proc_comm(pid: int) -> str | None:
     """Best-effort read of `/proc/<pid>/comm` (lowercased)."""
     try:
-        with open(f"/proc/{pid}/comm", "r") as f:
+        with open(f"/proc/{pid}/comm") as f:
             return f.read().strip().lower()
     except Exception:
         return None
@@ -98,12 +96,9 @@ def detect_interactive_shell() -> str:
     # 1) `0` env var (best indicator of the current shell in many interactive setups)
     try:
         zero = (os.environ.get("0") or "").lower()
-        if "fish" in zero:
-            return "fish"
-        if "bash" in zero:
-            return "bash"
-        if "zsh" in zero:
-            return "zsh"
+        for shell in ("fish", "bash", "zsh"):
+            if shell in zero:
+                return shell
     except Exception:
         pass
 
@@ -115,19 +110,16 @@ def detect_interactive_shell() -> str:
     # 3) Login shell fallback
     try:
         shell_env = (os.environ.get("SHELL") or "").lower()
-        if shell_env.endswith("/fish") or shell_env == "fish":
-            return "fish"
-        if shell_env.endswith("/bash") or shell_env == "bash":
-            return "bash"
-        if shell_env.endswith("/zsh") or shell_env == "zsh":
-            return "zsh"
+        for shell in ("fish", "bash", "zsh"):
+            if shell_env.endswith(f"/{shell}") or shell_env == shell:
+                return shell
     except Exception:
         pass
 
     return "unknown"
 
 
-def _read_proc_stat_ppid(pid: int) -> Optional[int]:
+def _read_proc_stat_ppid(pid: int) -> int | None:
     """Best-effort parse of parent pid from `/proc/<pid>/stat`.
 
     Linux `/proc/<pid>/stat` format (simplified):
@@ -231,6 +223,80 @@ def _generate_fish_init_command(script_path: str) -> str:
     return f"function fish_greeting; end; source {script_path}"
 
 
+def _get_launcher_argv(devmode: bool) -> list[str]:
+    """Determine how the current process was invoked and build launcher argv."""
+    # Prefer `sys.argv[0]` only when it looks like a real script/binary path;
+    # otherwise fall back to the installed module entrypoint (`python -m shellgame`).
+    argv0 = (sys.argv[0] or "").strip()
+    if argv0 and argv0 not in ("-c", "-m"):
+        launcher_argv = [os.path.abspath(argv0)]
+        # If it is a Python file, prefix it with the interpreter.
+        if launcher_argv[0].endswith(".py"):
+            launcher_argv = [sys.executable, launcher_argv[0]]
+    else:
+        launcher_argv = [sys.executable, "-m", "shellgame"]
+
+    # Append devmode flag if requested.
+    if devmode:
+        launcher_argv.append("--devmode")
+
+    return launcher_argv
+
+
+def _create_integration_script(shell_name: str, binary_path: str, devmode: bool) -> str:
+    """Create a temporary integration script for the specified shell."""
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=f".{shell_name}") as f:
+        if shell_name == "fish":
+            f.write(get_fish_integration(binary_path, devmode))
+        else:
+            f.write(get_bash_integration(binary_path, devmode))
+        return f.name
+
+
+def _print_debug_info(shell_name: str, devmode: bool, script_path: str) -> None:
+    """Print debug information about the subshell launch."""
+    print(f"[shellgame][debug] launch_subshell(shell_name={shell_name!r}, devmode={devmode})")
+    print(f"[shellgame][debug] integration_script_path={script_path}")
+    try:
+        preview = Path(script_path).read_text(encoding="utf-8", errors="replace")
+        preview_lines = preview.splitlines()
+        head = "\n".join(preview_lines[:40])
+        print("[shellgame][debug] integration_script_preview (first 40 lines):")
+        print(head)
+    except Exception as e:
+        print(f"[shellgame][debug] integration_script_preview_error={e!r}")
+
+
+def _run_fish_subshell(script_path: str, env: dict[str, str], debug: bool) -> None:
+    """Run the Fish subshell."""
+    argv = [
+        "fish",
+        "--init-command",
+        _generate_fish_init_command(script_path),
+    ]
+    if debug:
+        print(f"[shellgame][debug] fish_argv={argv!r}")
+    proc = subprocess.run(argv, check=False, env=env)
+    # In tests we stub subprocess.run() to return None.
+    if proc is not None and getattr(proc, "returncode", 0) != 0:
+        raise RuntimeError(f"Fish subshell exited with code {getattr(proc, 'returncode', 'unknown')}")
+
+
+def _run_bash_subshell(script_path: str, env: dict[str, str], debug: bool) -> None:
+    """Run the Bash subshell."""
+    # Use the integration script directly as rcfile (it now includes
+    # shell options and autostart, matching the fish approach).
+    # NOTE: Do NOT use --norc here - it disables --rcfile entirely.
+    # We also don't use --noprofile - let users keep their PATH/env setup.
+    argv = ["bash", "--rcfile", script_path, "-i"]
+    if debug:
+        print(f"[shellgame][debug] bash_argv={argv!r}")
+    proc = subprocess.run(argv, check=False, env=env)
+    # In tests we stub subprocess.run() to return None.
+    if proc is not None and getattr(proc, "returncode", 0) != 0:
+        raise RuntimeError(f"Bash subshell exited with code {getattr(proc, 'returncode', 'unknown')}")
+
+
 def launch_subshell(shell_name: str, devmode: bool = False) -> None:
     """Launch a subshell with integration loaded.
 
@@ -247,21 +313,7 @@ def launch_subshell(shell_name: str, devmode: bool = False) -> None:
     Debug:
     - Set `SHELLGAME_SUBSHELL_DEBUG=1` to print the exact invocation + rcfile contents.
     """
-    # Determine how the current process was invoked.
-    # Prefer `sys.argv[0]` only when it looks like a real script/binary path;
-    # otherwise fall back to the installed module entrypoint (`python -m shellgame`).
-    argv0 = (sys.argv[0] or "").strip()
-    if argv0 and argv0 not in ("-c", "-m"):
-        launcher_argv = [os.path.abspath(argv0)]
-        # If it is a Python file, prefix it with the interpreter.
-        if launcher_argv[0].endswith(".py"):
-            launcher_argv = [sys.executable, launcher_argv[0]]
-    else:
-        launcher_argv = [sys.executable, "-m", "shellgame"]
-
-    # Append devmode flag if requested.
-    if devmode:
-        launcher_argv.append("--devmode")
+    launcher_argv = _get_launcher_argv(devmode)
 
     # Store as a space-separated, shell-escaped argv string.
     # If bash integration prefers calling the `shellgame` function directly, this value
@@ -271,62 +323,19 @@ def launch_subshell(shell_name: str, devmode: bool = False) -> None:
     debug = (os.environ.get("SHELLGAME_SUBSHELL_DEBUG") or "").strip() == "1"
 
     # Create temp file for integration script
-    with tempfile.NamedTemporaryFile(
-        mode="w", delete=False, suffix=f".{shell_name}"
-    ) as f:
-        script_path = f.name
-        if shell_name == "fish":
-            f.write(get_fish_integration(binary_path, devmode))
-        else:
-            f.write(get_bash_integration(binary_path, devmode))
+    script_path = _create_integration_script(shell_name, binary_path, devmode)
 
     if debug:
-        # Print minimal, actionable debug info before launching the subshell.
-        print(
-            f"[shellgame][debug] launch_subshell(shell_name={shell_name!r}, devmode={devmode})"
-        )
-        print(f"[shellgame][debug] integration_script_path={script_path}")
-        try:
-            preview = Path(script_path).read_text(encoding="utf-8", errors="replace")
-            preview_lines = preview.splitlines()
-            head = "\n".join(preview_lines[:40])
-            print("[shellgame][debug] integration_script_preview (first 40 lines):")
-            print(head)
-        except Exception as e:
-            print(f"[shellgame][debug] integration_script_preview_error={e!r}")
+        _print_debug_info(shell_name, devmode, script_path)
 
     try:
         env = os.environ.copy()
         env["SHELLGAME_WRAPPER"] = "1"
 
         if shell_name == "fish":
-            argv = [
-                "fish",
-                "--init-command",
-                _generate_fish_init_command(script_path),
-            ]
-            if debug:
-                print(f"[shellgame][debug] fish_argv={argv!r}")
-            proc = subprocess.run(argv, env=env)
-            # In tests we stub subprocess.run() to return None.
-            if proc is not None and getattr(proc, "returncode", 0) != 0:
-                raise RuntimeError(
-                    f"Fish subshell exited with code {getattr(proc, 'returncode', 'unknown')}"
-                )
+            _run_fish_subshell(script_path, env, debug)
         elif shell_name == "bash":
-            # Use the integration script directly as rcfile (it now includes
-            # shell options and autostart, matching the fish approach).
-            # NOTE: Do NOT use --norc here - it disables --rcfile entirely.
-            # We also don't use --noprofile - let users keep their PATH/env setup.
-            argv = ["bash", "--rcfile", script_path, "-i"]
-            if debug:
-                print(f"[shellgame][debug] bash_argv={argv!r}")
-            proc = subprocess.run(argv, env=env)
-            # In tests we stub subprocess.run() to return None.
-            if proc is not None and getattr(proc, "returncode", 0) != 0:
-                raise RuntimeError(
-                    f"Bash subshell exited with code {getattr(proc, 'returncode', 'unknown')}"
-                )
+            _run_bash_subshell(script_path, env, debug)
         else:
             raise ValueError(f"Nepodporovaný shell: {shell_name}")
     finally:

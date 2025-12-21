@@ -1,14 +1,16 @@
 """Section 6: Copy and Move."""
 
-from typing import Tuple, Any, Optional
+import shutil
 from pathlib import Path
+from typing import Any, Optional
+
 from shellgame.levels.base import Level
 from shellgame.validation.validators import (
-    StringValidator,
     CopyValidator,
+    FileExistsValidator,
     MoveValidator,
     MultiValidator,
-    FileExistsValidator,
+    StringValidator,
 )
 
 
@@ -28,7 +30,7 @@ class Level6_0(Level):
         """No setup needed."""
         pass
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Always valid."""
         return True, "Jdeme na to!"
 
@@ -81,7 +83,7 @@ Odevzdejte název vytvořené kopie.
 
         (level_dir / "dulezite.txt").write_text("Very important data.")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate copy."""
         if answer is None:
             return False, "Musíte zadat název kopie."
@@ -125,8 +127,6 @@ Odevzdejte název nového adresáře.
         level_dir = workspace / "level-6" / "copying"
 
         # Clean up previous attempts
-        import shutil
-
         if (level_dir / "projekt_zaloha").exists():
             shutil.rmtree(level_dir / "projekt_zaloha")
 
@@ -134,7 +134,7 @@ Odevzdejte název nového adresáře.
         project_dir.mkdir(parents=True, exist_ok=True)
         (project_dir / "main.py").write_text("print('hello')")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate directory copy."""
         if answer is None:
             return False, "Musíte zadat název adresáře."
@@ -160,7 +160,8 @@ class Level6_3(Level):
             title="Přejmenování souboru",
             instructions="""# Level 6.3: Přejmenování souboru
 
-Příkaz `mv` (move) se používá k přesouvání, ale pokud přesouváte soubor ve stejném adresáři na nové jméno, jde o přejmenování.
+Příkaz `mv` (move) se používá k přesouvání,
+ale pokud přesouváte soubor ve stejném adresáři na nové jméno, jde o přejmenování.
 
 ## Úkol:
 Soubor `spatne_jmeno.txt` má překlep. Přejmenujte ho na `spravne_jmeno.txt`.
@@ -189,7 +190,7 @@ Odevzdejte nový název souboru.
 
         (level_dir / "spatne_jmeno.txt").write_text("content")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate rename."""
         if answer is None:
             return False, "Musíte zadat nový název."
@@ -199,9 +200,7 @@ Odevzdejte nový název souboru.
         if not success:
             return False, msg
 
-        move_val = MoveValidator(
-            "level-6/moving/spatne_jmeno.txt", "level-6/moving/spravne_jmeno.txt"
-        )
+        move_val = MoveValidator("level-6/moving/spatne_jmeno.txt", "level-6/moving/spravne_jmeno.txt")
         return move_val.validate(answer, state.workspace)
 
 
@@ -215,7 +214,8 @@ class Level6_4(Level):
             title="Přesun souboru",
             instructions="""# Level 6.4: Přesun souboru
 
-Pokud jako cíl příkazu `mv` uvedete existující adresář, soubor se do něj přesune (a zachová si své jméno, pokud neuvedete jiné).
+Pokud jako cíl příkazu `mv` uvedete existující adresář,
+soubor se do něj přesune (a zachová si své jméno, pokud neuvedete jiné).
 
 ## Úkol:
 Přesuňte soubor `report.pdf` do adresáře `dokumenty`.
@@ -244,7 +244,7 @@ Odevzdejte název adresáře, kam jste soubor přesunuli.
         (level_dir / "dokumenty").mkdir(exist_ok=True)
         (level_dir / "report.pdf").write_text("report data")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate move."""
         if answer is None:
             return False, "Musíte zadat cíl."
@@ -290,15 +290,13 @@ Odevzdejte nový název adresáře.
         level_dir.mkdir(parents=True, exist_ok=True)
 
         # Reset state
-        import shutil
-
         if (level_dir / "data").exists():
             shutil.rmtree(level_dir / "data")
 
         (level_dir / "tmp_data").mkdir(exist_ok=True)
         (level_dir / "tmp_data" / "file.txt").write_text("content")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate rename."""
         if answer is None:
             return False, "Musíte zadat nový název."
@@ -348,8 +346,6 @@ Odevzdejte název adresáře, kam jste soubory přesunuli.
         level_dir.mkdir(parents=True, exist_ok=True)
 
         # Reset state
-        import shutil
-
         if (level_dir / "logs").exists():
             shutil.rmtree(level_dir / "logs")
 
@@ -358,7 +354,7 @@ Odevzdejte název adresáře, kam jste soubory přesunuli.
         (level_dir / "error.log").write_text("log2")
         (level_dir / "other.txt").write_text("keep me")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate organization."""
         if answer is None:
             return False, "Musíte zadat cíl."
@@ -413,14 +409,15 @@ mv soubor dir/     → Přesune do adresáře
             hints=[
                 "Kopírování: 'cp original.txt backup/'. Přejmenování: 'mv temp_data.csv data.csv'.",
                 "Přesun do složky: 'mv misplaced.log logs/'.",
-                "Zkontrolujte: 'ls backup/' (je tam original.txt?), 'ls' (je tam data.csv?), 'ls logs/' (je tam misplaced.log?).",
+                (
+                    "Zkontrolujte: 'ls backup/' (je tam original.txt?), "
+                    "'ls' (je tam data.csv?), 'ls logs/' (je tam misplaced.log?)."
+                ),
             ],
         )
 
     def setup(self, workspace: Path) -> None:
         """Create test environment."""
-        import shutil
-
         test_dir = workspace / "level-6" / "final_test"
 
         if test_dir.exists():
@@ -434,7 +431,7 @@ mv soubor dir/     → Přesune do adresáře
         (test_dir / "temp_data.csv").write_text("col1,col2\n1,2\n")
         (test_dir / "misplaced.log").write_text("Log entry\n")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:  # noqa: PLR0911
         """Validate all operations."""
         if answer is None:
             return False, "Musíte zadat heslo."

@@ -16,18 +16,18 @@ Shell override:
 - Useful when auto-detection is wrong (nested shells / wrappers like `uv` / `make`).
 """
 
-import click
 import os
 from pathlib import Path
 from typing import Optional
+
+import click
 from rich.console import Console
 
 from shellgame.core.session import GameSession
-from shellgame.state.manager import StateManager
-from shellgame.levels.registry import get_registry
 from shellgame.levels.loader import initialize_levels
+from shellgame.levels.registry import get_registry
+from shellgame.state.manager import StateManager
 from shellgame.ui.display import Display
-
 
 # Initialize singletons
 console = Console()
@@ -131,13 +131,9 @@ def cli(ctx: click.Context, devmode: bool, forced_shell: Optional[str]) -> None:
         os.environ["SHELLGAME_FORCE_SHELL"] = forced_shell.lower()
 
     try:
-        boot = _get_session().boot_if_needed(
-            wrapped=wrapped, devmode=devmode, parent_shell="unknown"
-        )
+        boot = _get_session().boot_if_needed(wrapped=wrapped, devmode=devmode, parent_shell="unknown")
     except Exception as e:
-        console.print(
-            f"[bold red]CHYBA: Nepodařilo se spustit herní shell ({e})[/bold red]"
-        )
+        console.print(f"[bold red]CHYBA: Nepodařilo se spustit herní shell ({e})[/bold red]")
         ctx.exit(1)
 
     if boot.should_exit:
@@ -226,9 +222,7 @@ def show(section: bool, level: bool) -> None:
 
     # Exactly one mode must be selected.
     if (1 if section else 0) + (1 if level else 0) != 1:
-        console.print(
-            "[yellow]Použití: shellgame show --level  nebo  shellgame show --section[/yellow]\n"
-        )
+        console.print("[yellow]Použití: shellgame show --level  nebo  shellgame show --section[/yellow]\n")
         return
 
     if level:
@@ -240,9 +234,7 @@ def show(section: bool, level: bool) -> None:
             int(section_prefix)  # sanity check
             target_id = f"{section_prefix}.0"
         except Exception:
-            console.print(
-                f"[red]Chyba: Neplatný formát aktuálního levelu: {state.current_level}[/red]\n"
-            )
+            console.print(f"[red]Chyba: Neplatný formát aktuálního levelu: {state.current_level}[/red]\n")
             return
 
     target_level = level_registry.get(target_id)

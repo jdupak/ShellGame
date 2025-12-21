@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
-from typing import Any, List, cast
+from typing import Any, cast
 
+from rich.align import Align
 from rich.console import Console, ConsoleOptions, RenderResult
 from rich.markdown import Markdown
 from rich.panel import Panel
-from rich.align import Align
 from rich.rule import Rule
 from rich.table import Table
-from rich.text import Text
-
 
 # Rich stores element classes in Markdown.elements; for headings it is a runtime class.
 # We cast to Any so mypy doesn't try to type-check the dynamic base class.
@@ -22,9 +19,7 @@ Heading = cast(Any, Markdown.elements["heading_open"])  # type: ignore[valid-typ
 class LeftHeading(Heading):  # type: ignore[misc, valid-type]
     """Custom heading element that forces left alignment."""
 
-    def __rich_console__(
-        self, console: Console, options: ConsoleOptions
-    ) -> RenderResult:
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
         text = self.text
         text.justify = "left"
 
@@ -117,7 +112,10 @@ class Display:
             # Keep empty lines visually separated but still aligned.
             self.console.print(indent + line if line else indent.rstrip())
 
-    _HINT_REPEAT_TIP = "[dim]Tip: Již zobrazené nápovědy si můžete vypsat znovu příkazem: [violet]shellgame hint --repeat[/violet][/dim]"
+    _HINT_REPEAT_TIP = (
+        "[dim]Tip: Již zobrazené nápovědy si můžete vypsat znovu příkazem: "
+        "[violet]shellgame hint --repeat[/violet][/dim]"
+    )
     _HINT_NEXT_HELP = "[dim]Potřebujete další pomoc? Napište: shellgame hint[/dim]"
     _HINT_ALL_SHOWN = ""
 
@@ -166,8 +164,10 @@ class Display:
             hint_text: The hint to display
             hint_num: Current hint number (0-indexed)
             total_hints: Total number of hints available
-            show_repeat_tip: Whether to show the "hint --repeat" guidance (use False when replaying multiple hints)
-            show_next_help: Whether to show the "shellgame hint" next-help line (use False when replaying multiple hints)
+            show_repeat_tip: Whether to show the "hint --repeat" guidance
+                (use False when replaying multiple hints)
+            show_next_help: Whether to show the "shellgame hint" next-help line
+                (use False when replaying multiple hints)
         """
         panel = Panel(
             hint_text,
@@ -209,7 +209,7 @@ class Display:
           - show a yellow framed panel with the fixed message
           - under it, show a note with: [violet]shellgame hint --repeat[/violet]
         """
-        hints: List[str] = list(getattr(level, "hints", []) or [])
+        hints: list[str] = list(getattr(level, "hints", []) or [])
         total = len(hints)
 
         if total == 0:
@@ -223,9 +223,7 @@ class Display:
 
         # Source of truth for how many hints were already revealed.
         revealed = 0
-        if hasattr(state, "level_hints_used") and isinstance(
-            state.level_hints_used, dict
-        ):
+        if hasattr(state, "level_hints_used") and isinstance(state.level_hints_used, dict):
             revealed = int(state.level_hints_used.get(level_id, 0) or 0)
 
         revealed = max(0, min(revealed, total))
@@ -274,14 +272,10 @@ class Display:
         self.show_hint(hints[next_idx], next_idx, total)
 
         # Consume a hint (record in state).
-        if hasattr(state, "level_hints_used") and isinstance(
-            state.level_hints_used, dict
-        ):
+        if hasattr(state, "level_hints_used") and isinstance(state.level_hints_used, dict):
             state.level_hints_used[level_id] = revealed + 1
 
-    def show_success(
-        self, message: str, time_sec: int = 0, hints_used: int = 0
-    ) -> None:
+    def show_success(self, message: str, time_sec: int = 0, hints_used: int = 0) -> None:
         """
         Celebrate success.
 
@@ -330,9 +324,7 @@ class Display:
 
         # Current level
         self.console.print(f"[bold]Aktuální Level:[/bold] {state.current_level}")
-        self.console.print(
-            f"[bold]Zahájeno:[/bold] {state.start_time.strftime('%Y-%m-%d %H:%M')}\n"
-        )
+        self.console.print(f"[bold]Zahájeno:[/bold] {state.start_time.strftime('%Y-%m-%d %H:%M')}\n")
 
         # Levels completed
         if state.levels_complete:
@@ -356,11 +348,9 @@ class Display:
             total_time = sum(c.time_sec for c in state.levels_complete.values())
             total_hints = sum(c.hints for c in state.levels_complete.values())
             total_attempts = sum(c.attempts for c in state.levels_complete.values())
-            avg_hints = (
-                total_hints / len(state.levels_complete) if state.levels_complete else 0
-            )
+            avg_hints = total_hints / len(state.levels_complete) if state.levels_complete else 0
 
-            self.console.print(f"\n[bold]Statistiky:[/bold]")
+            self.console.print("\n[bold]Statistiky:[/bold]")
             self.console.print(f"  Celkový čas: {self._format_duration(total_time)}")
             self.console.print(f"  Dokončené levely: {len(state.levels_complete)}")
             self.console.print(f"  Průměrně nápověd: {avg_hints:.1f}")
@@ -376,32 +366,22 @@ class Display:
             username: Player username
             workspace: Workspace path
         """
-        self.console.print(
-            f"\n[green]✓ ShellGame inicializována pro {username}[/green]"
-        )
+        self.console.print(f"\n[green]✓ ShellGame inicializována pro {username}[/green]")
         self.console.print(f"[dim]Pracovní prostor: {workspace}[/dim]\n")
 
-        self.console.print(
-            "[bold]Automaticky vás přesměrovávám do pracovního prostoru...[/bold]\n"
-        )
+        self.console.print("[bold]Automaticky vás přesměrovávám do pracovního prostoru...[/bold]\n")
 
     def show_already_initialized(self) -> None:
         """Show message when already initialized."""
-        self.console.print(
-            "[yellow]Již inicializováno! Spusťte 'shellgame' pro pokračování.[/yellow]\n"
-        )
+        self.console.print("[yellow]Již inicializováno! Spusťte 'shellgame' pro pokračování.[/yellow]\n")
 
     def show_not_initialized(self) -> None:
         """Show message when not initialized."""
-        self.console.print(
-            "[yellow]Neinicializováno. Spusťte: shellgame init[/yellow]\n"
-        )
+        self.console.print("[yellow]Neinicializováno. Spusťte: shellgame init[/yellow]\n")
 
     def show_removed(self) -> None:
         """Show message when state is removed."""
-        self.console.print(
-            "[green]Stav ShellGame a pracovní prostor odstraněny.[/green]\n"
-        )
+        self.console.print("[green]Stav ShellGame a pracovní prostor odstraněny.[/green]\n")
 
     def show_reset(self, level_id: str) -> None:
         """

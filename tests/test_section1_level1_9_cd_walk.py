@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from shellgame.levels.sections.section1 import Level1_9
 
@@ -11,19 +12,16 @@ from shellgame.levels.sections.section1 import Level1_9
 class _StubState:
     username: str
     workspace: Path
+    current_level: str = "1.9"
 
 
 def _run_in_cwd(tmp_path: Path, cwd: Path, fn: Any) -> Any:
     old = Path.cwd()
     try:
         # pytest runs in a real filesystem; we can chdir freely
-        import os
-
         os.chdir(cwd)
         return fn()
     finally:
-        import os
-
         os.chdir(old)
 
 
@@ -67,9 +65,7 @@ def test_level1_9_requires_marker_even_if_at_home(tmp_path: Path, monkeypatch: A
     assert "nezaznamenal" in msg
 
 
-def test_level1_9_accepts_submit_without_answer_when_marker_present(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
+def test_level1_9_accepts_submit_without_answer_when_marker_present(tmp_path: Path, monkeypatch: Any) -> None:
     level = Level1_9()
 
     fake_home = tmp_path / "home" / "student"

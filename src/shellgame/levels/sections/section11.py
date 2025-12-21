@@ -1,12 +1,12 @@
 """Section 11: Searching."""
 
-from typing import Tuple, Any, Optional
+import shutil
 from pathlib import Path
+from typing import Any, Optional
+
 from shellgame.levels.base import Level
 from shellgame.validation.validators import (
     StringValidator,
-    FileExistsValidator,
-    FileContentValidator,
 )
 
 
@@ -26,7 +26,7 @@ class Level11_0(Level):
         """No setup needed."""
         pass
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Always valid."""
         return True, "Jdeme na to!"
 
@@ -71,15 +71,13 @@ Odevzdejte název vytvořeného souboru.
         level_dir = workspace / "level-11" / "grep"
         level_dir.mkdir(parents=True, exist_ok=True)
 
-        content = (
-            "user=admin\n" "host=localhost\n" "port=8080\n" "PASSWORD=Secret123\n" "debug=true\n"
-        )
+        content = "user=admin\nhost=localhost\nport=8080\nPASSWORD=Secret123\ndebug=true\n"
         (level_dir / "config.txt").write_text(content)
 
         if (level_dir / "pass.txt").exists():
             (level_dir / "pass.txt").unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate grep output."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -148,7 +146,7 @@ Odevzdejte cestu k souboru.
         (project / "src" / "main.py").write_text("print('Hello')\n")
         (project / "config" / "settings.py").write_text("SECRET_KEY = 'xyz'\nDEBUG = True\n")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate found file."""
         if answer is None:
             return False, "Zadejte cestu k nalezenému souboru."
@@ -160,7 +158,7 @@ Odevzdejte cestu k souboru.
         if answer.strip().endswith(expected):
             return True, "Správně!"
         else:
-            return False, f"To není správný soubor. Hledáme ten s 'SECRET_KEY'."
+            return False, "To není správný soubor. Hledáme ten s 'SECRET_KEY'."
 
 
 class Level11_3(Level):
@@ -226,7 +224,7 @@ Odevzdejte počet nalezených řádků.
 """
         (level_dir / "messages.log").write_text(log_content)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate warning count."""
         if answer is None:
             return False, "Zadejte počet nalezených řádků."
@@ -236,17 +234,19 @@ Odevzdejte počet nalezených řádků.
         except ValueError:
             return False, "Odpověď musí být číslo."
 
-        if count == 4:
-            return True, "Správně! Přepínač -i je nepostradatelný pro robustní hledání."
-        elif count == 2:
-            return (
+        messages = {
+            4: (True, "Správně! Přepínač -i je nepostradatelný pro robustní hledání."),
+            2: (
                 False,
                 "Našli jste jen 'WARNING'. Použijte -i pro nalezení všech variant (warning, Warning...).",
-            )
-        elif count == 1:
-            return False, "Našli jste jen jednu variantu. Přepínač -i ignoruje velikost písmen."
-        else:
-            return False, f'Počet není {count}. Zkuste: grep -i "warning" messages.log | wc -l'
+            ),
+            1: (False, "Našli jste jen jednu variantu. Přepínač -i ignoruje velikost písmen."),
+        }
+
+        if count in messages:
+            return messages[count]
+
+        return False, f'Počet není {count}. Zkuste: grep -i "warning" messages.log | wc -l'
 
 
 class Level11_4(Level):
@@ -300,7 +300,7 @@ Odevzdejte nalezenou cestu.
         (messy / "other.txt").touch()
         (messy / "a" / "junk.txt").touch()
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate found path."""
         if answer is None:
             return False, "Zadejte cestu k nalezenému souboru."
@@ -363,7 +363,7 @@ Odevzdejte název vytvořeného souboru.
         if (level_dir / "python_files.txt").exists():
             (level_dir / "python_files.txt").unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate output file."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -433,8 +433,6 @@ Find:         find -name -type -size
 
     def setup(self, workspace: Path) -> None:
         """Create final challenge."""
-        import shutil
-
         final_dir = workspace / "level-11" / "final"
 
         if final_dir.exists():
@@ -451,15 +449,13 @@ Find:         find -name -type -size
         (final_dir / "scripts" / "test.sh").write_text("#!/bin/bash\npytest\n")
 
         (final_dir / "hidden").mkdir()
-        (final_dir / "hidden" / "secret.sh").write_text(
-            "#!/bin/bash\n# SECRET_CODE=NINJA2024\necho 'You found me!'\n"
-        )
+        (final_dir / "hidden" / "secret.sh").write_text("#!/bin/bash\n# SECRET_CODE=NINJA2024\necho 'You found me!'\n")
 
         # Distractors
         (final_dir / "readme.txt").write_text("Look for shell scripts!\n")
         (final_dir / "data.csv").write_text("col1,col2\n")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:  # noqa: PLR0911
         """Validate final challenge."""
         if answer is None:
             return False, "Zadejte odpověď ve formátu: počet_skriptů,tajný_kód"

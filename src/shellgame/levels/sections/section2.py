@@ -39,9 +39,7 @@ class Level2_0(Level):
         return
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Always valid."""
         return True, "Jdeme na to!"
 
@@ -92,9 +90,7 @@ Potřebujete pomoc? Napište: `shellgame hint`""",
         (level_dir / "finish").mkdir(exist_ok=True)
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Validate user is in 'finish' directory."""
         if answer is None:
             if Path.cwd().name == "finish":
@@ -146,9 +142,7 @@ Potřebujete pomoc? Napište: `shellgame hint`""",
         (level_dir / "location-B").mkdir(exist_ok=True)
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Validate user is back in location-A."""
         if answer is None:
             if Path.cwd().name == "location-A":
@@ -201,9 +195,7 @@ Potřebujete pomoc? Napište: `shellgame hint`""",
         (base / "other" / "target").mkdir(parents=True, exist_ok=True)
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Validate user is in target."""
         if answer is None:
             if Path.cwd().name == "target":
@@ -252,9 +244,7 @@ Potřebujete pomoc? Napište: `shellgame hint`""",
         (level_dir / "message.txt").write_text("Secret is the key.\n")
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Validate the secret word."""
         if answer is None:
             return False, "Musíte zadat první slovo ze zprávy: shellgame submit <slovo>"
@@ -296,9 +286,7 @@ Potřebujete pomoc? Napište: `shellgame hint`""",
         level_dir = workspace / "level-2"
 
         # Start file
-        (level_dir / "start.txt").write_text(
-            "Jděte do adresáře 'next' a přečtěte si clue.txt\n"
-        )
+        (level_dir / "start.txt").write_text("Jděte do adresáře 'next' a přečtěte si clue.txt\n")
 
         # Next directory and clue
         next_dir = level_dir / "next"
@@ -306,9 +294,7 @@ Potřebujete pomoc? Napište: `shellgame hint`""",
         (next_dir / "clue.txt").write_text("Heslo je 'sunshine'\n")
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Validate the password."""
         if answer is None:
             return False, "Musíte zadat heslo: shellgame submit <heslo>"
@@ -353,9 +339,7 @@ Potřebujete pomoc? Napište: `shellgame hint`""",
             file_path.unlink()
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Validate file existence."""
         validator = FileExistsValidator("level-2/my_file.txt")
         return validator.validate(answer, state.workspace)
@@ -409,16 +393,12 @@ touch soubor  → Vytvořit prázdný soubor
         room1.mkdir(parents=True, exist_ok=True)
         room2.mkdir(parents=True, exist_ok=True)
 
-        (room1 / "hint.txt").write_text(
-            "Heslo je v room2. Vraťte se zpět (cd -) a pak jděte do room2.\n"
-        )
+        (room1 / "hint.txt").write_text("Heslo je v room2. Vraťte se zpět (cd -) a pak jděte do room2.\n")
         (room2 / "password.txt").write_text("navigator\n")
         (room2 / "decoy.txt").write_text("Toto není heslo.\n")
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Validate password."""
         if answer is None:
             return False, "Musíte zadat heslo: shellgame submit <heslo>"
@@ -430,7 +410,7 @@ touch soubor  → Vytvořit prázdný soubor
                 True,
                 "🎉 Výborně! Dokončili jste Sekci 2. Umíte navigovat a číst soubory!",
             )
-        if cleaned == "toto není heslo" or cleaned == "toto neni heslo":
+        if cleaned in {"toto není heslo", "toto neni heslo"}:
             return (
                 False,
                 "To je obsah decoy.txt, ne password.txt. Přečtěte správný soubor.",
@@ -491,9 +471,7 @@ Odpovězte: Přepínač -h zobrazuje velikosti v jakém formátu?
         pass
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Validate help understanding."""
         if answer is None:
             return False, "Musíte zadat odpověď: shellgame submit <odpověď>"

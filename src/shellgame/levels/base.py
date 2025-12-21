@@ -1,19 +1,16 @@
 """Base level interface and abstract class."""
 
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Optional
 from pathlib import Path
+from typing import Optional
 
+from shellgame.markers import MarkerManager
+from shellgame.messages import Messages
 from shellgame.protocols import GameStateProtocol
 from shellgame.validation.validators import (
-    Validator,
     ValidationResult,
-    MarkerValidator,
-    CurrentDirectoryValidator,
-    BasenameValidator,
+    Validator,
 )
-from shellgame.messages import Messages
-from shellgame.markers import MarkerManager
 
 
 class Level(ABC):
@@ -29,17 +26,17 @@ class Level(ABC):
     - success_message: Custom success message
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         id: str,
         section: int,
         title: str,
         instructions: str = "",
-        hints: Optional[List[str]] = None,
+        hints: Optional[list[str]] = None,
         optional: bool = False,
         extension: bool = False,
         instructions_file: Optional[str] = None,
-        validators: Optional[List[Validator]] = None,
+        validators: Optional[list[Validator]] = None,
         # New declarative attributes
         start_directory: Optional[str] = None,
         required_cwd: Optional[str] = None,
@@ -94,9 +91,7 @@ class Level(ABC):
             if content_path.exists():
                 self.instructions = content_path.read_text()
             else:
-                self.instructions = (
-                    f"Error: Instructions file {instructions_file} not found."
-                )
+                self.instructions = f"Error: Instructions file {instructions_file} not found."
         else:
             self.instructions = instructions
 
@@ -109,69 +104,61 @@ class Level(ABC):
         """
         pass
 
-    def validate(
-        self, answer: Optional[str], state: GameStateProtocol
-    ) -> ValidationResult:
-        """Validate answer using declarative config and validators.
+    def _check_marker(self, state: GameStateProtocol) -> Optional[ValidationResult]:
+        if not self.marker_name:
+            return None
+        username = getattr(state, "username", None)
+        if username and not MarkerManager(username).exists(self.marker_name):
+            return False, self.marker_error
+        return None
 
-        Validation order:
-        1. Check marker file (if configured)
-        2. Check required_cwd (if configured)
-        3. Check require_answer (if True and no answer)
-        4. Check allow_cwd_as_answer (if True and no answer, check cwd)
-        5. Check expected_answer (if configured)
-        6. Run configured validators
+    def _check_cwd(self) -> Optional[ValidationResult]:
+        if not self.required_cwd:
+            return None
+        cwd_name = Path.cwd().name
+        if cwd_name != self.required_cwd:
+            return False, Messages.wrong_directory(cwd_name, self.required_cwd)
+        return None
 
-        Args:
-            answer: User's submitted answer (or None if checking environment)
-            state: Current game state
-
-        Returns:
-            Tuple of (success: bool, message: str)
-        """
-        # 1. Check marker if required
-        if self.marker_name:
-            username = getattr(state, "username", None)
-            if username:
-                markers = MarkerManager(username)
-                if not markers.exists(self.marker_name):
-                    return False, self.marker_error
-
-        # 2. Check required current directory
-        if self.required_cwd:
-            cwd_name = Path.cwd().name
-            if cwd_name != self.required_cwd:
-                return False, Messages.wrong_directory(cwd_name, self.required_cwd)
-
-        # 3. Check if answer is required
+    def _check_answer_presence(self, answer: Optional[str]) -> Optional[ValidationResult]:
         if self.require_answer and answer is None:
             return False, Messages.ANSWER_REQUIRED
+        return None
 
-        # 4. If no answer but allow_cwd_as_answer, check current directory
+    def _check_cwd_as_answer(self, answer: Optional[str]) -> Optional[ValidationResult]:
         if answer is None and self.allow_cwd_as_answer and self.expected_answer:
             if Path.cwd().name == self.expected_answer:
                 return True, self.success_message
-            return False, Messages.wrong_directory(
-                Path.cwd().name, self.expected_answer
-            )
+            return False, Messages.wrong_directory(Path.cwd().name, self.expected_answer)
+        return None
 
-        # 5. Check expected answer
+    def _check_expected_answer(self, answer: Optional[str]) -> Optional[ValidationResult]:
         if self.expected_answer and answer is not None:
             if answer.strip() == self.expected_answer:
                 return True, self.success_message
-            # Do not leak the expected answer in the error message for simple
-            # expected-vs-got checks. Keep feedback actionable but non-spoiling.
             return False, Messages.INCORRECT
+        return None
 
-        # 6. Run configured validators
-        if self.validators:
-            for validator in self.validators:
-                success, message = validator.validate(answer, state)
-                if not success:
-                    return False, message
-            return True, self.success_message
+    def validate(self, answer: Optional[str], state: GameStateProtocol) -> ValidationResult:
+        """Validate answer using declarative config and validators."""
+        checks = [
+            lambda: self._check_marker(state),
+            lambda: self._check_cwd(),
+            lambda: self._check_answer_presence(answer),
+            lambda: self._check_cwd_as_answer(answer),
+            lambda: self._check_expected_answer(answer),
+        ]
 
-        # Default: if nothing configured, level completes
+        for check in checks:
+            if result := check():
+                return result
+
+        # Run configured validators
+        for validator in self.validators:
+            success, message = validator.validate(answer, state)
+            if not success:
+                return False, message
+
         return True, self.success_message
 
     def reset(self, workspace: Path) -> None:

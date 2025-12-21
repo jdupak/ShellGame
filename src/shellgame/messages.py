@@ -6,8 +6,6 @@ All user-facing Czech messages should be defined here for:
 - Single source of truth for error messages
 """
 
-from typing import Optional
-
 
 class Messages:
     """Centralized Czech message strings."""
@@ -21,9 +19,7 @@ class Messages:
 
     # === Directory validation ===
     WRONG_DIRECTORY = "Jste v '{actual}', ale měli byste být v '{expected}'."
-    NOT_IN_DIRECTORY = (
-        "Nejdřív musíte být v adresáři '{expected}'. Použijte: cd {expected}"
-    )
+    NOT_IN_DIRECTORY = "Nejdřív musíte být v adresáři '{expected}'. Použijte: cd {expected}"
 
     # === File/Directory existence ===
     FILE_EXISTS = "Soubor '{path}' existuje!"
@@ -42,9 +38,7 @@ class Messages:
 
     # === Copy/Move validation ===
     COPY_SUCCESS = "Správně zkopírováno!"
-    COPY_SOURCE_MISSING = (
-        "Zdrojový soubor '{path}' chybí (možná jste ho přesunuli místo zkopírování?)."
-    )
+    COPY_SOURCE_MISSING = "Zdrojový soubor '{path}' chybí (možná jste ho přesunuli místo zkopírování?)."
     COPY_DEST_MISSING = "Cílový soubor '{path}' neexistuje."
     COPY_CONTENT_MISMATCH = "Obsah zkopírovaného souboru neodpovídá originálu."
     MOVE_SUCCESS = "Správně přesunuto/přejmenováno!"
@@ -83,27 +77,36 @@ class Messages:
     NOT_INITIALIZED = "ShellGame není inicializován. Spusťte 'shellgame init'."
     ALREADY_INITIALIZED = "ShellGame je již inicializován."
     WORKSPACE_RESTORED = "Pracovní prostor obnoven: {path}"
-    WORKSPACE_DELETED_WARNING = (
-        "⚠ Pracovní prostor byl smazán (např. restart systému). Obnovuji..."
-    )
+    WORKSPACE_DELETED_WARNING = "⚠ Pracovní prostor byl smazán (např. restart systému). Obnovuji..."
     LEVEL_NOT_FOUND = "Chyba: Level {level_id} nenalezen"
 
     # === Hint messages ===
     NO_MORE_HINTS = "Žádné další nápovědy nejsou k dispozici."
 
     # === Level 1 specific ===
-    L1_1_USE_PWD_FIRST = "Nejdřív prosím použijte `pwd` (ShellGame sleduje použití příkazu) a pak odpověď odevzdejte znovu."
-    L1_1_SUBMIT_WITH_NAME = (
-        "V levelu 1.1 musíte zadat název aktuálního adresáře: shellgame submit level-1"
+    L1_1_USE_PWD_FIRST = (
+        "Nejdřív prosím použijte `pwd` (ShellGame sleduje použití příkazu) a pak odpověď odevzdejte znovu."
     )
+    L1_1_SUBMIT_WITH_NAME = "V levelu 1.1 musíte zadat název aktuálního adresáře: shellgame submit level-1"
     L1_2_NOT_A_DIRECTORY = "'{answer}' je soubor, ne adresář. Hledejte adresář začínající na 'd' a končící na 'a'."
     L1_3_INCLUDED_EXTENSION = "Zahrnuli jste příponu '.txt'. Úkolem je odevzdat název BEZ přípony. Zkuste jen 'inside'."
     L1_8_USE_ABSOLUTE_PATH = "Použijte absolutní cestu (začíná na /)."
-    L1_8_RELATIVE_WOULD_WORK = "Tohle by fungovalo, ale je to relativní cesta. Zkuste to ještě jednou absolutně (začíná na /)."
-    L1_8_NAME_CORRECT_NOT_THERE = "Jméno máte správně, ale nejste v cílovém adresáři. Nejdřív se tam přesuňte pomocí `cd /...` a pak použijte `shellgame submit`."
-    L1_8_NOT_ABSOLUTE = "Jste ve správném adresáři, ale zatím to nevypadá, že jste použili absolutní `cd` (začíná na /). Zkuste to znovu: opusťte adresář a vraťte se absolutní cestou."
+    L1_8_RELATIVE_WOULD_WORK = (
+        "Tohle by fungovalo, ale je to relativní cesta. Zkuste to ještě jednou absolutně (začíná na /)."
+    )
+    L1_8_NAME_CORRECT_NOT_THERE = (
+        "Jméno máte správně, ale nejste v cílovém adresáři. Nejdřív se tam přesuňte pomocí `cd /...` a pak použijte "
+        "`shellgame submit`."
+    )
+    L1_8_NOT_ABSOLUTE = (
+        "Jste ve správném adresáři, ale zatím to nevypadá, že jste použili absolutní `cd` (začíná na /). Zkuste to "
+        "znovu: opusťte adresář a vraťte se absolutní cestou."
+    )
     ABSOLUTE_CD_NOT_USED = L1_8_NOT_ABSOLUTE
-    L1_9_SEQUENCE_NOT_COMPLETE = "Vypadá to, že jste se domů dostali, ale ShellGame nezaznamenal povinnou sekvenci `cd` krok za krokem. Začněte znovu: `cd /` a projděte každý segment cesty do $HOME po jednom."
+    L1_9_SEQUENCE_NOT_COMPLETE = (
+        "Vypadá to, že jste se domů dostali, ale ShellGame nezaznamenal povinnou sekvenci `cd` krok za krokem. "
+        "Začněte znovu: `cd /` a projděte každý segment cesty do $HOME po jednom."
+    )
     CD_WALK_NOT_COMPLETED = L1_9_SEQUENCE_NOT_COMPLETE
 
     @classmethod

@@ -7,14 +7,14 @@ from pathlib import Path
 from typing_extensions import override
 
 from shellgame.levels.base import Level
-from shellgame.protocols import GameStateProtocol
-from shellgame.messages import Messages
 from shellgame.markers import MarkerManager
+from shellgame.messages import Messages
+from shellgame.protocols import GameStateProtocol
 from shellgame.validation.validators import (
-    OrderedListValidator,
-    ValidationResult,
     CommonMistakeValidator,
     HomeDirectoryValidator,
+    OrderedListValidator,
+    ValidationResult,
 )
 
 
@@ -63,9 +63,7 @@ class Level1_0(Level):
         return
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> ValidationResult:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
         return super().validate(answer, state)
 
 
@@ -158,44 +156,41 @@ Najděte adresář odpovídající vzoru.
         _setup_level1_common(workspace)
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> ValidationResult:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:  # noqa: PLR0911
         """Validate with detailed pedagogical feedback for common mistakes."""
         # Use parent validation first (checks expected_answer, allow_cwd_as_answer)
         success, msg = super().validate(answer, state)
         if success:
             return True, msg
 
-        # If parent validation failed, check specific mistakes
         if answer is None:
             return (
                 False,
                 "Musíte zadat odpověď. Odevzdejte název adresáře: shellgame submit <název>",
             )
 
-        if answer:
-            answer = answer.strip()
-            if answer in ["data.txt", "dog.md", "drama.log"]:
-                return (
-                    False,
-                    f"'{answer}' je soubor, ne adresář. Hledejte adresář začínající na 'd' a končící na 'a'.",
-                )
-            elif answer == "data":
-                return (
-                    False,
-                    "'data' končí na 'a', ale není to adresář. Zkuste 'ls -F' pro rozlišení adresářů.",
-                )
-            elif answer.startswith("d") and not answer.endswith("a"):
-                return (
-                    False,
-                    f"'{answer}' začíná na 'd', ale nekončí na 'a'. Hledáme vzor d...a.",
-                )
-            elif answer.endswith("a") and not answer.startswith("d"):
-                return (
-                    False,
-                    f"'{answer}' končí na 'a', ale nezačíná na 'd'. Hledáme vzor d...a.",
-                )
+        answer = answer.strip()
+        if answer in ["data.txt", "dog.md", "drama.log"]:
+            return (
+                False,
+                f"'{answer}' je soubor, ne adresář. Hledejte adresář začínající na 'd' a končící na 'a'.",
+            )
+        if answer == "data":
+            return (
+                False,
+                "'data' končí na 'a', ale není to adresář. Zkuste 'ls -F' pro rozlišení adresářů.",
+            )
+
+        if answer.startswith("d") and not answer.endswith("a"):
+            return (
+                False,
+                f"'{answer}' začíná na 'd', ale nekončí na 'a'. Hledáme vzor d...a.",
+            )
+        if answer.endswith("a") and not answer.startswith("d"):
+            return (
+                False,
+                f"'{answer}' končí na 'a', ale nezačíná na 'd'. Hledáme vzor d...a.",
+            )
 
         return (
             False,
@@ -238,7 +233,10 @@ Identifikujte soubor bez přípony.
                 CommonMistakeValidator(
                     {
                         "inside.txt": Messages.L1_3_INCLUDED_EXTENSION,
-                        "alpha": "'alpha' je název adresáře, ne souboru uvnitř. Nejdřív vstupte do alpha a podívejte se, co je uvnitř.",
+                        "alpha": (
+                            "'alpha' je název adresáře, ne souboru uvnitř. "
+                            "Nejdřív vstupte do alpha a podívejte se, co je uvnitř."
+                        ),
                     }
                 )
             ],
@@ -250,9 +248,7 @@ Identifikujte soubor bez přípony.
         _setup_level1_common(workspace)
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> ValidationResult:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
         # Parent validation handles required_cwd, expected_answer, and CommonMistakeValidator
         success, msg = super().validate(answer, state)
         if success:
@@ -316,7 +312,8 @@ class Level1_5(Level):
 Sestupte hluboko do adresářové struktury.
 
 ### Úkol
-1. ShellGame vás na začátku levelu umístí do správné části workspace (nemusíte spoléhat na to, kde jste skončili minule).
+1. ShellGame vás na začátku levelu umístí do správné části workspace
+   (nemusíte spoléhat na to, kde jste skončili minule).
 2. Jděte do `gamma/deep/a/b/c/` (v adresáři `level-1`)
 3. Odevzdejte název aktuálního adresáře
             """.strip(),
@@ -371,9 +368,7 @@ Vystoupejte o více úrovní najednou.
     def setup(self, workspace: Path) -> None:
         """Structure already created in 1.5."""
         _setup_level1_common(workspace)
-        (workspace / "level-1" / "gamma" / "deep" / "a" / "b" / "c").mkdir(
-            parents=True, exist_ok=True
-        )
+        (workspace / "level-1" / "gamma" / "deep" / "a" / "b" / "c").mkdir(parents=True, exist_ok=True)
 
 
 class Level1_7(Level):
@@ -577,9 +572,7 @@ Zrekonstruujte cestu domů.
         return
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> ValidationResult:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
         return super().validate(answer, state)
 
 
@@ -620,9 +613,7 @@ Ověřte, že jste doma.
         return
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> ValidationResult:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
         return super().validate(answer, state)
 
 
@@ -655,11 +646,7 @@ Vizualizujte strukturu.
             optional=True,
             start_directory="level-1",
             require_answer=True,
-            validators=[
-                OrderedListValidator(
-                    ["absolute-target", "alpha", "delta", "gamma", "maze", "patterns"]
-                )
-            ],
+            validators=[OrderedListValidator(["absolute-target", "alpha", "delta", "gamma", "maze", "patterns"])],
         )
 
     @override
@@ -671,9 +658,7 @@ Vizualizujte strukturu.
         (workspace / "level-1" / "maze").mkdir(parents=True, exist_ok=True)
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> ValidationResult:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
         return super().validate(answer, state)
 
 
@@ -738,14 +723,10 @@ cd ~          → Domů
         """Structure already created in 1.5."""
         _setup_level1_common(workspace)
         # Ensure deep structure exists
-        (workspace / "level-1" / "gamma" / "deep" / "a" / "b" / "c").mkdir(
-            parents=True, exist_ok=True
-        )
+        (workspace / "level-1" / "gamma" / "deep" / "a" / "b" / "c").mkdir(parents=True, exist_ok=True)
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> ValidationResult:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
         """Validate user completed the challenge."""
         # Parent validation handles expected_answer, allow_cwd_as_answer and CommonMistakeValidator
         success, msg = super().validate(answer, state)

@@ -35,9 +35,7 @@ class Level3_0(Level):
         return
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Always valid."""
         return True, "Jdeme na to!"
 
@@ -93,9 +91,7 @@ Potřebujete pomoc? Napište: `shellgame hint`""",
         (hub / "visible_file.txt").write_text("")
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Validate count (2)."""
         if answer is None:
             return False, "Musíte zadat číslo."
@@ -139,9 +135,7 @@ Potřebujete pomoc? Napište: `shellgame hint`""",
         (level_dir / ".secret_config").write_text("mode=stealth\n")
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Validate content."""
         if answer is None:
             return False, "Musíte zadat obsah souboru."
@@ -187,9 +181,7 @@ Potřebujete pomoc? Napište: `shellgame hint`""",
         (vault / "key.txt").write_text("platinum\n")
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Validate key."""
         if answer is None:
             return False, "Musíte zadat nalezený klíč."
@@ -237,9 +229,7 @@ Potřebujete pomoc? Napište: `shellgame hint`""",
         (backup / "normal.txt").write_text("")
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Validate filename."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -305,9 +295,7 @@ cd .adresar   → Vstoupit do skrytého adresáře
         (test_dir / "readme.txt").write_text("Look for hidden items!\n")
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:  # noqa: PLR0911
         """Validate count and code."""
         if answer is None:
             return False, "Musíte zadat odpověď ve formátu: počet,kód"
@@ -325,7 +313,7 @@ cd .adresar   → Vstoupit do skrytého adresáře
         except ValueError:
             return False, "První část musí být číslo (počet skrytých adresářů)."
 
-        # Validate
+        # Validate count
         if count != 2:
             if count == 4:
                 return False, "Počítáte i . a .. - ty nepočítejte, jsou speciální."
@@ -334,9 +322,10 @@ cd .adresar   → Vstoupit do skrytého adresáře
                 f"Počet skrytých adresářů není {count}. Zkontrolujte pomocí 'ls -la'.",
             )
 
+        # Validate code
+        if code == "not this one":
+            return False, "To je obsah .config, ne .secret_code."
         if code != "hidden_master":
-            if code == "not this one":
-                return False, "To je obsah .config, ne .secret_code."
             return False, f"Kód '{code}' není správný. Přečtěte .secret_code."
 
         return (
@@ -393,9 +382,7 @@ Odevzdejte číslo 1-5 podle vaší jistoty.
         return
 
     @override
-    def validate(
-        self, answer: str | None, state: GameStateProtocol
-    ) -> tuple[bool, str]:
+    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
         """Accept any rating 1-5 with personalized feedback."""
         if answer is None:
             return False, "Odevzdejte číslo 1-5 podle vaší jistoty."
@@ -421,8 +408,7 @@ Odevzdejte číslo 1-5 podle vaší jistoty.
             )
         else:
             return True, (
-                "🚀 Skvělé! Máte solidní základy. Pokračujte na Sekci 4, "
-                "kde se naučíte vytvářet a organizovat soubory!"
+                "🚀 Skvělé! Máte solidní základy. Pokračujte na Sekci 4, kde se naučíte vytvářet a organizovat soubory!"
             )
 
 

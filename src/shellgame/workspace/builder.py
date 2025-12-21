@@ -1,9 +1,8 @@
 """Workspace management for directory structure creation and management."""
 
-from pathlib import Path
-from typing import List
-import shutil
 import os
+import shutil
+from pathlib import Path
 
 
 class FileSpec:
@@ -69,7 +68,7 @@ class WorkspaceManager:
         """Remove entire workspace (alias for cleanup)."""
         self.cleanup()
 
-    def build_structure(self, dirs: List[DirSpec], files: List[FileSpec]) -> None:
+    def build_structure(self, dirs: list[DirSpec], files: list[FileSpec]) -> None:
         """
         Build directory structure with files.
 

@@ -15,8 +15,8 @@ Notes:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import FrozenSet, Iterable
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,7 +27,7 @@ class LevelCdHook:
 
 
 # Levels that require a `cd` wrapper in the subshell.
-_CD_HOOK_LEVELS: FrozenSet[str] = frozenset(
+_CD_HOOK_LEVELS: frozenset[str] = frozenset(
     {
         "1.8",  # requires absolute path to a specific target
         "1.9",  # requires walking to $HOME step-by-step
@@ -35,13 +35,13 @@ _CD_HOOK_LEVELS: FrozenSet[str] = frozenset(
 )
 
 
-def get_hooked_levels() -> FrozenSet[str]:
+def get_hooked_levels() -> frozenset[str]:
     """Return all level IDs that require any shell hook."""
     # Today it's only cd-hooks; later we may union multiple hook sets here.
     return _CD_HOOK_LEVELS
 
 
-def get_cd_hooked_levels() -> FrozenSet[str]:
+def get_cd_hooked_levels() -> frozenset[str]:
     """Return level IDs that require the `cd` wrapper/hook."""
     return _CD_HOOK_LEVELS
 
@@ -76,7 +76,8 @@ cd() {
             candidate="$(realpath -m "$target" 2>/dev/null)"
         fi
         if [ -n "$candidate" ] && [ "$candidate" = "$abs_target" ]; then
-            echo "ShellGame (1.8): Tohle by fungovalo, ale je to relativní cesta. Zkuste to ještě jednou absolutně (začíná na /)." >&2
+            echo "ShellGame (1.8): Tohle by fungovalo, ale je to relativní cesta. " \
+                 "Zkuste to ještě jednou absolutně (začíná na /)." >&2
             echo "Tip: cd $abs_target" >&2
         else
             echo "ShellGame (1.8): Použijte absolutní cestu (začíná na /)." >&2
@@ -140,12 +141,14 @@ cd() {
     fi
 
     if [[ "$target" == ~* ]]; then
-        echo "ShellGame (1.9): Zkratky na domov ('~') teď nepoužívejte. Jděte krok za krokem: cd / ; cd <segment> ..." >&2
+        echo "ShellGame (1.9): Zkratky na domov ('~') teď nepoužívejte. " \
+             "Jděte krok za krokem: cd / ; cd <segment> ..." >&2
         return 1
     fi
     # Detect expanded ~ (bash expands ~ before calling the function)
     if [ "$target" = "$HOME" ] || [ "$target" = "$home_real" ]; then
-        echo "ShellGame (1.9): Zkratky na domov ('~') teď nepoužívejte. Jděte krok za krokem: cd / ; cd <segment> ..." >&2
+        echo "ShellGame (1.9): Zkratky na domov ('~') teď nepoužívejte. " \
+             "Jděte krok za krokem: cd / ; cd <segment> ..." >&2
         return 1
     fi
     if [[ "$target" =~ ^/ ]]; then
@@ -188,7 +191,8 @@ cd() {
 
     local expected_next="${segments[$((next_index - 1))]}"
     if [ "$target" != "$expected_next" ]; then
-        echo "ShellGame (1.9): Teď je na řadě segment '$expected_next', ne '$target'. Pokud nevíte kudy, dejte: echo \$HOME" >&2
+        echo "ShellGame (1.9): Teď je na řadě segment '$expected_next', ne '$target'. " \
+             "Pokud nevíte kudy, dejte: echo \$HOME" >&2
         return 1
     fi
 
@@ -226,7 +230,8 @@ function cd
         set -l abs_target "$SHELLGAME_WORKSPACE/level-1/absolute-target"
         set -l candidate (realpath -m "$target" 2>/dev/null)
         if test "$candidate" = "$abs_target"
-            echo "ShellGame (1.8): Tohle by fungovalo, ale je to relativní cesta. Zkuste to ještě jednou absolutně (začíná na /)." >&2
+            echo "ShellGame (1.8): Tohle by fungovalo, ale je to relativní cesta. " \
+                 "Zkuste to ještě jednou absolutně (začíná na /)." >&2
             echo "Tip: cd $abs_target" >&2
         else
             echo "ShellGame (1.8): Použijte absolutní cestu (začíná na /)." >&2
@@ -295,7 +300,8 @@ function cd
     end
 
     if test "$target" = "~"; or string match -rq '^~' -- "$target"
-        echo "ShellGame (1.9): Zkratky na domov ('~') teď nepoužívejte. Jděte krok za krokem: cd / ; cd <segment> ..." >&2
+        echo "ShellGame (1.9): Zkratky na domov ('~') teď nepoužívejte. " \
+             "Jděte krok za krokem: cd / ; cd <segment> ..." >&2
         return 1
     end
     if string match -rq '^/' -- "$target"
@@ -335,7 +341,8 @@ function cd
 
     set -l expected_next $home_segments[$next_index]
     if test "$target" != "$expected_next"
-        echo "ShellGame (1.9): Teď je na řadě segment '$expected_next', ne '$target'. Pokud nevíte kudy, dejte: echo $HOME" >&2
+        echo "ShellGame (1.9): Teď je na řadě segment '$expected_next', ne '$target'. " \
+             "Pokud nevíte kudy, dejte: echo $HOME" >&2
         return 1
     end
 

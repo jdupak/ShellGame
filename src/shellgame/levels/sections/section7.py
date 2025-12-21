@@ -1,15 +1,16 @@
 """Section 7: Permissions."""
 
-from typing import Tuple, Any, Optional
+import shutil
+import stat
 from pathlib import Path
+from typing import Any, Optional
+
 from shellgame.levels.base import Level
 from shellgame.validation.validators import (
-    StringValidator,
-    PermissionValidator,
     ExecutableValidator,
+    PermissionValidator,
+    StringValidator,
 )
-import os
-import stat
 
 
 class Level7_0(Level):
@@ -28,7 +29,7 @@ class Level7_0(Level):
         """No setup needed."""
         pass
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Always valid."""
         return True, "Jdeme na to!"
 
@@ -73,7 +74,7 @@ Odevzdejte název spustitelného souboru.
         target.write_text("#!/bin/bash\necho Hi")
         target.chmod(target.stat().st_mode | stat.S_IEXEC)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate filename."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -132,7 +133,7 @@ Odevzdejte název souboru.
         # Ensure not executable
         target.chmod(0o644)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate executable permission."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -181,7 +182,7 @@ Odevzdejte název souboru.
         target.write_text("Do not touch")
         target.chmod(0o644)  # rw-r--r--
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate read-only permission."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -244,7 +245,7 @@ Odevzdejte název souboru.
         target.write_text("<html></html>")
         target.chmod(0o600)  # rw-------
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate 755 permission."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -297,7 +298,10 @@ chmod 644 soubor → Nastaví rw-r--r--
 ### Odevzdání
 `shellgame submit guardian`""",
             hints=[
-                "Pro spustitelnost: 'chmod +x script.sh'. Pro pouze čtení: 'chmod 444 secret.txt' nebo 'chmod a-w secret.txt'.",
+                (
+                    "Pro spustitelnost: 'chmod +x script.sh'. "
+                    "Pro pouze čtení: 'chmod 444 secret.txt' nebo 'chmod a-w secret.txt'."
+                ),
                 "Pro 644: 'chmod 644 shared.txt'. Zkontrolujte pomocí 'ls -l'.",
                 "script.sh musí mít 'x' pro vlastníka, secret.txt nesmí mít žádné 'w', shared.txt musí být rw-r--r--.",
             ],
@@ -305,8 +309,6 @@ chmod 644 soubor → Nastaví rw-r--r--
 
     def setup(self, workspace: Path) -> None:
         """Create files with wrong permissions."""
-        import shutil
-
         challenge_dir = workspace / "level-7" / "challenge"
 
         if challenge_dir.exists():
@@ -329,10 +331,8 @@ chmod 644 soubor → Nastaví rw-r--r--
         shared.write_text("Shared content\n")
         shared.chmod(0o777)  # rwxrwxrwx (wrong)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate permissions."""
-        import stat
-
         if answer is None:
             return False, "Musíte zadat heslo."
 
@@ -357,7 +357,7 @@ chmod 644 soubor → Nastaví rw-r--r--
 
         # Check shared.txt - must be 644
         shared = challenge_dir / "shared.txt"
-        expected = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH  # 644
+        stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH  # 644
         actual = shared.stat().st_mode & 0o777
         if actual != 0o644:
             return (

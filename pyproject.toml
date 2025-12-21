@@ -35,7 +35,7 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
-    "black>=23.0.0",
+    "ruff>=0.1.0",
     "mypy>=1.0.0",
 ]
 
@@ -52,9 +52,13 @@ shellgame = "shellgame.__main__:cli"
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.black]
-line-length = 100
-target-version = ['py39', 'py310', 'py311', 'py312']
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "PL"]
+ignore = ["PLR2004"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -67,8 +71,30 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v"
+addopts = "-v --cov=shellgame --cov-report=term-missing --cov-report=html"
 pythonpath = ["src"]
 markers = [
     "optional_shell_lint: optional shell linting tests (requires external tools like shellcheck/fish)",
 ]
+
+[tool.coverage.run]
+source = ["src/shellgame"]
+omit = [
+    "tests/*",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+ignore_errors = true

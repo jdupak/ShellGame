@@ -15,8 +15,8 @@ Protocol transport:
   stdout so whichever stream the wrapper captures will still receive the directive.
 """
 
-import sys
 import shlex
+import sys
 from pathlib import Path
 from typing import Union
 

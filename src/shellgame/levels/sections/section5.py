@@ -1,9 +1,11 @@
 """Section 5: File Inspection."""
 
-from typing import Tuple, Any, Optional
+import shutil
 from pathlib import Path
+from typing import Any, Optional
+
 from shellgame.levels.base import Level
-from shellgame.validation.validators import StringValidator, IntegerValidator, FileTypeValidator
+from shellgame.validation.validators import FileTypeValidator, IntegerValidator, StringValidator
 
 
 def _setup_level5_common(workspace: Path) -> None:
@@ -28,7 +30,7 @@ class Level5_0(Level):
         """No setup needed."""
         pass
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Always valid."""
         return True, "Jdeme na to!"
 
@@ -73,7 +75,7 @@ Odevzdejte velikost souboru jako číslo.
         with open(level_dir / "database.db", "wb") as f:
             f.write(b"x" * 12345)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate size."""
         if answer is None:
             return False, "Musíte zadat velikost."
@@ -105,7 +107,10 @@ Odevzdejte název nalezeného souboru.
 `shellgame submit nazev_souboru`""",
             hints=[
                 "Použijte 'ls -l' a hledejte číslo 1337.",
-                "Ve výpisu hledejte řádek, kde je velikost přesně 1337 (pátý sloupec). Název souboru je na konci řádku.",
+                (
+                    "Ve výpisu hledejte řádek, kde je velikost přesně 1337 (pátý sloupec). "
+                    "Název souboru je na konci řádku."
+                ),
             ],
             start_directory="level-5/search",
         )
@@ -124,7 +129,7 @@ Odevzdejte název nalezeného souboru.
         # Target
         (level_dir / "target_file").write_bytes(b"x" * 1337)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate filename."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -180,7 +185,7 @@ Odevzdejte název souboru, který je obrázkem.
         # Fake JPEG header
         (level_dir / "file3").write_bytes(b"\xff\xd8\xff\xe0\x00\x10\x4a\x46\x49\x46")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate filename."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -192,7 +197,7 @@ Odevzdejte název souboru, který je obrázkem.
         # Actually, FileTypeValidator checks if the ANSWER (filename) has the type.
         # So if they answer "file3", we check if "file3" is JPEG.
 
-        filetype_validator = FileTypeValidator("level-5/types/" + answer.strip(), "JPEG")
+        FileTypeValidator("level-5/types/" + answer.strip(), "JPEG")
         # But wait, FileTypeValidator takes relative path.
         # The user provides just filename. We need to construct path.
         # But validate method of FileTypeValidator takes answer and workspace.
@@ -282,7 +287,7 @@ Odevzdejte číslo z CRITICAL řádku.
 
         (level_dir / "server.log").write_text("\n".join(lines) + "\n")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate the number found."""
         if answer is None:
             return False, "Zadejte číslo z CRITICAL řádku."
@@ -340,7 +345,7 @@ Odevzdejte název falešného obrázku.
         # Fake JPEG (Text)
         (level_dir / "secret.jpg").write_text("This is actually a text file.")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate filename."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -359,7 +364,8 @@ class Level5_6(Level):
             title="Spustitelný skript",
             instructions="""# Level 5.6: Spustitelný skript
 
-Některé textové soubory jsou skripty, které lze spustit. Poznáte je podle toho, že příkaz `file` o nich řekne např. "Python script" nebo "Bourne-Again shell script".
+Některé textové soubory jsou skripty, které lze spustit.
+Poznáte je podle toho, že příkaz `file` o nich řekne např. "Python script" nebo "Bourne-Again shell script".
 
 ## Úkol:
 Najděte v adresáři `bin` soubor, který je Python skriptem.
@@ -390,7 +396,7 @@ Odevzdejte název skriptu.
         # Binary
         (level_dir / "program").write_bytes(b"\x7f\x45\x4c\x46")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate filename."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -436,7 +442,10 @@ file -b soubor  → Jen typ bez názvu
             hints=[
                 "Použijte 'file *' k zobrazení typů všech souborů najednou.",
                 "Hledejte: 'ASCII text' pro textové, 'image' pro obrázky, 'Python' pro skripty.",
-                "Když si nejste jistí, počítejte jen podle klíčových slov ve výstupu 'file'. Např. 'PNG image data' berte jako obrázek.",
+                (
+                    "Když si nejste jistí, počítejte jen podle klíčových slov ve výstupu 'file'. "
+                    "Např. 'PNG image data' berte jako obrázek."
+                ),
             ],
         )
 
@@ -446,8 +455,6 @@ file -b soubor  → Jen typ bez názvu
         mystery_dir = workspace / "level-5" / "mystery"
 
         if mystery_dir.exists():
-            import shutil
-
             shutil.rmtree(mystery_dir)
 
         mystery_dir.mkdir(parents=True, exist_ok=True)
@@ -460,14 +467,12 @@ file -b soubor  → Jen typ bez názvu
         (mystery_dir / "config.txt").write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00")
 
         # Python script with misleading name (1)
-        (mystery_dir / "analyzer.dat").write_text(
-            "#!/usr/bin/env python3\nimport sys\nprint('Hello')\n"
-        )
+        (mystery_dir / "analyzer.dat").write_text("#!/usr/bin/env python3\nimport sys\nprint('Hello')\n")
 
         # Binary file
         (mystery_dir / "readme.doc").write_bytes(b"\x7f\x45\x4c\x46\x02\x01\x01")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:  # noqa: PLR0911
         """Validate answer."""
         if answer is None:
             return False, "Musíte zadat odpověď ve formátu: text_count,img_count,script_name"

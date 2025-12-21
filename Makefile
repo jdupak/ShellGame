@@ -37,10 +37,11 @@ test: dev
 	$(UV) run pytest tests/ -v --cov=shellgame --cov-report=term-missing
 
 lint: dev
+	$(UV) run ruff check src/shellgame/ tests/
 	$(UV) run mypy src/shellgame/
 
 format: dev
-	$(UV) run black src/shellgame/ tests/
+	$(UV) run ruff format src/shellgame/ tests/
 
 build: build-deps
 	$(UV) run pyinstaller shellgame.spec

@@ -1,4 +1,3 @@
-import os
 import shutil
 import subprocess
 from typing import Optional
@@ -14,15 +13,12 @@ def _binary_path_for_tests() -> str:
     return "shellgame"
 
 
-def _run(
-    cmd: list[str], *, input_text: Optional[str] = None
-) -> subprocess.CompletedProcess[str]:
+def _run(cmd: list[str], *, input_text: Optional[str] = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         cmd,
         input=input_text,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         check=False,
     )
 

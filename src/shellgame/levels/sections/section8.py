@@ -1,13 +1,12 @@
 """Section 8: Redirection."""
 
-from typing import Tuple, Any, Optional
+import shutil
 from pathlib import Path
+from typing import Any, Optional
+
 from shellgame.levels.base import Level
 from shellgame.validation.validators import (
     StringValidator,
-    FileExistsValidator,
-    FileContentValidator,
-    MultiValidator,
 )
 
 
@@ -27,7 +26,7 @@ class Level8_0(Level):
         """No setup needed."""
         pass
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Always valid."""
         return True, "Jdeme na to!"
 
@@ -73,7 +72,7 @@ Odevzdejte název vytvořeného souboru.
         if (level_dir / "seznam.txt").exists():
             (level_dir / "seznam.txt").unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate file creation and content."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -126,7 +125,7 @@ Odevzdejte název souboru.
 
         (level_dir / "log.txt").write_text("Start logu\nZaznam 1\n")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate append."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -189,7 +188,7 @@ Odevzdejte název nového souboru.
         if (level_dir / "full.txt").exists():
             (level_dir / "full.txt").unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate concatenation."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -246,7 +245,7 @@ Odevzdejte název souboru.
         if (level_dir / "pozdrav.txt").exists():
             (level_dir / "pozdrav.txt").unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate content."""
         if answer is None:
             return False, "Musíte zadat název souboru."
@@ -337,7 +336,7 @@ Odevzdejte nalezený počet (číslo).
 """
         (level_dir / "access.log").write_text(log_content)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate error count."""
         if answer is None:
             return False, "Musíte zadat počet ERROR řádků."
@@ -407,7 +406,7 @@ Odevzdejte obě slova oddělená čárkou: `první,poslední`
 
         (level_dir / "long_file.txt").write_text("\n".join(lines) + "\n")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate head/tail answer."""
         if answer is None:
             return False, "Zadejte odpověď ve formátu: první_slovo,poslední_slovo"
@@ -480,7 +479,7 @@ Open source komunita ho neustále vylepšuje.
 """
         (level_dir / "article.txt").write_text(article)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate wc answer."""
         if answer is None:
             return False, "Zadejte odpověď ve formátu: řádky,slova"
@@ -569,7 +568,7 @@ Alice
 """
         (level_dir / "visitors.txt").write_text(visitors)
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
         """Validate unique count."""
         if answer is None:
             return False, "Zadejte počet unikátních návštěvníků."
@@ -579,20 +578,22 @@ Alice
         except ValueError:
             return False, "Odpověď musí být číslo."
 
-        if count == 5:
-            return True, "Správně! Sort | uniq je klasická kombinace pro práci s daty."
-        elif count == 8:
-            return (
+        messages = {
+            5: (True, "Správně! Sort | uniq je klasická kombinace pro práci s daty."),
+            8: (
                 False,
                 "Spočítali jste všechny řádky, ne unikátní. Použijte: sort visitors.txt | uniq | wc -l",
-            )
-        elif count == 3:
-            return False, "Možná jste spočítali jen duplikáty. Hledáme počet unikátních jmen."
-        else:
-            return (
-                False,
-                f"Počet unikátních návštěvníků není {count}. Zkuste: sort visitors.txt | uniq | wc -l",
-            )
+            ),
+            3: (False, "Možná jste spočítali jen duplikáty. Hledáme počet unikátních jmen."),
+        }
+
+        if count in messages:
+            return messages[count]
+
+        return (
+            False,
+            f"Počet unikátních návštěvníků není {count}. Zkuste: sort visitors.txt | uniq | wc -l",
+        )
 
 
 class Level8_9(Level):
@@ -638,8 +639,6 @@ wc -l soubor            → Počet řádků
 
     def setup(self, workspace: Path) -> None:
         """Create challenge environment."""
-        import shutil
-
         challenge_dir = workspace / "level-8" / "challenge"
 
         if challenge_dir.exists():
@@ -651,7 +650,7 @@ wc -l soubor            → Počet řádků
         (challenge_dir / "sample1.txt").write_text("sample")
         (challenge_dir / "sample2.txt").write_text("sample")
 
-    def validate(self, answer: Optional[str], state: Any) -> Tuple[bool, str]:
+    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:  # noqa: PLR0911
         """Validate redirections and pipes."""
         if answer is None:
             return False, "Musíte zadat počet .txt souborů."
