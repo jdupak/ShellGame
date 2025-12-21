@@ -342,3 +342,33 @@ def dev_start() -> None:
     first_id = levels[0].id
     ctx = click.get_current_context()
     ctx.invoke(dev_jump, level_id=first_id)
+
+
+@cli.command(hidden=True, name="cd-hook")
+@click.argument("arg1", required=False)
+@click.argument("arg2", required=False)
+@click.option("--post-move", is_flag=True)
+def cd_hook(arg1: Optional[str], arg2: Optional[str], post_move: bool) -> None:
+    """Internal hook called by shell integration on directory change.
+
+    Args mapping depends on mode:
+    - Pre-move:  arg1=target, arg2=current_pwd
+    - Post-move: arg1=new_pwd, arg2=None
+    """
+    if post_move:
+        # shellgame cd-hook --post-move "$PWD"
+        target = None
+        pwd = arg1
+    else:
+        # shellgame cd-hook "$1" "$PWD"
+        target = arg1
+        pwd = arg2
+
+    # Delegate to session
+    try:
+        _get_session().handle_cd_hook(target=target, pwd=pwd, post_move=post_move)
+    except SystemExit:
+        raise
+    except Exception:
+        # Fail silently in hook to avoid breaking shell navigation
+        pass

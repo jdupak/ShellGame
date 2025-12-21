@@ -1,8 +1,0 @@
-# Dev shortcuts
-abbr -a r "shellgame dev reload"
-abbr -a n "shellgame dev next"
-abbr -a p "shellgame dev prev"
-abbr -a j "shellgame dev jump"
-abbr -a s "shellgame dev start"
-abbr -a e "shellgame exit"
-abbr -a g "shellgame"

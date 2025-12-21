@@ -186,3 +186,15 @@ class Level(ABC):
             return workspace
 
         return workspace / self.start_directory
+
+    @property
+    def hooks(self) -> dict[str, callable]:
+        """Return a dictionary of command hooks.
+
+        Returns:
+            Dict mapping command name (e.g. 'cd') to a handler method.
+            The handler signature depends on the command.
+            For 'cd': (target: str|None, pwd: str|None, post_move: bool, state: GameStateProtocol) -> None
+        """
+        return {}
+

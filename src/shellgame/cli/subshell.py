@@ -45,6 +45,33 @@ from string import Template
 from shellgame.cli.hooks import generate_bash_cd_hooks, generate_fish_cd_hooks
 
 
+DEV_SHORTCUTS = {
+    "r": "shellgame dev reload",
+    "n": "shellgame dev next",
+    "p": "shellgame dev prev",
+    "j": "shellgame dev jump",
+    "s": "shellgame dev start",
+    "e": "shellgame exit",
+    "g": "shellgame",
+}
+
+
+def _generate_bash_aliases(shortcuts: dict[str, str]) -> str:
+    """Generate bash aliases from a dictionary of shortcuts."""
+    lines = ["# Dev shortcuts"]
+    for alias, command in shortcuts.items():
+        lines.append(f'alias {alias}="{command}"')
+    return "\n".join(lines)
+
+
+def _generate_fish_abbrs(shortcuts: dict[str, str]) -> str:
+    """Generate fish abbreviations from a dictionary of shortcuts."""
+    lines = ["# Dev shortcuts"]
+    for abbr, command in shortcuts.items():
+        lines.append(f'abbr -a {abbr} "{command}"')
+    return "\n".join(lines)
+
+
 def _load_template(relative_path: str) -> str:
     """Load a bundled template from `shellgame.cli.templates`."""
     package = "shellgame.cli.templates"
@@ -185,7 +212,7 @@ def get_fish_integration(binary_path: str, devmode: bool = False) -> str:
 
     dev_shortcuts = ""
     if devmode:
-        dev_shortcuts = _load_template("fish_devmode_abbrs.template")
+        dev_shortcuts = _generate_fish_abbrs(DEV_SHORTCUTS)
 
     cd_hook = generate_fish_cd_hooks()
 
@@ -203,7 +230,7 @@ def get_bash_integration(binary_path: str, devmode: bool = False) -> str:
 
     dev_shortcuts = ""
     if devmode:
-        dev_shortcuts = _load_template("bash_devmode_aliases.template")
+        dev_shortcuts = _generate_bash_aliases(DEV_SHORTCUTS)
 
     cd_hook = generate_bash_cd_hooks()
 

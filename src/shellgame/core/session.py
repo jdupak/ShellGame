@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -24,6 +25,7 @@ from typing import Any, Callable, Protocol
 from shellgame import shell
 from shellgame.cli.subshell import detect_interactive_shell, launch_subshell
 from shellgame.levels.registry import LevelRegistry
+from shellgame.markers import MarkerManager
 from shellgame.state.manager import GameState, StateManager
 from shellgame.ui.display import Display
 from shellgame.workspace.builder import WorkspaceManager
@@ -405,3 +407,21 @@ class GameSession:
         self._state_manager.save(state)
         level.setup(state.workspace)
         self.show_current_level()
+
+    def handle_cd_hook(self, *, target: str | None, pwd: str | None, post_move: bool) -> None:
+        """Handle shell directory change hooks.
+
+        This logic was previously embedded in shell templates.
+        """
+        state = self._state_manager.load()
+        if not state:
+            return
+
+        level = self._get_level(state.current_level)
+        if not level:
+            return
+
+        hook = level.hooks.get("cd")
+        if hook:
+            hook(target=target, pwd=pwd, post_move=post_move, state=state)
+

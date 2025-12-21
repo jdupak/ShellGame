@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from typing_extensions import override
@@ -530,6 +531,27 @@ Použijte absolutní cestu.
         target_dir.mkdir(parents=True, exist_ok=True)
         (target_dir / "PLACEHOLDER.answer").write_text("")
 
+    @property
+    @override
+    def hooks(self) -> dict[str, callable]:
+        return {"cd": self._handle_cd}
+
+    def _handle_cd(self, *, target: str | None, pwd: str | None, post_move: bool, state: GameStateProtocol) -> None:
+        if post_move:
+            return
+
+        # Level 1.8: Enforce absolute path
+        if not target:
+            sys.stderr.write("ShellGame (1.8): Musíte zadat cestu.\n")
+            sys.exit(1)
+
+        if not target.startswith("/"):
+            sys.stderr.write("ShellGame (1.8): Musíte použít absolutní cestu (začínající na /).\n")
+            sys.exit(1)
+
+        # Valid absolute path used
+        MarkerManager.from_state(state).create(MarkerManager.LEVEL1_8_ABSOLUTE_CD)
+
 
 class Level1_9(Level):
     """Level 1.9: Root to Home Walk (Extension) - Manual path reconstruction."""
@@ -574,6 +596,76 @@ Zrekonstruujte cestu domů.
     @override
     def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
         return super().validate(answer, state)
+
+    @property
+    @override
+    def hooks(self) -> dict[str, callable]:
+        return {"cd": self._handle_cd}
+
+    def _handle_cd(self, *, target: str | None, pwd: str | None, post_move: bool, state: GameStateProtocol) -> None:
+        markers = MarkerManager.from_state(state)
+
+        if not post_move:
+            # Level 1.9 Pre-move: Enforce step-by-step (no jumps)
+            if not target:
+                # cd without args -> jump home -> forbidden
+                sys.stderr.write("ShellGame (1.9): Skoky nejsou povoleny. Jděte krok za krokem.\n")
+                sys.exit(1)
+
+            if target == "/":
+                return  # Allowed to start
+
+            # Check for multi-segment paths
+            # We allow "dir" or "dir/" but not "dir/subdir" or "/dir"
+            cleaned = target.rstrip("/")
+
+            if target.startswith("/"):
+                sys.stderr.write("ShellGame (1.9): Absolutní skoky nejsou povoleny (kromě cd /).\n")
+                sys.exit(1)
+
+            if "/" in cleaned:
+                sys.stderr.write("ShellGame (1.9): Cestujte po jednom segmentu (adresáři).\n")
+                sys.exit(1)
+
+        else:
+            # Level 1.9 Post-move: Track step-by-step walk from root to home
+            if not pwd:
+                return
+
+            current_path = Path(pwd)
+
+            # If at root, start tracking (reset)
+            if str(current_path) == "/":
+                markers.create(MarkerManager.LEVEL1_9_CD_WALK_PROGRESS, "/")
+                return
+
+            # If we have progress, check if this step is valid
+            progress = markers.read(MarkerManager.LEVEL1_9_CD_WALK_PROGRESS)
+            if not progress:
+                return
+
+            lines = progress.strip().splitlines()
+            if not lines:
+                return
+
+            last_path = Path(lines[-1])
+
+            # Valid step: moving from parent to child (one level down)
+            if current_path.parent == last_path:
+                # Append new path
+                new_progress = progress + "\n" + str(current_path)
+                markers.create(MarkerManager.LEVEL1_9_CD_WALK_PROGRESS, new_progress)
+
+                # Check completion
+                if current_path == Path.home():
+                    markers.create(MarkerManager.LEVEL1_9_CD_WALK_COMPLETED)
+
+            elif current_path == last_path:
+                # No-op (stayed in same dir)
+                pass
+            else:
+                # Invalid step (jumped or went up/sideways), reset progress
+                markers.remove(MarkerManager.LEVEL1_9_CD_WALK_PROGRESS)
 
 
 class Level1_10(Level):

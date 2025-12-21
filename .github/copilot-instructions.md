@@ -11,9 +11,11 @@ Your job is to make changes that preserve existing UX and gameplay rules. Prefer
 ## 1) Tech stack (what to assume)
 
 - Language: **Python**
+- Dependency Management: **uv** (use `uv sync`, `uv add`, etc.)
+- Task Runner: **make** (use `make test`, `make lint`, etc.)
 - CLI: **Click**
 - UI: **Rich** panels + consistent helper notes
-- Tests: **pytest** (in `tests/`)
+- Tests: **pytest** (run via `make test`)
 - Shell integration: wrapped subshell (**bash**/**fish**) — see section 3.2 for critical details
 - Persistence: state saved/loaded between sessions
 
@@ -36,8 +38,9 @@ Your job is to make changes that preserve existing UX and gameplay rules. Prefer
 - UI panels, wording consistency, indentation, paging:
   - `src/shellgame/ui/display.py`
 
-- Level setup + validation rules (learning goals) + start directory:
+- Level setup + validation rules + shell hooks (OOP):
   - `src/shellgame/levels/sections/section*.py`
+  - Logic specific to a level (hooks, validation) must live in the `Level` class, not global handlers.
 
 - Section intro markdown (content only; supports paging via `---`):
   - `src/shellgame/levels/content/section*_intro.md`
@@ -51,9 +54,23 @@ Your job is to make changes that preserve existing UX and gameplay rules. Prefer
 
 ---
 
-## 3) Hard UX rules (do not break)
+## 3) Architectural Principles
 
-### 3.1 Teleport notices
+### 3.1 OOP over Special Casing
+- **Encapsulate logic in Level classes**: Do not hardcode level IDs in `session.py` or `commands.py`.
+- **Use overrides**: If a level needs special behavior (e.g., custom validation, hooks), override the corresponding method in its class.
+- **Declarative configuration**: Prefer setting attributes (e.g., `start_directory`, `hooks`) over writing procedural `if/else` blocks in global handlers.
+
+### 3.2 Thin Shell Integration
+- **Minimal templates**: Keep bash/fish templates as small as possible.
+- **Delegate to Python**: Shell scripts should only capture events (like `cd`) and forward them to Python via hooks or protocol directives.
+- **No game logic in shell**: Do not implement validation or state management in shell scripts.
+
+---
+
+## 4) Hard UX rules (do not break)
+
+### 4.1 Teleport notices
 ShellGame may auto-`cd` the user to a level start directory.
 
 Rules:
@@ -66,7 +83,7 @@ Rules:
 - Helper must remain: `_teleport_notice(destination: Path)` in `commands.py`
 - Do not change the signature; call sites must not pass `reason=...`.
 
-### 3.2 Subshell startup (CRITICAL — read carefully)
+### 4.2 Subshell startup (CRITICAL — read carefully)
 
 Both bash and fish use a **single integration template** that includes:
 1. Shell setup (disable interfering features)
@@ -102,17 +119,17 @@ Python emits commands to stderr with prefix `__SHELLGAME_EXEC__`. The shell wrap
 #### `remove` command special handling
 The `shellgame remove` command deletes the workspace (which may be the user's cwd). To avoid `getcwd` errors and leaked protocol lines, the **shell wrapper detects `remove` success and exits the subshell directly** — we do NOT rely on a protocol directive for this.
 
-### 3.3 One unified “Press Enter to continue”
+### 4.3 One unified “Press Enter to continue”
 - Exact text: `Stiskněte Enter pro pokračování...`
 - Use UI helper: `Display.wait_for_continue()`
 - Do not reintroduce custom prompts in CLI code.
 
-### 3.4 Section intro paging (`.0` levels)
+### 4.4 Section intro paging (`.0` levels)
 - Intro markdown pages are split by a line containing only `---`
 - Show pages in the standard instruction flow
 - Between pages call `Display.wait_for_continue()`
 
-### 3.5 Hints: progressive + repeat semantics
+### 4.5 Hints: progressive + repeat semantics
 - `shellgame hint` reveals the **next** hint and increments hint counter.
 - `shellgame hint --repeat` reprints already revealed hints **without consuming new ones**.
 
@@ -131,16 +148,16 @@ No-more-hints UX:
   - `[violet]shellgame hint --repeat[/violet]`
 - Do **not** show “To jsou všechny nápovědy…” in this flow.
 
-### 3.6 Success/failure panels
+### 4.6 Success/failure panels
 - Success: **green framed panel**, centered text (`Display.show_success`)
 - Failure: **red framed panel**, centered text (`Display.show_failure`)
 - Prefer panels for major state changes rather than raw console lines.
 
 ---
 
-## 4) Level validation rules (gameplay correctness)
+## 5) Level validation rules (gameplay correctness)
 
-### 4.1 “Empty submit” policy (do not workaround in CLI)
+### 5.1 “Empty submit” policy (do not workaround in CLI)
 Some levels require an explicit answer argument; `shellgame submit` must not silently succeed.
 
 Enforced expectations:
@@ -151,14 +168,14 @@ Enforced expectations:
 
 If you need to change this behavior, do it in the level’s `validate()` implementation, not in Click parsing.
 
-### 4.2 Never leak `None` to the player
+### 5.2 Never leak `None` to the player
 If a level expects an answer and `answer is None`, show a dedicated, friendly message such as:
 - “Musíte zadat odpověď…” plus an example command.
 
 Do not generate user-facing strings that include `None` (e.g., `"'None' ..."`)—special-case it.
 (Level **1.2** already demonstrates this pattern.)
 
-### 4.3 “Consistency is maintained by the game”
+### 5.3 “Consistency is maintained by the game”
 Do not rely on “where the user ended last time”.
 If a level needs a specific start directory, enforce it via:
 - `start_directory` attribute in the level class, and/or
@@ -168,7 +185,7 @@ Avoid instructions that tell the user to manually correct state the game can gua
 
 ---
 
-## 5) CLI behavior constraints: `repeat` and `show`
+## 6) CLI behavior constraints: `repeat` and `show`
 - `repeat` can re-display arbitrary level/section content via options.
 - `show` is intentionally restricted:
   - only current level (`--level`) OR current section intro (`--section`)
@@ -178,7 +195,7 @@ Avoid instructions that tell the user to manually correct state the game can gua
 
 ---
 
-## 6) How to work effectively (agent checklist)
+## 7) How to work effectively (agent checklist)
 
 When implementing a change:
 
@@ -194,8 +211,10 @@ When implementing a change:
    - use `Display.wait_for_continue()` for pauses
    - keep Czech text short; style commands in violet when shown as tips
 
-3. After changes, run a quick regression pass focusing on:
-   - `shellgame hint` and `shellgame hint --repeat` behaviors above
+3. After changes, run a quick regression pass:
+   - Run tests: `make test`
+   - Check linting: `make lint`
+   - Verify `shellgame hint` and `shellgame hint --repeat` behaviors above
    - submit behavior when `answer is None`
    - teleport notice prints only on actual cwd change
    - `.0` intro paging via `---`
@@ -203,7 +222,7 @@ When implementing a change:
 
 ---
 
-## 7) Known gotchas (avoid regressions)
+## 8) Known gotchas (avoid regressions)
 
 - `_teleport_notice(destination: Path)` signature must not change.
 - Ensure `shell.cd(...)` is always invoked with parentheses.
@@ -218,8 +237,9 @@ When implementing a change:
 
 ---
 
-## 8) Maintenance (keep this file current)
+## 9) Maintenance (keep this file current)
 
 - If you change architectural patterns (e.g., moving configuration from CLI to Level classes), **update this file**.
 - If you add new hard UX rules, **add them here**.
+- If you introduce new project values or principles, **update this file**.
 - This file is the source of truth for future agents; keep it accurate.

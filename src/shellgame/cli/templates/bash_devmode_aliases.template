@@ -1,8 +1,0 @@
-# Dev shortcuts
-alias r="shellgame dev reload"
-alias n="shellgame dev next"
-alias p="shellgame dev prev"
-alias j="shellgame dev jump"
-alias s="shellgame dev start"
-alias e="shellgame exit"
-alias g="shellgame"
