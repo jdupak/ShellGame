@@ -1,5 +1,3 @@
-"""Section 10: Wildcards."""
-
 from __future__ import annotations
 
 import shutil
@@ -19,17 +17,10 @@ section = Section()
 @section.level
 class SectionIntro(Level):
     title = "Sekce 10: Žolíky (Wildcards)"
-    instructions_file = "section10_intro.md"
-    hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
-    success_message = "Jdeme na to!"
 
     @override
     def setup(self, workspace: Path) -> None:
-        return
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
+        pass
 
 
 @section.level
@@ -74,12 +65,10 @@ class StarWildcardCopyLevel(Level):
 
         (level_dir / "images").mkdir(exist_ok=True)
 
-        # Create source files
         (level_dir / "photo1.jpg").touch()
         (level_dir / "photo2.jpg").touch()
         (level_dir / "notes.txt").touch()
 
-        # Clean up destination
         for f in (level_dir / "images").glob("*"):
             f.unlink()
 
@@ -130,7 +119,6 @@ class QuestionMarkWildcardCopyLevel(Level):
         (level_dir / "data2.txt").touch()
         (level_dir / "data10.txt").touch()
 
-        # Clean up destination
         for f in (level_dir / "short_data").glob("*"):
             f.unlink()
 
@@ -181,7 +169,6 @@ class CharacterClassWildcardCopyLevel(Level):
         (level_dir / "file_b.txt").touch()
         (level_dir / "file_c.txt").touch()
 
-        # Clean up destination
         for f in (level_dir / "ab_files").glob("*"):
             f.unlink()
 
@@ -236,7 +223,6 @@ class RangeWildcardCopyLevel(Level):
         (level_dir / "cherry.txt").touch()
         (level_dir / "Date.txt").touch()
 
-        # Clean up destination
         for f in (level_dir / "lowercase").glob("*"):
             f.unlink()
 
@@ -290,21 +276,17 @@ class WildcardsChallengeLevel(Level):
 
         challenge_dir.mkdir(parents=True, exist_ok=True)
 
-        # Log files (3)
         (challenge_dir / "app.log").write_text("log1")
         (challenge_dir / "error.log").write_text("log2")
         (challenge_dir / "debug.log").write_text("log3")
 
-        # Text files (4)
         (challenge_dir / "notes.txt").write_text("txt1")
         (challenge_dir / "readme.txt").write_text("txt2")
         (challenge_dir / "todo.txt").write_text("txt3")
         (challenge_dir / "data.txt").write_text("txt4")
 
-        # CSV file
         (challenge_dir / "report_final.csv").write_text("col1,col2\n")
 
-        # Distractors
         (challenge_dir / "script.sh").write_text("#!/bin/bash\n")
         (challenge_dir / "config.json").write_text("{}")
 

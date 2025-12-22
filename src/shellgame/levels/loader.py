@@ -13,7 +13,6 @@ from shellgame.levels.registry import get_registry
 
 
 def _get_section_number(module_name: str) -> int | None:
-    """Extract section number from module name (e.g. 'section1' -> 1)."""
     match = re.search(r"section(\d+)$", module_name)
     if match:
         return int(match.group(1))
@@ -21,10 +20,8 @@ def _get_section_number(module_name: str) -> int | None:
 
 
 def _discover_sections() -> list[tuple[int, ModuleType]]:
-    """Dynamically discover section modules in the sections package."""
     found_sections = []
     
-    # Iterate over all modules in the sections package
     for _, name, _ in pkgutil.iter_modules(sections.__path__):
         section_num = _get_section_number(name)
         if section_num is not None:
@@ -32,13 +29,11 @@ def _discover_sections() -> list[tuple[int, ModuleType]]:
             module = importlib.import_module(module_name)
             found_sections.append((section_num, module))
     
-    # Sort by section number to ensure deterministic order
     found_sections.sort(key=lambda x: x[0])
     return found_sections
 
 
 def initialize_levels() -> None:
-    """Register all levels from all discovered sections."""
     registry = get_registry()
     
     for section_num, module in _discover_sections():
@@ -48,15 +43,12 @@ def initialize_levels() -> None:
 
 
 class LevelLoader:
-    """Loads and manages game levels."""
-
     def __init__(self) -> None:
         self._levels: dict[str, Level] = {}
         self._sections: dict[int, list[Level]] = {}
         self._load_levels()
 
     def _register_section(self, levels: list[Level]) -> None:
-        """Index a batch of levels by id and section."""
         for level in levels:
             if level.id is None or level.section is None:
                 raise ValueError("Levels must have id and section set before registration")
@@ -65,7 +57,6 @@ class LevelLoader:
             self._sections.setdefault(level.section, []).append(level)
 
     def _load_levels(self) -> None:
-        """Load all levels from discovered section modules."""
         for _, module in _discover_sections():
             if hasattr(module, "get_levels"):
                 self._register_section(module.get_levels())

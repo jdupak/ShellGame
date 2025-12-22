@@ -1,5 +1,3 @@
-"""Section 8: Redirection."""
-
 from __future__ import annotations
 
 import shutil
@@ -24,7 +22,6 @@ def _setup_access_log(workspace: Path) -> None:
     level_dir = workspace / "level-8" / "pipes"
     level_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create access log with 7 ERROR lines
     log_content = """2024-01-01 10:00:00 INFO Server started
 2024-01-01 10:05:23 ERROR Connection refused
 2024-01-01 10:10:45 INFO User logged in
@@ -59,7 +56,6 @@ def _setup_article_file(workspace: Path) -> None:
     level_dir = workspace / "level-8" / "wc"
     level_dir.mkdir(parents=True, exist_ok=True)
 
-    # 5 lines, 25 words
     article = """Linux je svobodný operační systém.
 Byl vytvořen Linusem Torvaldsem v roce 1991.
 Dnes pohání většinu serverů na internetu.
@@ -73,7 +69,6 @@ def _setup_visitors_file(workspace: Path) -> None:
     level_dir = workspace / "level-8" / "sort"
     level_dir.mkdir(parents=True, exist_ok=True)
 
-    # 8 entries, 5 unique
     visitors = """Alice
 Bob
 Charlie
@@ -94,15 +89,12 @@ def _setup_section8_challenge(workspace: Path) -> None:
 
     challenge_dir.mkdir(parents=True, exist_ok=True)
 
-    # Some files for ls to list
     (challenge_dir / "sample1.txt").write_text("sample")
     (challenge_dir / "sample2.txt").write_text("sample")
 
 
 @section.level
 class SectionIntro(Level):
-    """Section 8 Introduction."""
-
     title = "Sekce 8: Přesměrování výstupu"
     instructions_file = "section8_intro.md"
     hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
@@ -147,8 +139,6 @@ class RedirectLsToFileLevel(Level):
 
     @override
     def setup(self, workspace: Path) -> None:
-        # Note: start_directory in this section historically points to `level-8/redirect`,
-        # but the actual work directories for these tasks are under `level-8/redirection`.
         level_dir = workspace / "level-8" / "redirection"
         level_dir.mkdir(parents=True, exist_ok=True)
 
@@ -226,6 +216,7 @@ class AppendWithRedirectLevel(Level):
         return False, "Soubor neobsahuje nový text."
 
 
+@section.level
 class ConcatenatePartsLevel(Level):
     title = "Spojování souborů"
     instructions = """\
@@ -280,6 +271,7 @@ class ConcatenatePartsLevel(Level):
         return False, "Soubor neobsahuje text z obou částí."
 
 
+@section.level
 class EchoCreateFileLevel(Level):
     title = "Vytvoření souboru s obsahem"
     instructions = """\
@@ -330,6 +322,7 @@ class EchoCreateFileLevel(Level):
         return False, f"Očekáváno 'Ahoj svete', nalezeno '{content}'."
 
 
+@section.level
 class PipeGrepAndCountLevel(Level):
     title = "Propojení příkazů (Pipes)"
     instructions = """\
@@ -372,6 +365,7 @@ class PipeGrepAndCountLevel(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class HeadTailFirstAndLastWordLevel(Level):
     title = "Začátek a konec souboru"
     instructions = """\
@@ -430,6 +424,7 @@ class HeadTailFirstAndLastWordLevel(Level):
         return False, f"Poslední slovo není '{last}'. Použijte 'tail -n 1 long_file.txt'."
 
 
+@section.level
 class WordAndLineCountLevel(Level):
     title = "Počítání (wc)"
     instructions = """\
@@ -489,6 +484,7 @@ class WordAndLineCountLevel(Level):
         return False, f"Počet slov není {words}. Použijte 'wc -w article.txt'."
 
 
+@section.level
 class SortUniqCountUniqueLevel(Level):
     title = "Řazení a odstranění duplicit"
     instructions = """\
@@ -533,6 +529,7 @@ class SortUniqCountUniqueLevel(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class SectionSummaryChallengeLevel(Level):
     title = "Souhrn Sekce 8"
     instructions = """\

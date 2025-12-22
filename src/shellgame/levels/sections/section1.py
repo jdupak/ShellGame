@@ -26,7 +26,6 @@ section = Section()
 
 
 def _setup_navigation_common(workspace: Path) -> None:
-    """Common setup for the navigation section."""
     level_dir = workspace / "level-1"
     level_dir.mkdir(exist_ok=True)
 
@@ -55,12 +54,11 @@ class Section1Intro(Level):
     title = "Navigace"
     instructions_file = "section1_intro.md"
     hints = ["Přečtěte si úvod a pokračujte příkazem 'shellgame submit'."]
-    start_directory = ""  # workspace root
+    start_directory = ""
     success_message = "Jdeme na to!"
 
     @override
     def setup(self, workspace: Path) -> None:
-        """No setup needed."""
         return
 
     @override
@@ -97,7 +95,6 @@ class PwdLevel(Level):
     expected_answer = "level-1"
 
     def setup(self, workspace: Path) -> None:
-        """Create level-1 directory."""
         _setup_navigation_common(workspace)
 
 
@@ -146,7 +143,6 @@ class LsLevel(Level):
 
     @override
     def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:  # noqa: PLR0911
-        """Validate with detailed pedagogical feedback for common mistakes."""
         # Use parent validation first (checks expected_answer, allow_cwd_as_answer)
         success, msg = super().validate(answer, state)
         if success:
@@ -232,7 +228,6 @@ class ExtensionLevel(Level):
 
     @override
     def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        # Parent validation handles required_cwd, expected_answer, and CommonMistakeValidator
         success, msg = super().validate(answer, state)
         if success:
             return True, msg
@@ -272,7 +267,6 @@ class CdUpLevel(Level):
     expected_answer = "level-1"
 
     def setup(self, workspace: Path) -> None:
-        """Structure already created."""
         _setup_navigation_common(workspace)
 
 
@@ -300,7 +294,6 @@ class DeepDiveLevel(Level):
     expected_answer = "c"
 
     def setup(self, workspace: Path) -> None:
-        """Create deep directory structure."""
         _setup_navigation_common(workspace)
         deep_path = workspace / "level-1" / "gamma" / "deep" / "a" / "b" / "c"
         deep_path.mkdir(parents=True, exist_ok=True)
@@ -331,7 +324,6 @@ class MultiLevelAscentLevel(Level):
     success_message = "Správně! Úspěšně jste vystoupali o 3 úrovně."
 
     def setup(self, workspace: Path) -> None:
-        """Structure already created in 1.5."""
         _setup_navigation_common(workspace)
         (workspace / "level-1" / "gamma" / "deep" / "a" / "b" / "c").mkdir(parents=True, exist_ok=True)
 
@@ -366,11 +358,9 @@ class MazeLevel(Level):
     success_message = "Správně! Prošli jste bludištěm."
 
     def setup(self, workspace: Path) -> None:
-        """Create the maze structure with instruction files."""
         _setup_navigation_common(workspace)
         maze_base = workspace / "level-1" / "maze"
 
-        # Create maze directories and instruction files.
         # The specification defines 00/ as the start, and 01/02/03/04 as *siblings*
         # of 00/ (i.e., all are direct children of maze/).
         maze_structure = {
@@ -477,7 +467,6 @@ class AbsoluteCdLevel(Level):
     success_message = "Správně! Dostali jste se sem absolutní cestou."
 
     def setup(self, workspace: Path) -> None:
-        """Create absolute-target directory."""
         _setup_navigation_common(workspace)
         target_dir = workspace / "level-1" / "absolute-target"
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -536,7 +525,6 @@ class HomeWalkLevel(Level):
 
     @override
     def setup(self, workspace: Path) -> None:
-        """No specific setup needed."""
         return
 
     @override
@@ -643,7 +631,6 @@ class HomeCheckLevel(Level):
 
     @override
     def setup(self, workspace: Path) -> None:
-        """No specific setup needed."""
         return
 
     @override
@@ -679,7 +666,6 @@ class StructureLevel(Level):
 
     @override
     def setup(self, workspace: Path) -> None:
-        """Structure already exists."""
         _setup_navigation_common(workspace)
         # Ensure all directories for this level exist
         (workspace / "level-1" / "absolute-target").mkdir(parents=True, exist_ok=True)
@@ -742,15 +728,12 @@ class SummaryLevel(Level):
 
     @override
     def setup(self, workspace: Path) -> None:
-        """Structure already created in 1.5."""
         _setup_navigation_common(workspace)
         # Ensure deep structure exists
         (workspace / "level-1" / "gamma" / "deep" / "a" / "b" / "c").mkdir(parents=True, exist_ok=True)
 
     @override
     def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        """Validate user completed the challenge."""
-        # Parent validation handles expected_answer, allow_cwd_as_answer and CommonMistakeValidator
         success, msg = super().validate(answer, state)
         if success:
             return True, msg
@@ -767,5 +750,4 @@ class SummaryLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    """Return all levels for this section."""
     return section.levels

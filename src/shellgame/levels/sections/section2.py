@@ -20,7 +20,6 @@ section = Section()
 
 
 def _setup_file_interaction_common(workspace: Path) -> None:
-    """Common setup for the file-interaction section."""
     (workspace / "level-2").mkdir(parents=True, exist_ok=True)
 
 
@@ -470,5 +469,4 @@ class Level2_8(HelpDiscoveryLevel):
 
 
 def get_levels() -> list[Level]:
-    """Return all Section 2 level instances."""
     return section.levels

@@ -16,7 +16,6 @@ section = Section()
 
 
 def _ensure_section_dir(workspace: Path) -> Path:
-    """Ensure `level-5/` exists and return it."""
     section_dir = workspace / "level-5"
     section_dir.mkdir(parents=True, exist_ok=True)
     return section_dir

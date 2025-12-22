@@ -21,7 +21,6 @@ section = Section()
 
 
 def _setup_section4_common(workspace: Path) -> None:
-    """Ensure the section workspace root exists."""
     (workspace / "level-4").mkdir(parents=True, exist_ok=True)
 
 
@@ -456,5 +455,4 @@ class Level4_8(SectionChallengeLevel):
 
 
 def get_levels() -> list[Level]:
-    """Return all Section 4 level instances."""
     return section.levels

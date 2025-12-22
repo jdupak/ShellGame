@@ -74,7 +74,6 @@ class BackupImportantFileLevel(Level):
 
         (level_dir / "dulezite.txt").write_text("Very important data.")
 
-        # Clean up previous attempts
         bak = level_dir / "dulezite.bak"
         if bak.exists():
             bak.unlink()
@@ -108,7 +107,6 @@ class BackupProjectDirectoryLevel(Level):
         level_dir = workspace / "level-6" / "copying"
         level_dir.mkdir(parents=True, exist_ok=True)
 
-        # Clean up previous attempts
         dst = level_dir / "projekt_zaloha"
         if dst.exists():
             shutil.rmtree(dst)
@@ -150,7 +148,6 @@ class RenameFileLevel(Level):
         level_dir = workspace / "level-6" / "moving"
         level_dir.mkdir(parents=True, exist_ok=True)
 
-        # Reset state
         correct = level_dir / "spravne_jmeno.txt"
         if correct.exists():
             correct.unlink()
@@ -228,7 +225,6 @@ class RenameDirectoryLevel(Level):
         level_dir = workspace / "level-6" / "renaming"
         level_dir.mkdir(parents=True, exist_ok=True)
 
-        # Reset state
         dst = level_dir / "data"
         if dst.exists():
             shutil.rmtree(dst)
@@ -277,7 +273,6 @@ class OrganizeLogsLevel(Level):
         level_dir = workspace / "level-6" / "organize"
         level_dir.mkdir(parents=True, exist_ok=True)
 
-        # Reset state
         logs_dir = level_dir / "logs"
         if logs_dir.exists():
             shutil.rmtree(logs_dir)
@@ -349,19 +344,16 @@ class FileOrganizerChallengeLevel(Level):
 
         test_dir = state.workspace / "level-6" / "final_test"
 
-        # Check copy (original must still exist + copy in backup)
         if not (test_dir / "original.txt").exists():
             return False, "Smazali jste original.txt! Měli jste ho zkopírovat, ne přesunout."
         if not (test_dir / "backup" / "original.txt").exists():
             return False, "Chybí kopie v backup/. Použijte 'cp original.txt backup/'."
 
-        # Check rename
         if (test_dir / "temp_data.csv").exists():
             return False, "temp_data.csv stále existuje. Přejmenujte ho na data.csv pomocí 'mv'."
         if not (test_dir / "data.csv").exists():
             return False, "Chybí data.csv. Přejmenujte temp_data.csv pomocí 'mv temp_data.csv data.csv'."
 
-        # Check move
         if (test_dir / "misplaced.log").exists():
             return False, "misplaced.log stále v hlavní složce. Přesuňte do logs/ pomocí 'mv'."
         if not (test_dir / "logs" / "misplaced.log").exists():

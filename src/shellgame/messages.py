@@ -8,20 +8,15 @@ All user-facing Czech messages should be defined here for:
 
 
 class Messages:
-    """Centralized Czech message strings."""
-
-    # === Answer validation ===
     ANSWER_REQUIRED = "Musíte zadat odpověď: shellgame submit <odpověď>"
     ANSWER_REQUIRED_NAME = "Musíte zadat název."
     ANSWER_REQUIRED_NUMBER = "Musíte zadat číslo."
     ANSWER_REQUIRED_LIST = "Musíte zadat seznam."
     ANSWER_REQUIRED_FILE = "Musíte zadat název souboru."
 
-    # === Directory validation ===
     WRONG_DIRECTORY = "Jste v '{actual}', ale měli byste být v '{expected}'."
     NOT_IN_DIRECTORY = "Nejdřív musíte být v adresáři '{expected}'. Použijte: cd {expected}"
 
-    # === File/Directory existence ===
     FILE_EXISTS = "Soubor '{path}' existuje!"
     FILE_NOT_EXISTS = "Soubor '{path}' neexistuje"
     FILE_STILL_EXISTS = "Soubor '{path}' stále existuje"
@@ -29,14 +24,12 @@ class Messages:
     DIR_NOT_EXISTS = "Adresář '{path}' neexistuje"
     DIR_STILL_EXISTS = "Adresář '{path}' stále existuje"
 
-    # === File operations ===
     FILE_CONTENT_CORRECT = "Obsah souboru je správný!"
     FILE_CONTENT_MISMATCH = "Obsah souboru neodpovídá očekávání"
     FILE_READ_ERROR = "Nelze přečíst soubor: {error}"
     FILE_TYPE_ERROR = "Příkaz 'file' není dostupný."
     FILE_TYPE_MISMATCH = "Tento soubor není '{expected}', je to '{actual}'."
 
-    # === Copy/Move validation ===
     COPY_SUCCESS = "Správně zkopírováno!"
     COPY_SOURCE_MISSING = "Zdrojový soubor '{path}' chybí (možná jste ho přesunuli místo zkopírování?)."
     COPY_DEST_MISSING = "Cílový soubor '{path}' neexistuje."
@@ -45,17 +38,14 @@ class Messages:
     MOVE_SOURCE_EXISTS = "Původní soubor '{path}' stále existuje (možná jste ho zkopírovali místo přesunutí?)."
     MOVE_DEST_MISSING = "Cílový soubor '{path}' neexistuje."
 
-    # === Permissions ===
     PERMISSION_CORRECT = "Správně nastavená oprávnění!"
     PERMISSION_MISMATCH = "Očekáváno {expected}, nastaveno {actual}."
     EXECUTABLE_SUCCESS = "Soubor je spustitelný!"
     EXECUTABLE_FAIL = "Soubor není spustitelný."
 
-    # === Marker validation ===
     MARKER_NOT_FOUND = "Zatím to nevypadá, že jste použili požadovaný příkaz."
     UNKNOWN_USER = "Chyba: Neznámý uživatel."
 
-    # === Generic success/failure ===
     CORRECT = "Správně!"
     INCORRECT = "Nesprávně."
     ALL_CHECKS_PASSED = "Všechny kontroly proběhly úspěšně!"
@@ -63,27 +53,22 @@ class Messages:
     EXPECTED_GOT_INT = "Očekáváno {expected}, obdrženo {actual}"
     EXPECTED_INTEGER = "Očekáváno celé číslo"
 
-    # === Level-specific messages ===
     LEVEL_COMPLETED = "Level dokončen."
     GAME_COMPLETED = "🎉 Gratulujeme! Dokončili jste všechny levely!"
     SECTION_COMPLETED = "🎉 Výborně! Dokončili jste sekci."
 
-    # === Navigation messages ===
     TELEPORT = "Teleport"
     TELEPORT_NOTICE = "Pozor, byli jste teleportováni z {src} na {dest}"
     TELEPORT_OUTSIDE_WORKSPACE = "Teleport (mimo workspace)"
 
-    # === Init/Status messages ===
     NOT_INITIALIZED = "ShellGame není inicializován. Spusťte 'shellgame init'."
     ALREADY_INITIALIZED = "ShellGame je již inicializován."
     WORKSPACE_RESTORED = "Pracovní prostor obnoven: {path}"
     WORKSPACE_DELETED_WARNING = "⚠ Pracovní prostor byl smazán (např. restart systému). Obnovuji..."
     LEVEL_NOT_FOUND = "Chyba: Level {level_id} nenalezen"
 
-    # === Hint messages ===
     NO_MORE_HINTS = "Žádné další nápovědy nejsou k dispozici."
 
-    # === Level 1 specific ===
     L1_1_USE_PWD_FIRST = (
         "Nejdřív prosím použijte `pwd` (ShellGame sleduje použití příkazu) a pak odpověď odevzdejte znovu."
     )
@@ -111,37 +96,24 @@ class Messages:
 
     @classmethod
     def format(cls, message: str, **kwargs: object) -> str:
-        """Format a message with the given keyword arguments.
-
-        Args:
-            message: Message string with {placeholders}
-            **kwargs: Values to substitute
-
-        Returns:
-            Formatted message string
-        """
         return message.format(**kwargs)
 
     @classmethod
     def wrong_directory(cls, actual: str, expected: str) -> str:
-        """Format wrong directory message."""
         return cls.WRONG_DIRECTORY.format(actual=actual, expected=expected)
 
     @classmethod
     def expected_got(cls, expected: str, actual: str) -> str:
-        """Format expected/got message."""
         return cls.EXPECTED_GOT.format(expected=expected, actual=actual)
 
     @classmethod
     def file_exists(cls, path: str, exists: bool = True) -> str:
-        """Get appropriate file existence message."""
         if exists:
             return cls.FILE_EXISTS.format(path=path)
         return cls.FILE_NOT_EXISTS.format(path=path)
 
     @classmethod
     def dir_exists(cls, path: str, exists: bool = True) -> str:
-        """Get appropriate directory existence message."""
         if exists:
             return cls.DIR_EXISTS.format(path=path)
         return cls.DIR_NOT_EXISTS.format(path=path)

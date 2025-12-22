@@ -17,8 +17,6 @@ from shellgame.workspace.builder import WorkspaceManager
 
 
 class GameServices:
-    """Container for game services."""
-
     def __init__(self) -> None:
         self.console = Console()
         self.state_manager = StateManager()
@@ -26,10 +24,8 @@ class GameServices:
         self.display = Display(self.console)
         self.shell_client = ShellClient()
 
-        # Ensure levels are loaded
         initialize_levels()
 
     def get_workspace_manager_factory(self) -> Callable[[str], WorkspaceManager]:
-        """Get a factory function for creating WorkspaceManagers."""
         return WorkspaceManager
 

@@ -1,5 +1,3 @@
-"""Entry point for ShellGame CLI."""
-
 import sys
 
 from shellgame.cli.commands import cli

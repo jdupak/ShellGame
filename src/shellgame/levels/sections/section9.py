@@ -1,5 +1,3 @@
-"""Section 9: Error Streams."""
-
 from __future__ import annotations
 
 import shutil
@@ -19,17 +17,10 @@ section = Section()
 @section.level
 class SectionIntro(Level):
     title = "Sekce 9: Chybové výstupy"
-    instructions_file = "section9_intro.md"
-    hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
-    success_message = "Jdeme na to!"
 
     @override
     def setup(self, workspace: Path) -> None:
-        return
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
+        pass
 
 
 @section.level

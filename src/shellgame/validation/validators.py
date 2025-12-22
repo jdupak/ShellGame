@@ -20,10 +20,8 @@ from shellgame.markers import MarkerManager
 from shellgame.messages import Messages
 from shellgame.protocols import GameStateProtocol
 
-# Type alias for validation results
 ValidationResult = tuple[bool, str]
 
-# Type alias for state parameter (can be GameStateProtocol or raw Path)
 StateOrPath = Union[GameStateProtocol, Path]
 
 
@@ -33,45 +31,20 @@ class _HasWorkspace(Protocol):
 
 
 def _get_workspace_path(state: GameStateProtocol | Path) -> Path:
-    """Resolve workspace path from a GameState-like object or a raw Path.
-
-    Why: some call sites/tests pass `state.workspace`, while others pass a bare
-    `Path` (e.g., `tmp_path`). This function normalizes both shapes in a way
-    that is friendly to mypy.
-    """
     if isinstance(state, Path):
         return state
     if isinstance(state, _HasWorkspace):
         return state.workspace
 
-    # If we got here, we have neither a Path nor an object with `.workspace`.
-    # Don't attempt to coerce arbitrary objects to Path (mypy will reject it).
     raise TypeError(f"Expected Path or object with `.workspace`, got: {type(state)!r}")
 
 
 class Validator:
-    """Base validator class.
-
-    All validators should inherit from this class and implement
-    the validate() method.
-    """
-
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Validate an answer.
-
-        Args:
-            answer: User's answer (can be None)
-            state: Game state object (has .workspace) or raw Path to workspace
-
-        Returns:
-            Tuple of (success, message)
-        """
         raise NotImplementedError
 
 
 class AnswerRequiredValidator(Validator):
-    """Validates that an answer is provided."""
-
     def __init__(self, message: str = Messages.ANSWER_REQUIRED):
         self.message = message
 
@@ -82,27 +55,17 @@ class AnswerRequiredValidator(Validator):
 
 
 class StringValidator(Validator):
-    """Validates exact string match."""
-
     def __init__(
         self,
         expected: str,
         case_sensitive: bool = True,
         error_message: Optional[str] = None,
     ):
-        """Initialize string validator.
-
-        Args:
-            expected: Expected answer
-            case_sensitive: Whether comparison is case-sensitive
-            error_message: Custom error message (optional)
-        """
         self.expected = expected
         self.case_sensitive = case_sensitive
         self.error_message = error_message
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Validate string match."""
         if answer is None:
             return False, Messages.ANSWER_REQUIRED
 
@@ -122,18 +85,10 @@ class StringValidator(Validator):
 
 
 class IntegerValidator(Validator):
-    """Validates integer answer."""
-
     def __init__(self, expected: int):
-        """Initialize integer validator.
-
-        Args:
-            expected: Expected integer value
-        """
         self.expected = expected
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Validate integer match."""
         if answer is None:
             return False, Messages.ANSWER_REQUIRED_NUMBER
 
@@ -148,27 +103,17 @@ class IntegerValidator(Validator):
 
 
 class BasenameValidator(Validator):
-    """Validates directory or file basename."""
-
     def __init__(
         self,
         expected: str,
         strip_ext: bool = False,
         error_message: Optional[str] = None,
     ):
-        """Initialize basename validator.
-
-        Args:
-            expected: Expected basename
-            strip_ext: Whether to strip file extension before comparing
-            error_message: Custom error message (optional)
-        """
         self.expected = expected
         self.strip_ext = strip_ext
         self.error_message = error_message
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Validate basename match."""
         if answer is None:
             return False, Messages.ANSWER_REQUIRED_NAME
 
@@ -186,20 +131,11 @@ class BasenameValidator(Validator):
 
 
 class FileExistsValidator(Validator):
-    """Validates file existence in workspace."""
-
     def __init__(self, relative_path: str, should_exist: bool = True):
-        """Initialize file existence validator.
-
-        Args:
-            relative_path: Path relative to workspace
-            should_exist: Whether file should exist (True) or not exist (False)
-        """
         self.relative_path = relative_path
         self.should_exist = should_exist
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Validate file existence."""
         workspace = _get_workspace_path(state)
         file_path = workspace / self.relative_path
         exists = file_path.exists() and file_path.is_file()
@@ -215,20 +151,11 @@ class FileExistsValidator(Validator):
 
 
 class DirectoryExistsValidator(Validator):
-    """Validates directory existence in workspace."""
-
     def __init__(self, relative_path: str, should_exist: bool = True):
-        """Initialize directory existence validator.
-
-        Args:
-            relative_path: Path relative to workspace
-            should_exist: Whether directory should exist (True) or not (False)
-        """
         self.relative_path = relative_path
         self.should_exist = should_exist
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Validate directory existence."""
         workspace = _get_workspace_path(state)
         dir_path = workspace / self.relative_path
         exists = dir_path.exists() and dir_path.is_dir()
@@ -244,20 +171,11 @@ class DirectoryExistsValidator(Validator):
 
 
 class FileContentValidator(Validator):
-    """Validates file content matches expected value."""
-
     def __init__(self, file_path: str, expected_content: str):
-        """Initialize file content validator.
-
-        Args:
-            file_path: Path to file relative to workspace
-            expected_content: Expected file content
-        """
         self.file_path = file_path
         self.expected_content = expected_content
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Validate file content."""
         workspace = _get_workspace_path(state)
         full_path = workspace / self.file_path
 
@@ -275,47 +193,25 @@ class FileContentValidator(Validator):
 
 
 class MultiValidator(Validator):
-    """Combines multiple validators with AND logic."""
-
     def __init__(self, validators: Sequence[Validator]):
-        """Initialize multi-validator.
-
-        Args:
-            validators: Sequence of Validator instances
-        """
         self.validators = validators
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Validate with all validators."""
         for validator in self.validators:
             success, message = validator.validate(answer, state)
             if not success:
                 return False, message
         return True, Messages.CORRECT
-        return True, Messages.ALL_CHECKS_PASSED
-
-
 class OrderedListValidator(Validator):
-    """Validates an ordered list of strings."""
-
     def __init__(self, expected: list[str], case_sensitive: bool = True):
-        """Initialize ordered list validator.
-
-        Args:
-            expected: List of expected strings
-            case_sensitive: Whether comparison is case-sensitive
-        """
         self.expected = expected
         self.case_sensitive = case_sensitive
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Validate ordered list match."""
         if answer is None:
             return False, Messages.ANSWER_REQUIRED_LIST
 
-        # Split by comma and strip whitespace from each item
         items = [item.strip() for item in answer.split(",")]
-        # Remove empty strings if any (e.g. trailing comma)
         items = [item for item in items if item]
 
         expected = self.expected
@@ -330,20 +226,11 @@ class OrderedListValidator(Validator):
 
 
 class FileTypeValidator(Validator):
-    """Validates file type using 'file' command output."""
-
     def __init__(self, file_path: str, expected_type: str):
-        """Initialize file type validator.
-
-        Args:
-            file_path: Path to file relative to workspace
-            expected_type: Expected string in 'file' command output (e.g. "ASCII text")
-        """
         self.file_path = file_path
         self.expected_type = expected_type
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Validate file type."""
         if answer is None:
             return False, Messages.ANSWER_REQUIRED_FILE
 
@@ -372,20 +259,11 @@ class FileTypeValidator(Validator):
 
 
 class CopyValidator(Validator):
-    """Validates file copy operation."""
-
     def __init__(self, source_path: str, dest_path: str):
-        """Initialize copy validator.
-
-        Args:
-            source_path: Path to source file (relative to workspace)
-            dest_path: Path to destination file (relative to workspace)
-        """
         self.source_path = source_path
         self.dest_path = dest_path
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Validate copy."""
         workspace = _get_workspace_path(state)
         source = workspace / self.source_path
         dest = workspace / self.dest_path
@@ -396,7 +274,6 @@ class CopyValidator(Validator):
         if not dest.exists():
             return False, Messages.COPY_DEST_MISSING.format(path=self.dest_path)
 
-        # Check content matches
         try:
             if not source.is_dir() and source.read_bytes() != dest.read_bytes():
                 return False, Messages.COPY_CONTENT_MISMATCH
@@ -407,20 +284,11 @@ class CopyValidator(Validator):
 
 
 class MoveValidator(Validator):
-    """Validates move/rename operation."""
-
     def __init__(self, source_path: str, dest_path: str):
-        """Initialize move validator.
-
-        Args:
-            source_path: Original path (should not exist anymore)
-            dest_path: New path (should exist)
-        """
         self.source_path = source_path
         self.dest_path = dest_path
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Validate move."""
         workspace = _get_workspace_path(state)
         source = workspace / self.source_path
         dest = workspace / self.dest_path
@@ -435,20 +303,11 @@ class MoveValidator(Validator):
 
 
 class PermissionValidator(Validator):
-    """Validates file permissions."""
-
     def __init__(self, file_path: str, expected_mode: str):
-        """Initialize permission validator.
-
-        Args:
-            file_path: Path to file relative to workspace
-            expected_mode: Expected mode string (e.g. "rwxr-xr-x") OR octal (e.g. "755")
-        """
         self.file_path = file_path
         self.expected_mode = expected_mode
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Validate permissions."""
         workspace = _get_workspace_path(state)
         target = workspace / self.file_path
 
@@ -459,14 +318,12 @@ class PermissionValidator(Validator):
         mode_str = stat.filemode(mode)
         mode_octal = oct(mode)[-3:]
 
-        # If expected is octal
         if self.expected_mode.isdigit():
             if mode_octal == self.expected_mode:
                 return True, Messages.PERMISSION_CORRECT
             return False, Messages.PERMISSION_MISMATCH.format(expected=self.expected_mode, actual=mode_octal)
 
-        # If expected is string (e.g. rwxr-xr-x)
-        current_perms = mode_str[1:]  # Skip type char
+        current_perms = mode_str[1:]
 
         if self.expected_mode == current_perms:
             return True, Messages.PERMISSION_CORRECT
@@ -474,8 +331,6 @@ class PermissionValidator(Validator):
 
 
 class ExecutableValidator(Validator):
-    """Validates if file is executable by user."""
-
     def __init__(self, file_path: str):
         self.file_path = file_path
 
@@ -492,21 +347,12 @@ class ExecutableValidator(Validator):
 
 
 class CurrentDirectoryValidator(Validator):
-    """Validates that the user is in a specific directory."""
-
     def __init__(
         self,
         expected_name: str,
         success_message: Optional[str] = None,
         error_message: Optional[str] = None,
     ):
-        """Initialize current directory validator.
-
-        Args:
-            expected_name: Expected directory basename
-            success_message: Custom success message (optional)
-            error_message: Custom error message (optional)
-        """
         self.expected_name = expected_name
         self.success_message = success_message
         self.error_message = error_message
@@ -523,15 +369,7 @@ class CurrentDirectoryValidator(Validator):
 
 
 class MarkerValidator(Validator):
-    """Validates that a marker file exists (created by shell wrapper)."""
-
     def __init__(self, marker_name: str, error_message: str):
-        """Initialize marker validator.
-
-        Args:
-            marker_name: Name of the marker file (without leading dot)
-            error_message: Error message if marker doesn't exist
-        """
         self.marker_name = marker_name
         self.error_message = error_message
 
@@ -547,15 +385,7 @@ class MarkerValidator(Validator):
 
 
 class CommonMistakeValidator(Validator):
-    """Checks for common mistakes and provides specific feedback."""
-
     def __init__(self, mistakes: dict[Union[str, tuple[str, ...]], str]):
-        """Initialize common mistake validator.
-
-        Args:
-            mistakes: Dictionary mapping wrong answer (or tuple of wrong answers)
-                     to feedback message.
-        """
         self.mistakes = {}
         for key, msg in mistakes.items():
             if isinstance(key, tuple):
@@ -565,25 +395,16 @@ class CommonMistakeValidator(Validator):
                 self.mistakes[key] = msg
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Check if answer matches a known mistake."""
         if answer and answer.strip() in self.mistakes:
             return False, self.mistakes[answer.strip()]
         return True, ""
 
 
 class HomeDirectoryValidator(Validator):
-    """Validates that user is in home directory and optionally checks basename."""
-
     def __init__(self, check_basename: bool = True):
-        """Initialize home directory validator.
-
-        Args:
-            check_basename: If True, also validates that answer matches home dir name.
-        """
         self.check_basename = check_basename
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        """Validate home directory location."""
         home = Path.home()
         current = Path.cwd()
 
@@ -598,30 +419,17 @@ class HomeDirectoryValidator(Validator):
         return True, "Správně! Jste doma."
 
 
-# === Composite Validators for Common Patterns ===
-
-
 class DirectoryAndAnswerValidator(Validator):
-    """Validates user is in correct directory OR submits correct answer."""
-
     def __init__(self, expected_dirname: str, success_message: str = Messages.CORRECT):
-        """Initialize validator.
-
-        Args:
-            expected_dirname: Expected directory basename
-            success_message: Message on success
-        """
         self.expected_dirname = expected_dirname
         self.success_message = success_message
 
     def validate(self, answer: Optional[str], state: StateOrPath) -> ValidationResult:
-        # If no answer provided, check current directory
         if answer is None:
             if Path.cwd().name == self.expected_dirname:
                 return True, self.success_message
             return False, Messages.wrong_directory(Path.cwd().name, self.expected_dirname)
 
-        # Check answer
         if answer.strip() == self.expected_dirname:
             return True, self.success_message
         return False, Messages.expected_got(self.expected_dirname, answer.strip())

@@ -3,14 +3,6 @@
 This module should be a thin Click parsing layer.
 Core gameplay orchestration lives in `shellgame.core.session.GameSession`.
 
-IMPORTANT:
-A few UX policies are still expressed at the Click-layer (e.g. confirmation prompts)
-so that we don't accidentally remove safety rails while keeping the business logic
-out of Click.
-
-Hard UX rule: Teleport notice helper must remain in this module:
-`_teleport_notice(destination: Path)`.
-
 Shell override:
 - You can force which subshell ShellGame launches with `--shell bash|fish`.
 - Useful when auto-detection is wrong (nested shells / wrappers like `uv` / `make`).
@@ -32,7 +24,6 @@ from shellgame.shell.client import ShellClient
 from shellgame.state.manager import StateManager
 from shellgame.ui.display import Display
 
-# Initialize services
 services = GameServices()
 console = services.console
 state_manager = services.state_manager
@@ -42,26 +33,12 @@ shell_client = services.shell_client
 
 
 def _teleport_notice(destination: Path) -> None:
-    """Print the standard teleport notice.
-
-    UX rules (must not change):
-    - Show only if cwd actually changed (caller responsibility)
-    - Message in yellow
-    - Destination path in violet
-    - No “from -> to”
-    - No “reason” text
-    """
     console.print(
         f"[yellow] Byli jste [bold]teleportováni[/bold] do adresáře [violet]{destination}[/violet][/yellow]\n"
     )
 
 
 def _get_session() -> GameSession:
-    """Create a session using module singletons.
-
-    Tests monkeypatch `display`, `level_registry`, and `state_manager` in this module.
-    Creating the session lazily ensures those patches are respected.
-    """
     return GameSession(
         console=console,
         display=display,
@@ -74,10 +51,7 @@ def _get_session() -> GameSession:
 
 
 class CzechGroup(click.Group):
-    """Custom Click Group to translate help headers to Czech."""
-
     def get_help(self, ctx: click.Context) -> str:
-        """Override get_help to translate headers."""
         help_text = super().get_help(ctx)
         replacements = {
             "Usage:": "Použití:",
@@ -90,22 +64,7 @@ class CzechGroup(click.Group):
         return help_text
 
 
-# NOTE:
-# Shell integration helpers were consolidated into `shellgame.cli.subshell`.
-# Core boot behavior (including subshell launch decision) is orchestrated by GameSession.
-
-
 def get_level_start_directory(level_id: str, workspace: Path) -> Optional[Path]:
-    """
-    Get the starting directory for a level.
-
-    Args:
-        level_id: Level identifier (e.g., "1.3")
-        workspace: Workspace root path
-
-    Returns:
-        Starting directory path or None if level starts in current location
-    """
     level = level_registry.get(level_id)
     if level:
         return level.get_start_directory(workspace)
@@ -124,13 +83,11 @@ def get_level_start_directory(level_id: str, workspace: Path) -> Optional[Path]:
 @click.pass_context
 def cli(ctx: click.Context, devmode: bool, forced_shell: Optional[str]) -> None:
     """ShellGame - Interaktivní výuka navigace v terminálu."""
-    # Store devmode in context object
     ctx.ensure_object(dict)
     ctx.obj["devmode"] = devmode
 
     wrapped = bool(os.environ.get("SHELLGAME_WRAPPER"))
 
-    # Optional override for subshell selection (useful under wrappers / nested shells).
     if forced_shell:
         os.environ["SHELLGAME_FORCE_SHELL"] = forced_shell.lower()
 
@@ -170,7 +127,6 @@ def hint(repeat: bool) -> None:
 @click.pass_context
 def submit(ctx: click.Context, answer: Optional[str] = None) -> None:
     """Odeslat odpověď pro aktuální level."""
-    # Keep Click parsing here; core submit logic is in GameSession (including auto-advance for .0)
     _get_session().submit(answer)
 
 
@@ -224,7 +180,6 @@ def show(section: bool, level: bool) -> None:
         display.show_not_initialized()
         return
 
-    # Exactly one mode must be selected.
     if (1 if section else 0) + (1 if level else 0) != 1:
         console.print("[yellow]Použití: shellgame show --level  nebo  shellgame show --section[/yellow]\n")
         return
@@ -232,10 +187,9 @@ def show(section: bool, level: bool) -> None:
     if level:
         target_id = state.current_level
     else:
-        # Section intro is always X.0 based on the current level.
         try:
             section_prefix = state.current_level.split(".", 1)[0]
-            int(section_prefix)  # sanity check
+            int(section_prefix)
             target_id = f"{section_prefix}.0"
         except Exception:
             console.print(f"[red]Chyba: Neplatný formát aktuálního levelu: {state.current_level}[/red]\n")
@@ -265,20 +219,17 @@ def exit() -> None:
 
 @cli.group(hidden=True)
 def dev() -> None:
-    """Developer tools."""
     pass
 
 
 @dev.command(name="jump")
 @click.argument("level_id")
 def dev_jump(level_id: str) -> None:
-    """Přejít na konkrétní level (Dev only)."""
     _get_session().dev_jump_to(level_id)
 
 
 @dev.command(name="next")
 def dev_next() -> None:
-    """Přejít na další level (Dev only)."""
     state = state_manager.load()
     if not state:
         display.show_not_initialized()
@@ -294,13 +245,11 @@ def dev_next() -> None:
 
 @dev.command(name="prev")
 def dev_prev() -> None:
-    """Přejít na předchozí level (Dev only)."""
     state = state_manager.load()
     if not state:
         display.show_not_initialized()
         return
 
-    # This is inefficient but simple: iterate to find prev
     levels = level_registry.list_levels()
     prev_id = None
     for lvl in levels:
@@ -317,7 +266,6 @@ def dev_prev() -> None:
 
 @dev.command(name="reload")
 def dev_reload() -> None:
-    """Znovu načíst aktuální level (Dev only)."""
     state = state_manager.load()
     if not state:
         display.show_not_initialized()
@@ -328,7 +276,6 @@ def dev_reload() -> None:
         console.print(f"[red]Chyba: Level {state.current_level} nenalezen[/red]\n")
         return
 
-    # Reset and show instructions again (no direct shell integration here).
     level.reset(state.workspace)
     display.wait_for_continue()
     display.show_instructions(level)
@@ -337,7 +284,6 @@ def dev_reload() -> None:
 
 @dev.command(name="start")
 def dev_start() -> None:
-    """Jump to the first level (Dev only)."""
     levels = level_registry.list_levels()
     if not levels:
         console.print("[red]No levels registered[/red]")
@@ -353,26 +299,16 @@ def dev_start() -> None:
 @click.argument("arg2", required=False)
 @click.option("--post-move", is_flag=True)
 def cd_hook(arg1: Optional[str], arg2: Optional[str], post_move: bool) -> None:
-    """Internal hook called by shell integration on directory change.
-
-    Args mapping depends on mode:
-    - Pre-move:  arg1=target, arg2=current_pwd
-    - Post-move: arg1=new_pwd, arg2=None
-    """
     if post_move:
-        # shellgame cd-hook --post-move "$PWD"
         target = None
         pwd = arg1
     else:
-        # shellgame cd-hook "$1" "$PWD"
         target = arg1
         pwd = arg2
 
-    # Delegate to session
     try:
         _get_session().handle_cd_hook(target=target, pwd=pwd, post_move=post_move)
     except SystemExit:
         raise
     except Exception:
-        # Fail silently in hook to avoid breaking shell navigation
         pass

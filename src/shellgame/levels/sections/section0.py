@@ -16,8 +16,6 @@ section = Section()
 
 @section.level
 class IntroLevel(Level):
-    """Introduction - How to play."""
-
     title = "Vítejte v ShellGame"
     instructions_file = "section0_intro.md"
     hints = ["Přečtěte si instrukce a pokračujte příkazem 'shellgame submit'."]
@@ -25,25 +23,16 @@ class IntroLevel(Level):
 
     @override
     def setup(self, workspace: Path) -> None:
-        """No setup needed for intro."""
         pass
 
     @override
     def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        """
-        Always valid, just moving to next level.
-
-        Note: This still goes through the base validation (if any declarative checks
-        are added later), but always succeeds afterwards.
-        """
         super().validate(answer, state)
         return True, "Vítejte ve hře!"
 
 
 @section.level
 class WarmupPasswordLevel(Level):
-    """Warmup task: submit the password."""
-
     title = "Zahřívací kolo"
     instructions = """
         ### Zahřívací kolo
@@ -65,7 +54,6 @@ class WarmupPasswordLevel(Level):
 
     @override
     def setup(self, workspace: Path) -> None:
-        """No setup needed."""
         pass
 
 

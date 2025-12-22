@@ -1,5 +1,3 @@
-"""Unit tests for state management."""
-
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -7,10 +5,7 @@ from shellgame.state.manager import GameState, LevelCompletion, StateManager
 
 
 class TestGameState:
-    """Test GameState model."""
-
     def test_create_state(self) -> None:
-        """Test creating a new game state."""
         workspace = Path("/tmp/test-workspace")
         state = GameState(
             username="testuser",
@@ -31,7 +26,6 @@ class TestGameState:
         assert state.levels_complete == {}
 
     def test_level_completion(self) -> None:
-        """Test adding level completion."""
         state = GameState(
             username="testuser",
             workspace=Path("/tmp/test"),
@@ -47,10 +41,7 @@ class TestGameState:
 
 
 class TestStateManager:
-    """Test StateManager."""
-
     def test_init_state(self, tmp_path: Path) -> None:
-        """Test initializing a new state."""
         manager = StateManager()
         manager.state_dir = tmp_path
         manager.state_file = tmp_path / "state.json"
@@ -65,7 +56,6 @@ class TestStateManager:
         assert state.current_level in state.level_started_at
 
     def test_save_and_load(self, tmp_path: Path) -> None:
-        """Test saving and loading state."""
         manager = StateManager()
         manager.state_dir = tmp_path
         manager.state_file = tmp_path / "state.json"
@@ -83,7 +73,6 @@ class TestStateManager:
         assert loaded.current_level == "2.3"
 
     def test_load_nonexistent(self, tmp_path: Path) -> None:
-        """Test loading when no state exists."""
         manager = StateManager()
         manager.state_dir = tmp_path
         manager.state_file = tmp_path / "nonexistent.json"
@@ -92,7 +81,6 @@ class TestStateManager:
         assert state is None
 
     def test_delete_state(self, tmp_path: Path) -> None:
-        """Test deleting state."""
         manager = StateManager()
         manager.state_dir = tmp_path
         manager.state_file = tmp_path / "state.json"
@@ -104,7 +92,6 @@ class TestStateManager:
         assert not manager.state_file.exists()
 
     def test_exists(self, tmp_path: Path) -> None:
-        """Test exists check."""
         manager = StateManager()
         manager.state_dir = tmp_path
         manager.state_file = tmp_path / "state.json"

@@ -19,14 +19,11 @@ section = Section()
 
 
 def _setup_level3_common(workspace: Path) -> None:
-    """Common setup for Section 3 levels."""
     level_dir = workspace / "level-3"
     level_dir.mkdir(parents=True, exist_ok=True)
 
 
 class SectionIntroLevel(Level):
-    """Section intro (.0)."""
-
     title = "Sekce 3: Skryté soubory"
     instructions_file = "section3_intro.md"
     hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
@@ -358,7 +355,6 @@ class SelfReflectionCheckpointLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    """Return all Section 3 level instances."""
     return [
         SectionIntroLevel(),
         HiddenDirCountLevel(),

@@ -61,11 +61,9 @@ class FindExecutableLevel(Level):
         level_dir = workspace / "level-7" / "executables"
         level_dir.mkdir(parents=True, exist_ok=True)
 
-        # Non-executable scripts
         (level_dir / "test.sh").write_text("#!/bin/bash")
         (level_dir / "data.sh").write_text("#!/bin/bash")
 
-        # Executable script
         target = level_dir / "script.sh"
         target.write_text("#!/bin/bash\necho Hi")
         target.chmod(target.stat().st_mode | stat.S_IEXEC)
@@ -113,7 +111,7 @@ class MakeExecutableLevel(Level):
 
         target = level_dir / "run_me.sh"
         target.write_text("#!/bin/bash\necho Run me")
-        target.chmod(0o644)  # ensure not executable
+        target.chmod(0o644)
 
 
 @section.level
@@ -144,7 +142,7 @@ class MakeReadOnlyLevel(Level):
 
         target = level_dir / "config.readonly"
         target.write_text("Do not touch")
-        target.chmod(0o644)  # rw-r--r--
+        target.chmod(0o644)
 
     def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
         ok, msg = super().validate(answer, state)
@@ -199,7 +197,7 @@ class NumericPermissionsLevel(Level):
 
         target = level_dir / "public_html"
         target.write_text("<html></html>")
-        target.chmod(0o600)  # rw-------
+        target.chmod(0o600)
 
 
 @section.level
@@ -255,15 +253,15 @@ class PermissionsChallengeLevel(Level):
 
         script = challenge_dir / "script.sh"
         script.write_text("#!/bin/bash\necho 'Hello'\n")
-        script.chmod(0o600)  # rw------- (no execute)
+        script.chmod(0o600)
 
         secret = challenge_dir / "secret.txt"
         secret.write_text("Top secret!\n")
-        secret.chmod(0o666)  # rw-rw-rw- (writable)
+        secret.chmod(0o666)
 
         shared = challenge_dir / "shared.txt"
         shared.write_text("Shared content\n")
-        shared.chmod(0o777)  # rwxrwxrwx (wrong)
+        shared.chmod(0o777)
 
     def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
         ok, msg = super().validate(answer, state)
