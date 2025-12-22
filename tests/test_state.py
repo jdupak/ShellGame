@@ -114,68 +114,6 @@ class TestStateManager:
         manager.init("testuser")
         assert manager.exists()
 
-    def test_record_attempt_increments(self, tmp_path: Path) -> None:
-        manager = StateManager()
-        manager.state_dir = tmp_path
-        manager.state_file = tmp_path / "state.json"
-
-        state = manager.init("testuser")
-        manager.record_attempt(state, level_id="1.1")
-        manager.record_attempt(state, level_id="1.1")
-        manager.record_attempt(state, level_id="2.0")
-
-        assert state.level_attempts["1.1"] == 2
-        assert state.level_attempts["2.0"] == 1
-
-    def test_record_hint_used_increments(self, tmp_path: Path) -> None:
-        manager = StateManager()
-        manager.state_dir = tmp_path
-        manager.state_file = tmp_path / "state.json"
-
-        state = manager.init("testuser")
-        manager.record_hint_used(state, level_id="1.1")
-        manager.record_hint_used(state, level_id="1.1", count=2)
-        manager.record_hint_used(state, level_id="2.0", count=0)
-
-        assert state.level_hints_used["1.1"] == 3
-        assert "2.0" not in state.level_hints_used
-
-    def test_ensure_level_started_sets_once(self, tmp_path: Path) -> None:
-        manager = StateManager()
-        manager.state_dir = tmp_path
-        manager.state_file = tmp_path / "state.json"
-
-        state = manager.init("testuser")
-
-        now = datetime.now()
-        manager.ensure_level_started(state, level_id="1.1", now=now)
-        assert state.level_started_at["1.1"] == now
-
-        later = now + timedelta(seconds=10)
-        manager.ensure_level_started(state, level_id="1.1", now=later)
-        assert state.level_started_at["1.1"] == now
-
-    def test_record_completion_uses_tracking(self, tmp_path: Path) -> None:
-        manager = StateManager()
-        manager.state_dir = tmp_path
-        manager.state_file = tmp_path / "state.json"
-
-        state = manager.init("testuser")
-
-        started = datetime.now() - timedelta(seconds=12)
-        state.level_started_at["1.1"] = started
-        state.level_attempts["1.1"] = 2
-        state.level_hints_used["1.1"] = 1
-
-        completed_at = datetime.now()
-        completion = manager.record_completion(state, level_id="1.1", completed_at=completed_at)
-
-        assert state.levels_complete["1.1"] == completion
-        assert completion.attempts == 2
-        assert completion.hints == 1
-        assert completion.completed_at == completed_at
-        assert completion.time_sec >= 12
-
     def test_save_and_load_persists_tracking_fields(self, tmp_path: Path) -> None:
         manager = StateManager()
         manager.state_dir = tmp_path

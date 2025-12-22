@@ -15,10 +15,14 @@ Protocol transport:
   stdout so whichever stream the wrapper captures will still receive the directive.
 """
 
-import shlex
 import sys
 from pathlib import Path
 from typing import Union
+
+from shellgame.shell.client import ShellClient
+
+# Default client for module-level usage (backward compatibility)
+_default_client = ShellClient(sys.stderr)
 
 
 def emit_shell_command(command: str, *args: Union[str, Path]) -> None:
@@ -38,18 +42,7 @@ def emit_shell_command(command: str, *args: Union[str, Path]) -> None:
         emit_shell_command("export", "SHELLGAME_LEVEL=1.2")
         emit_shell_command("echo", "Welcome to level 2!")
     """
-    # Convert Path objects to strings
-    str_args = [str(arg) for arg in args]
-
-    # Properly escape arguments for shell safety
-    if str_args:
-        escaped_args = " ".join(shlex.quote(arg) for arg in str_args)
-        safe_command = f"{command} {escaped_args}"
-    else:
-        safe_command = command
-
-    # Emit to stderr with special marker
-    print(f"__SHELLGAME_EXEC__{safe_command}", file=sys.stderr, flush=True)
+    _default_client._emit(command, *args)
 
 
 def cd(path: Union[str, Path]) -> None:
@@ -59,7 +52,7 @@ def cd(path: Union[str, Path]) -> None:
     Args:
         path: Directory to change to
     """
-    emit_shell_command("cd", path)
+    _default_client.cd(path)
 
 
 def export(var_name: str, value: str) -> None:
@@ -70,7 +63,7 @@ def export(var_name: str, value: str) -> None:
         var_name: Variable name
         value: Variable value
     """
-    emit_shell_command("export", f"{var_name}={value}")
+    _default_client.export(var_name, value)
 
 
 def echo(message: str) -> None:
@@ -80,14 +73,14 @@ def echo(message: str) -> None:
     Args:
         message: Message to display
     """
-    emit_shell_command("echo", message)
+    _default_client.echo(message)
 
 
 def pwd() -> None:
     """Print working directory in user's shell."""
-    emit_shell_command("pwd")
+    _default_client.pwd()
 
 
 def exit() -> None:
     """Exit the shellgame subshell."""
-    emit_shell_command("exit")
+    _default_client.exit()

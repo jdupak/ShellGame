@@ -21,9 +21,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from shellgame import shell
-from shellgame.cli.subshell import detect_interactive_shell, launch_subshell
+from shellgame.core.navigation import NavigationManager
+from shellgame.core.progress import ProgressTracker
 from shellgame.levels.registry import LevelRegistry
+from shellgame.shell.client import ShellClient
 from shellgame.state.manager import GameState, StateManager
 from shellgame.ui.display import Display
 from shellgame.workspace.builder import WorkspaceManager
@@ -31,18 +32,6 @@ from shellgame.workspace.builder import WorkspaceManager
 
 class SupportsPrint(Protocol):
     def print(self, *args: Any, **kwargs: Any) -> None: ...
-
-
-@dataclass(frozen=True, slots=True)
-class BootResult:
-    """Result of boot orchestration.
-
-    `should_exit` is primarily used by the CLI group entrypoint: if we launched
-    a wrapped subshell, the outer process should exit.
-    """
-
-    should_exit: bool
-    exit_code: int = 0
 
 
 class GameSession:
@@ -68,12 +57,20 @@ class GameSession:
         state_manager: StateManager,
         level_registry: LevelRegistry,
         teleport_notice: Callable[[Path], None],
+        shell_client: ShellClient,
+        workspace_factory: Callable[[str], WorkspaceManager],
     ) -> None:
         self._console = console
         self._display = display
         self._state_manager = state_manager
         self._level_registry = level_registry
-        self._teleport_notice = teleport_notice
+        self._shell_client = shell_client
+        self._workspace_factory = workspace_factory
+
+        self._progress_tracker = ProgressTracker(state_manager)
+        self._navigation_manager = NavigationManager(
+            level_registry, shell_client, teleport_notice
+        )
 
     # ---- helpers ---------------------------------------------------------
 
@@ -83,47 +80,10 @@ class GameSession:
             self._console.print(f"[red]Chyba: Level {level_id} nenalezen[/red]\n")
         return level
 
-    def _get_level_start_directory(self, level_id: str, workspace: Path) -> Path | None:
-        """Resolve start dir via the level definition (preferred)."""
-        level = self._level_registry.get(level_id)
-        if level:
-            return level.get_start_directory(workspace)
-        return None
-
     def _export_shell_context(self, *, workspace: Path, level_id: str) -> None:
         """Export env for shell-side instrumentation (cd/pwd wrappers)."""
-        shell.export("SHELLGAME_WORKSPACE", str(workspace))
-        shell.export("SHELLGAME_LEVEL", level_id)
-
-    def _maybe_teleport(self, *, start_dir: Path | None) -> None:
-        """Teleport to a start directory if requested and needed."""
-        if not start_dir:
-            return
-
-        before_dir = Path.cwd()
-        shell.cd(start_dir)
-        after_dir = Path.cwd()
-        if after_dir != before_dir:
-            self._teleport_notice(start_dir)
-
-    def _ensure_user_in_reasonable_place(self, *, state: GameState) -> None:
-        """Ensure player is in the configured level start directory when appropriate.
-
-        Policy:
-        - If a level defines `start_directory`, we normally place the player there.
-        - Some navigation-focused levels should NOT auto-teleport because it would
-          trivialize the task (explicit allowlist/denylist).
-        """
-        # Some navigation-focused levels should NOT auto-teleport.
-        no_autocd_levels = {"1.5"}
-
-        start_dir = self._get_level_start_directory(state.current_level, state.workspace)
-        if not start_dir or state.current_level in no_autocd_levels:
-            return
-
-        # Always attempt to enter the level's start directory; notice is only shown
-        # if cwd actually changed (handled inside _maybe_teleport).
-        self._maybe_teleport(start_dir=start_dir)
+        self._shell_client.export("SHELLGAME_WORKSPACE", str(workspace))
+        self._shell_client.export("SHELLGAME_LEVEL", level_id)
 
     def _auto_init_if_needed(self) -> GameState:
         """Load state or initialize everything if missing.
@@ -137,7 +97,7 @@ class GameSession:
         username = os.environ.get("USER", "player")
         state = self._state_manager.init(username)
 
-        workspace_manager = WorkspaceManager(username)
+        workspace_manager = self._workspace_factory(username)
         workspace_manager.init()
 
         first_level = self._level_registry.get(state.current_level)
@@ -147,9 +107,11 @@ class GameSession:
         self._display.show_init_success(username, str(state.workspace))
 
         # Auto-teleport to first start dir (if defined) and show current dir.
-        start_dir = self._get_level_start_directory(state.current_level, state.workspace)
+        start_dir = self._navigation_manager.get_level_start_directory(
+            state.current_level, state.workspace
+        )
         if start_dir:
-            self._maybe_teleport(start_dir=start_dir)
+            self._navigation_manager.maybe_teleport(start_dir)
             self._console.print(f"[dim]Aktuální adresář: {start_dir}[/dim]")
 
         return state
@@ -159,9 +121,11 @@ class GameSession:
         if state.workspace.exists():
             return
 
-        self._console.print("[yellow]⚠ Pracovní prostor byl smazán (např. restart systému). Obnovuji...[/yellow]")
+        self._console.print(
+            "[yellow]⚠ Pracovní prostor byl smazán (např. restart systému). Obnovuji...[/yellow]"
+        )
 
-        workspace_manager = WorkspaceManager(state.username)
+        workspace_manager = self._workspace_factory(state.username)
         workspace_manager.init()
 
         current_level = self._level_registry.get(state.current_level)
@@ -171,33 +135,6 @@ class GameSession:
         self._console.print(f"[green]✓ Pracovní prostor obnoven: {state.workspace}[/green]\n")
 
     # ---- boot / show -----------------------------------------------------
-
-    def boot_if_needed(self, *, wrapped: bool, devmode: bool, parent_shell: str) -> BootResult:
-        """Handle the 'outer process' boot check.
-
-        If not already wrapped (`SHELLGAME_WRAPPER` not set), the CLI should call this,
-        then exit if it returns `should_exit=True`.
-
-        Shell selection policy:
-        - If an explicit override is provided via `SHELLGAME_FORCE_SHELL`, it is respected.
-        - Otherwise, prefer robust interactive-shell detection (works even under wrappers like `uv`/`make`).
-        - Fallback to bash if the shell cannot be determined.
-
-        `parent_shell` is accepted for backwards compatibility with the CLI layer but is
-        not used as the primary signal.
-        """
-        if wrapped:
-            return BootResult(should_exit=False)
-
-        forced = (os.environ.get("SHELLGAME_FORCE_SHELL") or "").strip().lower()
-        if forced in ("bash", "fish"):
-            target_shell = forced
-        else:
-            detected = detect_interactive_shell()
-            target_shell = detected if detected in ("fish", "bash") else "bash"
-
-        launch_subshell(target_shell, devmode)
-        return BootResult(should_exit=True, exit_code=0)
 
     def show_current_level(self) -> None:
         """Default action when user runs `shellgame` with no subcommand."""
@@ -212,8 +149,9 @@ class GameSession:
 
         # Start per-level timer as soon as we "enter" the level (show it).
         try:
-            self._state_manager.ensure_level_started(state, level_id=level.id, now=datetime.now())
-            self._state_manager.save(state)
+            self._progress_tracker.ensure_level_started(
+                state, level_id=level.id, now=datetime.now()
+            )
         except Exception:
             # Timing is optional; gameplay should continue even if tracking fails.
             pass
@@ -222,7 +160,7 @@ class GameSession:
         self._export_shell_context(workspace=state.workspace, level_id=level.id)
 
         # Possibly teleport (only if outside workspace; level-dependent)
-        self._ensure_user_in_reasonable_place(state=state)
+        self._navigation_manager.ensure_user_in_reasonable_place(state)
 
         # Auto-advance for intro levels
         if str(state.current_level).endswith(".0"):
@@ -242,7 +180,7 @@ class GameSession:
         username = os.environ.get("USER", "player")
         state = self._state_manager.init(username)
 
-        workspace_manager = WorkspaceManager(username)
+        workspace_manager = self._workspace_factory(username)
         workspace_manager.init()
 
         first_level = self._level_registry.get(state.current_level)
@@ -251,9 +189,11 @@ class GameSession:
 
         self._display.show_init_success(username, str(state.workspace))
 
-        start_dir = self._get_level_start_directory(state.current_level, state.workspace)
+        start_dir = self._navigation_manager.get_level_start_directory(
+            state.current_level, state.workspace
+        )
         if start_dir:
-            self._maybe_teleport(start_dir=start_dir)
+            self._navigation_manager.maybe_teleport(start_dir)
             self._console.print(f"[dim]Aktuální adresář: {start_dir}[/dim]")
 
     def status(self) -> None:
@@ -274,15 +214,25 @@ class GameSession:
         if level is None:
             return
 
-        # Delegate hint semantics + rendering to Display (progressive + --repeat).
-        # Display mutates `state.level_hints_used[level_id]` when a new hint is consumed.
-        before_hints = dict(getattr(state, "level_hints_used", {}) or {})
-        self._display.show_level_hint(level, state, repeat=repeat)
-        after_hints = dict(getattr(state, "level_hints_used", {}) or {})
+        hints = getattr(level, "hints", []) or []
+        total_hints = len(hints)
 
-        # Persist only if we actually consumed a new hint.
-        if after_hints != before_hints:
-            self._state_manager.save(state)
+        if total_hints == 0:
+            self._display.show_no_more_hints()
+            return
+
+        if repeat:
+            revealed = self._progress_tracker.get_hint_status(state, level.id, total_hints)
+            self._display.show_repeated_hints(hints, revealed)
+        else:
+            # Reveal next hint
+            revealed_idx = self._progress_tracker.reveal_next_hint(
+                state, level.id, total_hints
+            )
+            if revealed_idx == -1:
+                self._display.show_no_more_hints()
+            else:
+                self._display.show_hint(hints[revealed_idx], revealed_idx, total_hints)
 
     def reset(self) -> None:
         state = self._state_manager.load()
@@ -334,7 +284,7 @@ class GameSession:
 
         # Remove workspace + state
         self._state_manager.remove()
-        WorkspaceManager(state.username).remove()
+        self._workspace_factory(state.username).remove()
 
         self._display.show_removed()
 
@@ -354,8 +304,7 @@ class GameSession:
         if not ok:
             # Centralize attempt tracking: every failed validation counts as an attempt.
             try:
-                self._state_manager.record_attempt(state, level_id=level.id)
-                self._state_manager.save(state)
+                self._progress_tracker.record_attempt(state, level_id=level.id)
             except Exception:
                 # Keep gameplay responsive even if tracking fails.
                 pass
@@ -363,9 +312,11 @@ class GameSession:
             self._display.show_failure(msg)
             return
 
-        # Success: record completion (time/hints/attempts) centrally in StateManager.
+        # Success: record completion (time/hints/attempts) centrally.
         with contextlib.suppress(Exception):
-            self._state_manager.record_completion(state, level_id=level.id, completed_at=datetime.now())
+            self._progress_tracker.record_completion(
+                state, level_id=level.id, completed_at=datetime.now()
+            )
 
         # Advance level
         next_level_id = self._level_registry.next_level(level.id)
@@ -411,7 +362,9 @@ class GameSession:
         level.setup(state.workspace)
         self.show_current_level()
 
-    def handle_cd_hook(self, *, target: str | None, pwd: str | None, post_move: bool) -> None:
+    def handle_cd_hook(
+        self, *, target: str | None, pwd: str | None, post_move: bool
+    ) -> None:
         """Handle shell directory change hooks.
 
         This logic was previously embedded in shell templates.

@@ -31,6 +31,8 @@ def mock_session() -> GameSession:
         state_manager=MagicMock(),
         level_registry=registry,
         teleport_notice=MagicMock(),
+        shell_client=MagicMock(),
+        workspace_factory=MagicMock(),
     )
     return session
 

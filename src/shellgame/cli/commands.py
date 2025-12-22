@@ -23,20 +23,22 @@ from typing import Optional
 import click
 from rich.console import Console
 
+from shellgame.cli.boot import boot_if_needed
+from shellgame.core.services import GameServices
 from shellgame.core.session import GameSession
 from shellgame.levels.loader import initialize_levels
 from shellgame.levels.registry import get_registry
+from shellgame.shell.client import ShellClient
 from shellgame.state.manager import StateManager
 from shellgame.ui.display import Display
 
-# Initialize singletons
-console = Console()
-state_manager = StateManager()
-level_registry = get_registry()
-display = Display(console)
-
-# Load all levels into registry
-initialize_levels()
+# Initialize services
+services = GameServices()
+console = services.console
+state_manager = services.state_manager
+level_registry = services.level_registry
+display = services.display
+shell_client = services.shell_client
 
 
 def _teleport_notice(destination: Path) -> None:
@@ -66,6 +68,8 @@ def _get_session() -> GameSession:
         state_manager=state_manager,
         level_registry=level_registry,
         teleport_notice=_teleport_notice,
+        shell_client=shell_client,
+        workspace_factory=services.get_workspace_manager_factory(),
     )
 
 
@@ -131,7 +135,7 @@ def cli(ctx: click.Context, devmode: bool, forced_shell: Optional[str]) -> None:
         os.environ["SHELLGAME_FORCE_SHELL"] = forced_shell.lower()
 
     try:
-        boot = _get_session().boot_if_needed(wrapped=wrapped, devmode=devmode, parent_shell="unknown")
+        boot = boot_if_needed(wrapped=wrapped, devmode=devmode)
     except Exception as e:
         console.print(f"[bold red]CHYBA: Nepodařilo se spustit herní shell ({e})[/bold red]")
         ctx.exit(1)

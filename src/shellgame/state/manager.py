@@ -1,6 +1,7 @@
 """State management for game persistence."""
 
 import json
+import os
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -66,7 +67,11 @@ class StateManager:
 
     def __init__(self) -> None:
         """Initialize state manager with default paths."""
-        self.state_dir = Path.home() / ".config" / "shellgame"
+        xdg_config = os.environ.get("XDG_CONFIG_HOME")
+        if xdg_config:
+            self.state_dir = Path(xdg_config) / "shellgame"
+        else:
+            self.state_dir = Path.home() / ".config" / "shellgame"
         self.state_file = self.state_dir / "state.json"
 
     def load(self) -> Optional[GameState]:
@@ -153,50 +158,3 @@ class StateManager:
     def remove(self) -> None:
         """Remove state file (alias for delete)."""
         self.delete()
-
-    def record_attempt(self, state: GameState, *, level_id: str) -> None:
-        """Increment attempt counter for a level."""
-        state.level_attempts[level_id] = state.level_attempts.get(level_id, 0) + 1
-
-    def record_hint_used(self, state: GameState, *, level_id: str, count: int = 1) -> None:
-        """Increment hint counter for a level."""
-        if count <= 0:
-            return
-        state.level_hints_used[level_id] = state.level_hints_used.get(level_id, 0) + count
-
-    def ensure_level_started(self, state: GameState, *, level_id: str, now: Optional[datetime] = None) -> None:
-        """Ensure a per-level start time exists (for time tracking)."""
-        if level_id in state.level_started_at:
-            return
-        state.level_started_at[level_id] = now or datetime.now()
-
-    def record_completion(
-        self,
-        state: GameState,
-        *,
-        level_id: str,
-        completed_at: Optional[datetime] = None,
-    ) -> LevelCompletion:
-        """Record completion stats for a level.
-
-        Computes:
-        - time_sec: based on `level_started_at[level_id]` if present; otherwise 0
-        - hints: from `level_hints_used[level_id]`
-        - attempts: from `level_attempts[level_id]`
-        """
-        completed_at = completed_at or datetime.now()
-
-        started_at = state.level_started_at.get(level_id)
-        time_sec = 0
-        if started_at is not None:
-            delta = completed_at - started_at
-            time_sec = max(0, int(delta.total_seconds()))
-
-        completion = LevelCompletion(
-            time_sec=time_sec,
-            hints=state.level_hints_used.get(level_id, 0),
-            attempts=state.level_attempts.get(level_id, 0),
-            completed_at=completed_at,
-        )
-        state.levels_complete[level_id] = completion
-        return completion

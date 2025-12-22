@@ -414,3 +414,41 @@ class Display:
         hours = minutes // 60
         remaining_minutes = minutes % 60
         return f"{hours}h {remaining_minutes}m {remaining_seconds}s"
+
+    def show_repeated_hints(self, hints: list[str], revealed_count: int) -> None:
+        """Show all revealed hints with appropriate footer."""
+        total = len(hints)
+        count = min(revealed_count, total)
+
+        if count == 0:
+            # Nothing was revealed yet -> do not consume; don't show next-help.
+            self.show_hint(
+                hints[0],
+                0,
+                total,
+                show_repeat_tip=False,
+                show_next_help=False,
+            )
+            self.note(self._HINT_REPEAT_TIP)
+            if total > 1:
+                self.note(self._HINT_NEXT_HELP)
+            self.console.print()
+            return
+
+        # Reprint already revealed hints without consuming new ones.
+        for idx in range(count):
+            self.show_hint(
+                hints[idx],
+                idx,
+                total,
+                show_repeat_tip=False,
+                show_next_help=False,
+            )
+
+        # Repeat tip once at the end.
+        self.note(self._HINT_REPEAT_TIP)
+
+        # Only show “need more help” if another hint still exists.
+        if count < total:
+            self.note(self._HINT_NEXT_HELP)
+        self.console.print()
