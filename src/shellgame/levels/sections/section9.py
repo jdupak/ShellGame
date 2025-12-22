@@ -332,7 +332,7 @@ echo "Line 3 - final output"
 
 
 def get_levels() -> list[Level]:
-    levels: list[Level] = [
+    return [
         SectionIntro(),
         StderrToFileLevel(),
         AppendStderrToFileLevel(),
@@ -340,10 +340,3 @@ def get_levels() -> list[Level]:
         DevNullLevel(),
         StreamsChallengeLevel(),
     ]
-
-    section_num = 9
-    for i, level in enumerate(levels):
-        level.section = section_num
-        level.id = f"{section_num}.{i}"
-
-    return levels

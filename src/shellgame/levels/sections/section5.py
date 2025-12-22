@@ -371,7 +371,7 @@ class FileDetectiveChallengeLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    levels: list[Level] = [
+    return [
         SectionIntroLevel(),
         FileSizeInBytesLevel(),
         FindFileByExactSizeLevel(),
@@ -381,10 +381,3 @@ def get_levels() -> list[Level]:
         IdentifyPythonScriptLevel(),
         FileDetectiveChallengeLevel(),
     ]
-
-    section_num = 5
-    for i, level in enumerate(levels):
-        level.section = section_num
-        level.id = f"{section_num}.{i}"
-
-    return levels

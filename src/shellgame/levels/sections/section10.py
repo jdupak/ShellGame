@@ -337,7 +337,7 @@ class WildcardsChallengeLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    levels: list[Level] = [
+    return [
         SectionIntro(),
         StarWildcardCopyLevel(),
         QuestionMarkWildcardCopyLevel(),
@@ -345,10 +345,3 @@ def get_levels() -> list[Level]:
         RangeWildcardCopyLevel(),
         WildcardsChallengeLevel(),
     ]
-
-    section_num = 10
-    for i, level in enumerate(levels):
-        level.section = section_num
-        level.id = f"{section_num}.{i}"
-
-    return levels

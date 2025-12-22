@@ -427,7 +427,7 @@ Jste připraveni na další dobrodružství v Linuxu!
 
 
 def get_levels() -> list[Level]:
-    levels: list[Level] = [
+    return [
         SectionIntro(),
         GrepPasswordLineToFileLevel(),
         RecursiveGrepFindFileLevel(),
@@ -436,9 +436,3 @@ def get_levels() -> list[Level]:
         FindPythonFilesToListLevel(),
         FinalChallengeLevel(),
     ]
-
-    section_num = 11
-    for i, level in enumerate(levels):
-        level.section = section_num
-        level.id = f"{section_num}.{i}"
-    return levels

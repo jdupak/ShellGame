@@ -444,8 +444,8 @@ class Level4_8(SectionChallengeLevel):
 
 
 def get_levels() -> list[Level]:
-    """Return all Section 4 level instances with IDs assigned dynamically."""
-    levels: list[Level] = [
+    """Return all Section 4 level instances."""
+    return [
         SectionIntroLevel(),
         CreateFileLevel(),
         CreateDirectoryLevel(),
@@ -456,10 +456,3 @@ def get_levels() -> list[Level]:
         CleanupMultipleFilesLevel(),
         SectionChallengeLevel(),
     ]
-
-    section_num = 4
-    for i, level in enumerate(levels):
-        level.section = section_num
-        level.id = f"{section_num}.{i}"
-
-    return levels

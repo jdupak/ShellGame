@@ -298,7 +298,7 @@ class PermissionsChallengeLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    levels: list[Level] = [
+    return [
         SectionIntroLevel(),
         FindExecutableLevel(),
         MakeExecutableLevel(),
@@ -306,10 +306,3 @@ def get_levels() -> list[Level]:
         NumericPermissionsLevel(),
         PermissionsChallengeLevel(),
     ]
-
-    section_num = 7
-    for i, level in enumerate(levels):
-        level.section = section_num
-        level.id = f"{section_num}.{i}"
-
-    return levels

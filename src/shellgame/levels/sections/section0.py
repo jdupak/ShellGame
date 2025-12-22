@@ -65,14 +65,7 @@ class WarmupPasswordLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    levels: list[Level] = [
+    return [
         IntroLevel(),
         WarmupPasswordLevel(),
     ]
-
-    section_num = 0
-    for i, level in enumerate(levels):
-        level.section = section_num
-        level.id = f"{section_num}.{i}"
-
-    return levels

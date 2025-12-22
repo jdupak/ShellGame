@@ -25,52 +25,40 @@ def initialize_levels() -> None:
     registry = get_registry()
 
     # Register Section 0 levels
-    for level in section0.get_levels():
-        registry.register(level)
+    registry.register_section(0, section0.get_levels())
 
     # Register Section 1 levels
-    for level in section1.get_levels():
-        registry.register(level)
+    registry.register_section(1, section1.get_levels())
 
     # Register Section 2 levels
-    for level in section2.get_levels():
-        registry.register(level)
+    registry.register_section(2, section2.get_levels())
 
     # Register Section 3 levels
-    for level in section3.get_levels():
-        registry.register(level)
+    registry.register_section(3, section3.get_levels())
 
     # Register Section 4 levels
-    for level in section4.get_levels():
-        registry.register(level)
+    registry.register_section(4, section4.get_levels())
 
     # Register Section 5 levels
-    for level in section5.get_levels():
-        registry.register(level)
+    registry.register_section(5, section5.get_levels())
 
     # Register Section 6 levels
-    for level in section6.get_levels():
-        registry.register(level)
+    registry.register_section(6, section6.get_levels())
 
     # Register Section 7 levels
-    for level in section7.get_levels():
-        registry.register(level)
+    registry.register_section(7, section7.get_levels())
 
     # Register Section 8 levels
-    for level in section8.get_levels():
-        registry.register(level)
+    registry.register_section(8, section8.get_levels())
 
     # Register Section 9 levels
-    for level in section9.get_levels():
-        registry.register(level)
+    registry.register_section(9, section9.get_levels())
 
     # Register Section 10 levels
-    for level in section10.get_levels():
-        registry.register(level)
+    registry.register_section(10, section10.get_levels())
 
     # Register Section 11 levels
-    for level in section11.get_levels():
-        registry.register(level)
+    registry.register_section(11, section11.get_levels())
 
 
 class LevelLoader:

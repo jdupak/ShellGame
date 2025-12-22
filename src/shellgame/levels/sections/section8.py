@@ -596,7 +596,7 @@ class SectionSummaryChallengeLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    levels: list[Level] = [
+    return [
         SectionIntro(),
         RedirectLsToFileLevel(),
         AppendWithRedirectLevel(),
@@ -608,10 +608,3 @@ def get_levels() -> list[Level]:
         SortUniqCountUniqueLevel(),
         SectionSummaryChallengeLevel(),
     ]
-
-    section_num = 8
-    for i, level in enumerate(levels):
-        level.section = section_num
-        level.id = f"{section_num}.{i}"
-
-    return levels

@@ -355,8 +355,8 @@ class SelfReflectionCheckpointLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    """Return all Section 3 level instances with dynamic IDs."""
-    levels: list[Level] = [
+    """Return all Section 3 level instances."""
+    return [
         SectionIntroLevel(),
         HiddenDirCountLevel(),
         HiddenFileReadLevel(),
@@ -365,10 +365,3 @@ def get_levels() -> list[Level]:
         HiddenFilesSummaryChallengeLevel(),
         SelfReflectionCheckpointLevel(),
     ]
-
-    section_num = 3
-    for i, level in enumerate(levels):
-        level.section = section_num
-        level.id = f"{section_num}.{i}"
-
-    return levels

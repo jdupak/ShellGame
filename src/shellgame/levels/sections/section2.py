@@ -458,8 +458,8 @@ class Level2_8(HelpDiscoveryLevel):
 
 
 def get_levels() -> list[Level]:
-    """Return all Section 2 level instances with IDs assigned dynamically."""
-    levels: list[Level] = [
+    """Return all Section 2 level instances."""
+    return [
         SectionIntroLevel(),
         SiblingNavigationLevel(),
         PreviousDirectoryToggleLevel(),
@@ -470,10 +470,3 @@ def get_levels() -> list[Level]:
         SectionChallengeLevel(),
         HelpDiscoveryLevel(),
     ]
-
-    section_num = 2
-    for i, level in enumerate(levels):
-        level.section = section_num
-        level.id = f"{section_num}.{i}"
-
-    return levels

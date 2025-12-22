@@ -37,6 +37,20 @@ class LevelRegistry:
         for level in levels:
             self.register(level)
 
+    def register_section(self, section_num: int, levels: list[Level]) -> None:
+        """
+        Register a list of levels for a specific section.
+        Assigns IDs automatically as `{section_num}.{index}`.
+
+        Args:
+            section_num: The section number (e.g. 1, 2)
+            levels: List of Level instances to register
+        """
+        for i, level in enumerate(levels):
+            level.section = section_num
+            level.id = f"{section_num}.{i}"
+            self.register(level)
+
     def get(self, level_id: str) -> Optional[Level]:
         """
         Get level by ID.

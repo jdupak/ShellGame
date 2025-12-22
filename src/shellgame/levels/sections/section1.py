@@ -752,7 +752,7 @@ class SummaryLevel(Level):
 
 def get_levels() -> list[Level]:
     """Return all levels for this section."""
-    levels = [
+    return [
         Section1Intro(),
         PwdLevel(),
         LsLevel(),
@@ -767,10 +767,3 @@ def get_levels() -> list[Level]:
         StructureLevel(),
         SummaryLevel(),
     ]
-
-    section_num = 1
-    for i, level in enumerate(levels):
-        level.section = section_num
-        level.id = f"{section_num}.{i}"
-
-    return levels

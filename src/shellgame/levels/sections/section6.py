@@ -360,7 +360,7 @@ class FileOrganizerChallengeLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    levels: list[Level] = [
+    return [
         SectionIntro(),
         BackupImportantFileLevel(),
         BackupProjectDirectoryLevel(),
@@ -370,10 +370,3 @@ def get_levels() -> list[Level]:
         OrganizeLogsLevel(),
         FileOrganizerChallengeLevel(),
     ]
-
-    section_num = 6
-    for i, level in enumerate(levels):
-        level.section = section_num
-        level.id = f"{section_num}.{i}"
-
-    return levels
