@@ -7,6 +7,7 @@ from pathlib import Path
 from typing_extensions import override
 
 from shellgame.levels.base import Level
+from shellgame.levels.collector import Section
 from shellgame.protocols import GameStateProtocol
 from shellgame.validation.validators import (
     ExecutableValidator,
@@ -15,7 +16,10 @@ from shellgame.validation.validators import (
     ValidationResult,
 )
 
+section = Section()
 
+
+@section.level
 class SectionIntroLevel(Level):
     title = "Sekce 7: Oprávnění"
     instructions_file = "section7_intro.md"
@@ -31,6 +35,7 @@ class SectionIntroLevel(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class FindExecutableLevel(Level):
     title = "Hledání spustitelného souboru"
     instructions = """
@@ -66,6 +71,7 @@ class FindExecutableLevel(Level):
         target.chmod(target.stat().st_mode | stat.S_IEXEC)
 
 
+@section.level
 class MakeExecutableLevel(Level):
     title = "Nastavení spustitelnosti"
     instructions = """
@@ -110,6 +116,7 @@ class MakeExecutableLevel(Level):
         target.chmod(0o644)  # ensure not executable
 
 
+@section.level
 class MakeReadOnlyLevel(Level):
     title = "Ochrana souboru"
     instructions = """
@@ -158,6 +165,7 @@ class MakeReadOnlyLevel(Level):
         return True, "Správně!"
 
 
+@section.level
 class NumericPermissionsLevel(Level):
     title = "Číselný zápis"
     instructions = """
@@ -194,6 +202,7 @@ class NumericPermissionsLevel(Level):
         target.chmod(0o600)  # rw-------
 
 
+@section.level
 class PermissionsChallengeLevel(Level):
     title = "Souhrn Sekce 7"
     instructions = """
@@ -298,11 +307,4 @@ class PermissionsChallengeLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    return [
-        SectionIntroLevel(),
-        FindExecutableLevel(),
-        MakeExecutableLevel(),
-        MakeReadOnlyLevel(),
-        NumericPermissionsLevel(),
-        PermissionsChallengeLevel(),
-    ]
+    return section.levels

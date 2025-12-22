@@ -7,12 +7,15 @@ from pathlib import Path
 from typing_extensions import override
 
 from shellgame.levels.base import Level
+from shellgame.levels.collector import Section
 from shellgame.protocols import GameStateProtocol
 from shellgame.validation.validators import (
     IntegerValidator,
     StringValidator,
     ValidationResult,
 )
+
+section = Section()
 
 
 def _setup_level3_common(workspace: Path) -> None:

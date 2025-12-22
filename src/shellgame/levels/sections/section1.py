@@ -10,6 +10,7 @@ from typing import cast
 from typing_extensions import override
 
 from shellgame.levels.base import Level
+from shellgame.levels.collector import Section
 from shellgame.markers import GameStateProtocol as MarkersGameStateProtocol
 from shellgame.markers import MarkerManager
 from shellgame.messages import Messages
@@ -20,6 +21,8 @@ from shellgame.validation.validators import (
     OrderedListValidator,
     ValidationResult,
 )
+
+section = Section()
 
 
 def _setup_navigation_common(workspace: Path) -> None:
@@ -47,6 +50,7 @@ def _setup_navigation_common(workspace: Path) -> None:
     (patterns_dir / "omega").mkdir(exist_ok=True)
 
 
+@section.level
 class Section1Intro(Level):
     title = "Navigace"
     instructions_file = "section1_intro.md"
@@ -64,6 +68,7 @@ class Section1Intro(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class PwdLevel(Level):
     title = "Aktuální umístění"
     instructions = """
@@ -96,6 +101,7 @@ class PwdLevel(Level):
         _setup_navigation_common(workspace)
 
 
+@section.level
 class LsLevel(Level):
     title = "Výpis a rozpoznávání vzorů"
     instructions = """
@@ -181,6 +187,7 @@ class LsLevel(Level):
         )
 
 
+@section.level
 class ExtensionLevel(Level):
     title = "Vstup a hlášení (Koncept přípony)"
     instructions = """
@@ -240,6 +247,7 @@ class ExtensionLevel(Level):
         return False, msg
 
 
+@section.level
 class CdUpLevel(Level):
     title = "Návrat na základnu"
     instructions = """
@@ -268,6 +276,7 @@ class CdUpLevel(Level):
         _setup_navigation_common(workspace)
 
 
+@section.level
 class DeepDiveLevel(Level):
     title = "Hluboký ponor"
     instructions = """
@@ -297,6 +306,7 @@ class DeepDiveLevel(Level):
         deep_path.mkdir(parents=True, exist_ok=True)
 
 
+@section.level
 class MultiLevelAscentLevel(Level):
     title = "Víceúrovňový výstup"
     instructions = """
@@ -326,6 +336,7 @@ class MultiLevelAscentLevel(Level):
         (workspace / "level-1" / "gamma" / "deep" / "a" / "b" / "c").mkdir(parents=True, exist_ok=True)
 
 
+@section.level
 class MazeLevel(Level):
     title = "Navigace v bludišti"
     instructions = """
@@ -437,6 +448,7 @@ class MazeLevel(Level):
                 (full_path / "YOU_ARE_NOT_SUPPOSED_TO_BE_HERE").unlink(missing_ok=True)
 
 
+@section.level
 class AbsoluteCdLevel(Level):
     title = "Skok absolutní cestou"
     instructions = """
@@ -493,6 +505,7 @@ class AbsoluteCdLevel(Level):
         MarkerManager.from_state(cast(MarkersGameStateProtocol, state)).create(MarkerManager.LEVEL1_8_ABSOLUTE_CD)
 
 
+@section.level
 class HomeWalkLevel(Level):
     title = "Cesta z kořene domů"
     instructions = """
@@ -603,6 +616,7 @@ class HomeWalkLevel(Level):
                 markers.remove(MarkerManager.LEVEL1_9_CD_WALK_PROGRESS)
 
 
+@section.level
 class HomeCheckLevel(Level):
     title = "Potvrzení domova"
     instructions = """
@@ -637,6 +651,7 @@ class HomeCheckLevel(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class StructureLevel(Level):
     title = "Vizualizace struktury"
     instructions = """
@@ -675,6 +690,7 @@ class StructureLevel(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class SummaryLevel(Level):
     title = "Souhrn"
     instructions = """
@@ -752,18 +768,4 @@ class SummaryLevel(Level):
 
 def get_levels() -> list[Level]:
     """Return all levels for this section."""
-    return [
-        Section1Intro(),
-        PwdLevel(),
-        LsLevel(),
-        ExtensionLevel(),
-        CdUpLevel(),
-        DeepDiveLevel(),
-        MultiLevelAscentLevel(),
-        MazeLevel(),
-        AbsoluteCdLevel(),
-        HomeWalkLevel(),
-        HomeCheckLevel(),
-        StructureLevel(),
-        SummaryLevel(),
-    ]
+    return section.levels

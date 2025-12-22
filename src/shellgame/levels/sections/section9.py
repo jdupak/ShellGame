@@ -8,10 +8,15 @@ from pathlib import Path
 from typing_extensions import override
 
 from shellgame.levels.base import Level
+from shellgame.levels.collector import Section
 from shellgame.protocols import GameStateProtocol
 from shellgame.validation.validators import StringValidator, ValidationResult
 
 
+section = Section()
+
+
+@section.level
 class SectionIntro(Level):
     title = "Sekce 9: Chybové výstupy"
     instructions_file = "section9_intro.md"
@@ -27,6 +32,7 @@ class SectionIntro(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class StderrToFileLevel(Level):
     title = "Přesměrování chyb"
     instructions = """
@@ -89,6 +95,7 @@ class StderrToFileLevel(Level):
         return False, "Soubor neobsahuje očekávanou chybu."
 
 
+@section.level
 class AppendStderrToFileLevel(Level):
     title = "Přidávání chyb"
     instructions = """
@@ -144,6 +151,7 @@ class AppendStderrToFileLevel(Level):
         return False, "Soubor neobsahuje novou chybu."
 
 
+@section.level
 class AllOutputToFileLevel(Level):
     title = "Všechny výstupy"
     instructions = """
@@ -198,6 +206,7 @@ class AllOutputToFileLevel(Level):
         return False, "Soubor neobsahuje oba typy výstupů."
 
 
+@section.level
 class DevNullLevel(Level):
     title = "Černá díra"
     instructions = """
@@ -236,6 +245,7 @@ class DevNullLevel(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class StreamsChallengeLevel(Level):
     title = "Souhrn Sekce 9"
     instructions = """
@@ -332,11 +342,4 @@ echo "Line 3 - final output"
 
 
 def get_levels() -> list[Level]:
-    return [
-        SectionIntro(),
-        StderrToFileLevel(),
-        AppendStderrToFileLevel(),
-        AllOutputToFileLevel(),
-        DevNullLevel(),
-        StreamsChallengeLevel(),
-    ]
+    return section.levels

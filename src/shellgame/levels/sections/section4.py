@@ -8,6 +8,7 @@ from pathlib import Path
 from typing_extensions import override
 
 from shellgame.levels.base import Level
+from shellgame.levels.collector import Section
 from shellgame.protocols import GameStateProtocol
 from shellgame.validation.validators import (
     DirectoryExistsValidator,
@@ -16,12 +17,15 @@ from shellgame.validation.validators import (
     ValidationResult,
 )
 
+section = Section()
+
 
 def _setup_section4_common(workspace: Path) -> None:
     """Ensure the section workspace root exists."""
     (workspace / "level-4").mkdir(parents=True, exist_ok=True)
 
 
+@section.level
 class SectionIntroLevel(Level):
     title = "Sekce 4: Vytváření a mazání"
     instructions_file = "section4_intro.md"
@@ -38,6 +42,7 @@ class SectionIntroLevel(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class CreateFileLevel(Level):
     title = "Vytvoření souboru"
     instructions = """
@@ -76,6 +81,7 @@ class CreateFileLevel(Level):
             target.unlink()
 
 
+@section.level
 class CreateDirectoryLevel(Level):
     title = "Vytvoření adresáře"
     instructions = """
@@ -112,6 +118,7 @@ class CreateDirectoryLevel(Level):
             shutil.rmtree(target)
 
 
+@section.level
 class NestedDirectoryCreationLevel(Level):
     title = "Vytváření zanořených adresářů"
     instructions = """
@@ -153,6 +160,7 @@ class NestedDirectoryCreationLevel(Level):
             shutil.rmtree(target)
 
 
+@section.level
 class DeleteFileLevel(Level):
     title = "Mazání souborů"
     instructions = """
@@ -195,6 +203,7 @@ class DeleteFileLevel(Level):
         (cleanup_dir / "stary_log.txt").write_text("old data")
 
 
+@section.level
 class DeleteDirectoryLevel(Level):
     title = "Mazání adresářů"
     instructions = """
@@ -234,6 +243,7 @@ class DeleteDirectoryLevel(Level):
         (temp_dir / "junk.txt").write_text("junk")
 
 
+@section.level
 class ProjectScaffoldLevel(Level):
     title = "Příprava projektu"
     instructions = """
@@ -274,6 +284,7 @@ class ProjectScaffoldLevel(Level):
             shutil.rmtree(target)
 
 
+@section.level
 class CleanupMultipleFilesLevel(Level):
     title = "Úklid nepořádku"
     instructions = """
@@ -319,6 +330,7 @@ class CleanupMultipleFilesLevel(Level):
         (mess_dir / "keep_me.txt").write_text("important")
 
 
+@section.level
 class SectionChallengeLevel(Level):
     title = "Souhrn Sekce 4"
     instructions = """
@@ -445,14 +457,4 @@ class Level4_8(SectionChallengeLevel):
 
 def get_levels() -> list[Level]:
     """Return all Section 4 level instances."""
-    return [
-        SectionIntroLevel(),
-        CreateFileLevel(),
-        CreateDirectoryLevel(),
-        NestedDirectoryCreationLevel(),
-        DeleteFileLevel(),
-        DeleteDirectoryLevel(),
-        ProjectScaffoldLevel(),
-        CleanupMultipleFilesLevel(),
-        SectionChallengeLevel(),
-    ]
+    return section.levels

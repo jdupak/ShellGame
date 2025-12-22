@@ -4,12 +4,15 @@ import shutil
 from pathlib import Path
 
 from shellgame.levels.base import Level
+from shellgame.levels.collector import Section
 from shellgame.protocols import GameStateProtocol
 from shellgame.validation.validators import (
     IntegerValidator,
     StringValidator,
     ValidationResult,
 )
+
+section = Section()
 
 
 def _ensure_section_dir(workspace: Path) -> Path:
@@ -19,6 +22,7 @@ def _ensure_section_dir(workspace: Path) -> Path:
     return section_dir
 
 
+@section.level
 class SectionIntroLevel(Level):
     title = "Sekce 5: Zkoumání souborů"
     instructions_file = "section5_intro.md"
@@ -32,6 +36,7 @@ class SectionIntroLevel(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class FileSizeInBytesLevel(Level):
     title = "Velikost souboru"
     instructions = """
@@ -66,6 +71,7 @@ class FileSizeInBytesLevel(Level):
         (level_dir / "database.db").write_bytes(b"x" * 12345)
 
 
+@section.level
 class FindFileByExactSizeLevel(Level):
     title = "Hledání podle velikosti"
     instructions = """
@@ -103,6 +109,7 @@ class FindFileByExactSizeLevel(Level):
         (level_dir / "target_file").write_bytes(b"x" * 1337)
 
 
+@section.level
 class IdentifyJpegAmongFilesLevel(Level):
     title = "Typ souboru"
     instructions = """
@@ -141,6 +148,7 @@ class IdentifyJpegAmongFilesLevel(Level):
         (level_dir / "file3").write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIF")
 
 
+@section.level
 class FindCriticalCodeInLogLevel(Level):
     title = "Prohlížení velkých souborů (less)"
     instructions = """
@@ -215,6 +223,7 @@ class FindCriticalCodeInLogLevel(Level):
         return False, "Tohle není správný kód. Najděte řádek s 'CRITICAL' a přečtěte číslo na konci."
 
 
+@section.level
 class FindFakeJpgLevel(Level):
     title = "Zamaskovaný soubor"
     instructions = """
@@ -247,6 +256,7 @@ class FindFakeJpgLevel(Level):
         (level_dir / "secret.jpg").write_text("This is actually a text file.")
 
 
+@section.level
 class IdentifyPythonScriptLevel(Level):
     title = "Spustitelný skript"
     instructions = """
@@ -277,6 +287,7 @@ class IdentifyPythonScriptLevel(Level):
         (level_dir / "program").write_bytes(b"\x7fELF")
 
 
+@section.level
 class FileDetectiveChallengeLevel(Level):
     title = "Souhrn Sekce 5"
     instructions = """
@@ -371,13 +382,4 @@ class FileDetectiveChallengeLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    return [
-        SectionIntroLevel(),
-        FileSizeInBytesLevel(),
-        FindFileByExactSizeLevel(),
-        IdentifyJpegAmongFilesLevel(),
-        FindCriticalCodeInLogLevel(),
-        FindFakeJpgLevel(),
-        IdentifyPythonScriptLevel(),
-        FileDetectiveChallengeLevel(),
-    ]
+    return section.levels

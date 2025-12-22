@@ -8,6 +8,7 @@ from pathlib import Path
 from typing_extensions import override
 
 from shellgame.levels.base import Level
+from shellgame.levels.collector import Section
 from shellgame.protocols import GameStateProtocol
 from shellgame.validation.validators import (
     CommonMistakeValidator,
@@ -15,6 +16,8 @@ from shellgame.validation.validators import (
     StringValidator,
     ValidationResult,
 )
+
+section = Section()
 
 
 def _setup_access_log(workspace: Path) -> None:
@@ -96,6 +99,7 @@ def _setup_section8_challenge(workspace: Path) -> None:
     (challenge_dir / "sample2.txt").write_text("sample")
 
 
+@section.level
 class SectionIntro(Level):
     """Section 8 Introduction."""
 
@@ -113,6 +117,7 @@ class SectionIntro(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class RedirectLsToFileLevel(Level):
     title = "Uložení výstupu"
     instructions = """\
@@ -170,6 +175,7 @@ class RedirectLsToFileLevel(Level):
         return False, "Soubor neobsahuje očekávaný výstup příkazu ls."
 
 
+@section.level
 class AppendWithRedirectLevel(Level):
     title = "Přidání na konec"
     instructions = """\
@@ -596,15 +602,4 @@ class SectionSummaryChallengeLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    return [
-        SectionIntro(),
-        RedirectLsToFileLevel(),
-        AppendWithRedirectLevel(),
-        ConcatenatePartsLevel(),
-        EchoCreateFileLevel(),
-        PipeGrepAndCountLevel(),
-        HeadTailFirstAndLastWordLevel(),
-        WordAndLineCountLevel(),
-        SortUniqCountUniqueLevel(),
-        SectionSummaryChallengeLevel(),
-    ]
+    return section.levels

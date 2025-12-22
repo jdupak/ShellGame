@@ -7,6 +7,7 @@ from pathlib import Path
 from typing_extensions import override
 
 from shellgame.levels.base import Level
+from shellgame.levels.collector import Section
 from shellgame.protocols import GameStateProtocol
 from shellgame.validation.validators import (
     BasenameValidator,
@@ -15,12 +16,15 @@ from shellgame.validation.validators import (
     ValidationResult,
 )
 
+section = Section()
+
 
 def _setup_file_interaction_common(workspace: Path) -> None:
     """Common setup for the file-interaction section."""
     (workspace / "level-2").mkdir(parents=True, exist_ok=True)
 
 
+@section.level
 class SectionIntroLevel(Level):
     title = "Práce se soubory"
     instructions_file = "section2_intro.md"
@@ -38,6 +42,7 @@ class SectionIntroLevel(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class SiblingNavigationLevel(Level):
     title = "Navigace mezi sourozenci"
     instructions = """
@@ -87,6 +92,7 @@ class SiblingNavigationLevel(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class PreviousDirectoryToggleLevel(Level):
     title = "Rychlý návrat"
     instructions = """
@@ -128,6 +134,7 @@ class PreviousDirectoryToggleLevel(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class DeepRelativeNavigationLevel(Level):
     title = "Hluboká navigace"
     instructions = """
@@ -174,6 +181,7 @@ class DeepRelativeNavigationLevel(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class ReadFirstWordLevel(Level):
     title = "Čtení souboru"
     instructions = """
@@ -212,6 +220,7 @@ class ReadFirstWordLevel(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class ChainedClueTraversalLevel(Level):
     title = "Sledování stop"
     instructions = """
@@ -253,6 +262,7 @@ class ChainedClueTraversalLevel(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class CreateFileWithTouchLevel(Level):
     title = "Vytvoření souboru"
     instructions = """
@@ -285,6 +295,7 @@ class CreateFileWithTouchLevel(Level):
             file_path.unlink()
 
 
+@section.level
 class SectionChallengeLevel(Level):
     title = "Souhrn Sekce 2"
     instructions = """
@@ -346,6 +357,7 @@ class SectionChallengeLevel(Level):
         return False, f"'{cleaned}' není správné heslo. Hledejte password.txt v room2."
 
 
+@section.level
 class HelpDiscoveryLevel(Level):
     title = "Jak najít pomoc"
     instructions = """
@@ -459,14 +471,4 @@ class Level2_8(HelpDiscoveryLevel):
 
 def get_levels() -> list[Level]:
     """Return all Section 2 level instances."""
-    return [
-        SectionIntroLevel(),
-        SiblingNavigationLevel(),
-        PreviousDirectoryToggleLevel(),
-        DeepRelativeNavigationLevel(),
-        ReadFirstWordLevel(),
-        ChainedClueTraversalLevel(),
-        CreateFileWithTouchLevel(),
-        SectionChallengeLevel(),
-        HelpDiscoveryLevel(),
-    ]
+    return section.levels

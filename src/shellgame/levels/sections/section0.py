@@ -7,10 +7,14 @@ from pathlib import Path
 from typing_extensions import override
 
 from shellgame.levels.base import Level
+from shellgame.levels.collector import Section
 from shellgame.protocols import GameStateProtocol
 from shellgame.validation.validators import StringValidator, ValidationResult
 
+section = Section()
 
+
+@section.level
 class IntroLevel(Level):
     """Introduction - How to play."""
 
@@ -36,6 +40,7 @@ class IntroLevel(Level):
         return True, "Vítejte ve hře!"
 
 
+@section.level
 class WarmupPasswordLevel(Level):
     """Warmup task: submit the password."""
 
@@ -65,7 +70,4 @@ class WarmupPasswordLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    return [
-        IntroLevel(),
-        WarmupPasswordLevel(),
-    ]
+    return section.levels

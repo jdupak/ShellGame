@@ -8,13 +8,17 @@ from pathlib import Path
 from typing_extensions import override
 
 from shellgame.levels.base import Level
+from shellgame.levels.collector import Section
 from shellgame.protocols import GameStateProtocol
 from shellgame.validation.validators import (
     StringValidator,
     ValidationResult,
 )
 
+section = Section()
 
+
+@section.level
 class SectionIntro(Level):
     title = "Sekce 11: Vyhledávání"
     instructions_file = "section11_intro.md"
@@ -30,6 +34,7 @@ class SectionIntro(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class GrepPasswordLineToFileLevel(Level):
     title = "Hledání v souboru (grep)"
     instructions = """
@@ -85,6 +90,7 @@ class GrepPasswordLineToFileLevel(Level):
         return False, "Soubor neobsahuje hledaný řádek."
 
 
+@section.level
 class RecursiveGrepFindFileLevel(Level):
     title = "Rekurzivní hledání"
     instructions = """
@@ -135,6 +141,7 @@ class RecursiveGrepFindFileLevel(Level):
         return False, "To není správný soubor. Hledáme ten s 'SECRET_KEY'."
 
 
+@section.level
 class CaseInsensitiveWarningCountLevel(Level):
     title = "Hledání bez ohledu na velikost písmen"
     instructions = """
@@ -202,6 +209,7 @@ class CaseInsensitiveWarningCountLevel(Level):
         return False, f'Počet není {count}. Zkuste: grep -i "warning" messages.log | wc -l'
 
 
+@section.level
 class FindLostFilePathLevel(Level):
     title = "Hledání souborů (find)"
     instructions = """
@@ -252,6 +260,7 @@ class FindLostFilePathLevel(Level):
         return False, "To není správná cesta."
 
 
+@section.level
 class FindPythonFilesToListLevel(Level):
     title = "Hledání podle přípony"
     instructions = """
@@ -311,6 +320,7 @@ class FindPythonFilesToListLevel(Level):
         return False, "Soubor neobsahuje správný seznam souborů."
 
 
+@section.level
 class FinalChallengeLevel(Level):
     title = "Finální výzva"
     instructions = """
@@ -427,12 +437,4 @@ Jste připraveni na další dobrodružství v Linuxu!
 
 
 def get_levels() -> list[Level]:
-    return [
-        SectionIntro(),
-        GrepPasswordLineToFileLevel(),
-        RecursiveGrepFindFileLevel(),
-        CaseInsensitiveWarningCountLevel(),
-        FindLostFilePathLevel(),
-        FindPythonFilesToListLevel(),
-        FinalChallengeLevel(),
-    ]
+    return section.levels

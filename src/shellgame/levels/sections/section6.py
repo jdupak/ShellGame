@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 
 from shellgame.levels.base import Level
+from shellgame.levels.collector import Section
 from shellgame.protocols import GameStateProtocol
 from shellgame.validation.validators import (
     CopyValidator,
@@ -14,7 +15,10 @@ from shellgame.validation.validators import (
     ValidationResult,
 )
 
+section = Section()
 
+
+@section.level
 class SectionIntro(Level):
     title = "Sekce 6: Kopírování a přesouvání"
     instructions_file = "section6_intro.md"
@@ -28,6 +32,7 @@ class SectionIntro(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class BackupImportantFileLevel(Level):
     title = "Kopírování souboru"
     instructions = """
@@ -75,6 +80,7 @@ class BackupImportantFileLevel(Level):
             bak.unlink()
 
 
+@section.level
 class BackupProjectDirectoryLevel(Level):
     title = "Kopírování adresáře"
     instructions = """
@@ -112,6 +118,7 @@ class BackupProjectDirectoryLevel(Level):
         (project_dir / "main.py").write_text("print('hello')")
 
 
+@section.level
 class RenameFileLevel(Level):
     title = "Přejmenování souboru"
     instructions = """
@@ -151,6 +158,7 @@ class RenameFileLevel(Level):
         (level_dir / "spatne_jmeno.txt").write_text("content")
 
 
+@section.level
 class MoveReportToDocumentsLevel(Level):
     title = "Přesun souboru"
     instructions = """
@@ -191,6 +199,7 @@ class MoveReportToDocumentsLevel(Level):
         (level_dir / "report.pdf").write_text("report data")
 
 
+@section.level
 class RenameDirectoryLevel(Level):
     title = "Přejmenování adresáře"
     instructions = """
@@ -229,6 +238,7 @@ class RenameDirectoryLevel(Level):
         (src / "file.txt").write_text("content")
 
 
+@section.level
 class OrganizeLogsLevel(Level):
     title = "Úklid logů"
     instructions = """
@@ -278,6 +288,7 @@ class OrganizeLogsLevel(Level):
         (level_dir / "other.txt").write_text("keep me")
 
 
+@section.level
 class FileOrganizerChallengeLevel(Level):
     title = "Souhrn Sekce 6"
     instructions = """
@@ -360,13 +371,4 @@ class FileOrganizerChallengeLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    return [
-        SectionIntro(),
-        BackupImportantFileLevel(),
-        BackupProjectDirectoryLevel(),
-        RenameFileLevel(),
-        MoveReportToDocumentsLevel(),
-        RenameDirectoryLevel(),
-        OrganizeLogsLevel(),
-        FileOrganizerChallengeLevel(),
-    ]
+    return section.levels

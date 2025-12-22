@@ -8,10 +8,15 @@ from pathlib import Path
 from typing_extensions import override
 
 from shellgame.levels.base import Level
+from shellgame.levels.collector import Section
 from shellgame.protocols import GameStateProtocol
 from shellgame.validation.validators import FileExistsValidator, ValidationResult
 
 
+section = Section()
+
+
+@section.level
 class SectionIntro(Level):
     title = "Sekce 10: Žolíky (Wildcards)"
     instructions_file = "section10_intro.md"
@@ -27,6 +32,7 @@ class SectionIntro(Level):
         return super().validate(answer, state)
 
 
+@section.level
 class StarWildcardCopyLevel(Level):
     title = "Hvězdička *"
     instructions = """
@@ -78,6 +84,7 @@ class StarWildcardCopyLevel(Level):
             f.unlink()
 
 
+@section.level
 class QuestionMarkWildcardCopyLevel(Level):
     title = "Otazník ?"
     instructions = """
@@ -128,6 +135,7 @@ class QuestionMarkWildcardCopyLevel(Level):
             f.unlink()
 
 
+@section.level
 class CharacterClassWildcardCopyLevel(Level):
     title = "Výběr znaků []"
     instructions = """
@@ -178,6 +186,7 @@ class CharacterClassWildcardCopyLevel(Level):
             f.unlink()
 
 
+@section.level
 class RangeWildcardCopyLevel(Level):
     title = "Rozsahy [a-z]"
     instructions = """
@@ -232,6 +241,7 @@ class RangeWildcardCopyLevel(Level):
             f.unlink()
 
 
+@section.level
 class WildcardsChallengeLevel(Level):
     title = "Souhrn Sekce 10"
     instructions = """
@@ -337,11 +347,4 @@ class WildcardsChallengeLevel(Level):
 
 
 def get_levels() -> list[Level]:
-    return [
-        SectionIntro(),
-        StarWildcardCopyLevel(),
-        QuestionMarkWildcardCopyLevel(),
-        CharacterClassWildcardCopyLevel(),
-        RangeWildcardCopyLevel(),
-        WildcardsChallengeLevel(),
-    ]
+    return section.levels
