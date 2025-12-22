@@ -382,6 +382,11 @@ class GameSession:
         if next_level:
             next_level.setup(state.workspace)
 
+        # Section intros (.0) should not show a success panel after the intro text.
+        if level.id.endswith(".0"):
+            self.show_current_level()
+            return
+
         self._display.show_success("Správně!")
         self._display.wait_for_continue()
         # After success, show next instructions immediately (existing behavior)
@@ -422,4 +427,3 @@ class GameSession:
         hook = level.hooks.get("cd")
         if hook:
             hook(target=target, pwd=pwd, post_move=post_move, state=state)
-
