@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from shellgame.core.session import GameSession
-from shellgame.levels.sections.section1 import Level1_8, Level1_9
+from shellgame.levels.sections.section1 import AbsoluteCdLevel, HomeWalkLevel
 from shellgame.markers import MarkerManager
 from shellgame.state.manager import GameState
 
@@ -18,9 +18,9 @@ def mock_session() -> GameSession:
 
     def get_level(level_id: str):
         if level_id == "1.8":
-            return Level1_8()
+            return AbsoluteCdLevel()
         if level_id == "1.9":
-            return Level1_9()
+            return HomeWalkLevel()
         return None
 
     registry.get.side_effect = get_level
@@ -60,7 +60,7 @@ class TestLevel18HookLogic:
             # Assert: Marker created
             mock_create.assert_called_with(MarkerManager.LEVEL1_8_ABSOLUTE_CD)
 
-    def test_rejects_relative_path(self, mock_session: GameSession, mock_state: GameState) -> None:
+    def test_rejects_relative_path_from_hook(self, mock_session: GameSession, mock_state: GameState) -> None:
         mock_state.current_level = "1.8"
         mock_session._state_manager.load.return_value = mock_state
 

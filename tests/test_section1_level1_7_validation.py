@@ -1,14 +1,13 @@
 """Tests for Level 1.7 validation behavior."""
 
 from pathlib import Path
-
 from typing import Any
 
-from shellgame.levels.sections.section1 import Level1_7
+from shellgame.levels.sections.section1 import MazeLevel
 
 
 def test_level1_7_submit_without_answer_depends_on_cwd(tmp_path: Path, monkeypatch: Any) -> None:
-    level = Level1_7()
+    level = MazeLevel()
 
     # Minimal state stub; Level1_7.validate doesn't use it.
     class _State:
@@ -33,7 +32,7 @@ def test_level1_7_submit_without_answer_depends_on_cwd(tmp_path: Path, monkeypat
 
 
 def test_level1_7_answer_is_ignored_when_in_final(tmp_path: Path, monkeypatch: Any) -> None:
-    level = Level1_7()
+    level = MazeLevel()
 
     class _State:
         def __init__(self, workspace: Path) -> None:

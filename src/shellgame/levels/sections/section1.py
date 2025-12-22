@@ -1,13 +1,16 @@
-"""Section 1: Navigation and path manipulation levels."""
+"""Navigation and path manipulation levels."""
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 from typing_extensions import override
 
 from shellgame.levels.base import Level
+from shellgame.markers import GameStateProtocol as MarkersGameStateProtocol
 from shellgame.markers import MarkerManager
 from shellgame.messages import Messages
 from shellgame.protocols import GameStateProtocol
@@ -19,8 +22,8 @@ from shellgame.validation.validators import (
 )
 
 
-def _setup_level1_common(workspace: Path) -> None:
-    """Common setup for Level 1 section."""
+def _setup_navigation_common(workspace: Path) -> None:
+    """Common setup for the navigation section."""
     level_dir = workspace / "level-1"
     level_dir.mkdir(exist_ok=True)
 
@@ -35,7 +38,7 @@ def _setup_level1_common(workspace: Path) -> None:
 
     (level_dir / "gamma").mkdir(exist_ok=True)
 
-    # Patterns directory for level 1.2
+    # Patterns directory for the listing/patterns task
     patterns_dir = level_dir / "patterns"
     patterns_dir.mkdir(exist_ok=True)
     for filename in ["data.txt", "dog.md", "drama.log", "zebra.txt"]:
@@ -44,19 +47,12 @@ def _setup_level1_common(workspace: Path) -> None:
     (patterns_dir / "omega").mkdir(exist_ok=True)
 
 
-class Level1_0(Level):
-    """Level 1.0: Section 1 Introduction."""
-
-    def __init__(self) -> None:
-        super().__init__(
-            id="1.0",
-            section=1,
-            title="Sekce 1: Navigace",
-            instructions_file="section1_intro.md",
-            hints=["Přečtěte si úvod a pokračujte příkazem 'shellgame submit'."],
-            start_directory="",  # workspace root
-            success_message="Jdeme na to!",
-        )
+class Section1Intro(Level):
+    title = "Navigace"
+    instructions_file = "section1_intro.md"
+    hints = ["Přečtěte si úvod a pokračujte příkazem 'shellgame submit'."]
+    start_directory = ""  # workspace root
+    success_message = "Jdeme na to!"
 
     @override
     def setup(self, workspace: Path) -> None:
@@ -68,93 +64,79 @@ class Level1_0(Level):
         return super().validate(answer, state)
 
 
-class Level1_1(Level):
-    """Level 1.1: Current Location - Learn to use pwd."""
+class PwdLevel(Level):
+    title = "Aktuální umístění"
+    instructions = """
+        ### Cíl
+        Zjistěte název aktuálního adresáře.
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="1.1",
-            section=1,
-            title="Aktuální umístění",
-            instructions="""
-### Cíl
-Zjistěte název aktuálního adresáře.
+        ### Příkazy
+        - `pwd` - vypíše celou cestu k aktuálnímu adresáři
 
-### Příkazy
-- `pwd` - vypíše celou cestu k aktuálnímu adresáři
+        ### Úkol
+        1. Spusťte `pwd`
+        2. Odevzdejte název posledního adresáře v cestě (basename)
 
-### Úkol
-1. Spusťte `pwd`
-2. Odevzdejte název posledního adresáře v cestě (basename)
-
-### Příklad
-Cesta: `/home/student/dokumenty` -> Odpověď: `dokumenty`
-            """.strip(),
-            hints=[
-                "Příkaz 'pwd' (Print Working Directory) vám ukáže, kde jste. Zkuste ho!",
-                "Výstup pwd bude něco jako /tmp/shellgame-.../level-1. Co je za posledním lomítkem?",
-                "Basename je poslední část cesty. Pokud pwd vypíše '/tmp/.../level-1', odpověď je 'level-1'.",
-            ],
-            start_directory="level-1",
-            marker_name=MarkerManager.PWD_USED,
-            marker_error=Messages.L1_1_USE_PWD_FIRST,
-            require_answer=True,
-            expected_answer="level-1",
-        )
+        ### Příklad
+        Cesta: `/home/student/dokumenty` -> Odpověď: `dokumenty`
+        """
+    hints = [
+        "Příkaz 'pwd' (Print Working Directory) vám ukáže, kde jste. Zkuste ho!",
+        "Výstup pwd bude něco jako /tmp/shellgame-.../level-1. Co je za posledním lomítkem?",
+        "Basename je poslední část cesty. Pokud pwd vypíše '/tmp/.../level-1', odpověď je 'level-1'.",
+    ]
+    start_directory = "level-1"
+    marker_name = MarkerManager.PWD_USED
+    marker_error = Messages.L1_1_USE_PWD_FIRST
+    require_answer = True
+    expected_answer = "level-1"
 
     def setup(self, workspace: Path) -> None:
         """Create level-1 directory."""
-        _setup_level1_common(workspace)
+        _setup_navigation_common(workspace)
 
 
-class Level1_2(Level):
-    """Level 1.2: Listing & Pattern Recognition."""
+class LsLevel(Level):
+    title = "Výpis a rozpoznávání vzorů"
+    instructions = """
+        ### Cíl
+        Najděte adresář odpovídající vzoru.
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="1.2",
-            section=1,
-            title="Výpis a rozpoznávání vzorů",
-            instructions="""
-### Cíl
-Najděte adresář odpovídající vzoru.
+        ### Příkazy
+        - `ls` - vypíše obsah adresáře
 
-### Příkazy
-- `ls` - vypíše obsah adresáře
-
-### Úkol
-1. Vypište obsah (`ls`)
-2. Najděte **ADRESÁŘ** začínající na `d` a končící na `a`
-3. Odevzdejte jeho název
-            """.strip(),
-            hints=[
-                "Použijte 'ls' pro výpis položek v aktuálním adresáři.",
-                "Hledejte adresář začínající na 'd' a končící na 'a'.",
-                "Ujistěte se, že odevzdáváte název adresáře, ne souboru.",
-                "Adresáře jsou ve výpisu často barevně odlišeny (např. modře).",
-            ],
-            start_directory="level-1",
-            expected_answer="delta",
-            allow_cwd_as_answer=True,
-            success_message="Správně! Našli jste adresář odpovídající vzoru.",
-            validators=[
-                CommonMistakeValidator(
-                    {
-                        (
-                            "data.txt",
-                            "dog.md",
-                            "drama.log",
-                        ): "To je soubor, ne adresář. Hledejte adresář začínající na 'd' a končící na 'a'.",
-                        "data": "'data' končí na 'a', ale není to adresář. Zkuste 'ls -F' pro rozlišení adresářů.",
-                    }
-                )
-            ],
+        ### Úkol
+        1. Vypište obsah (`ls`)
+        2. Najděte **ADRESÁŘ** začínající na `d` a končící na `a`
+        3. Odevzdejte jeho název
+        """
+    hints = [
+        "Použijte 'ls' pro výpis položek v aktuálním adresáři.",
+        "Hledejte adresář začínající na 'd' a končící na 'a'.",
+        "Ujistěte se, že odevzdáváte název adresáře, ne souboru.",
+        "Adresáře jsou ve výpisu často barevně odlišeny (např. modře).",
+    ]
+    start_directory = "level-1"
+    expected_answer = "delta"
+    allow_cwd_as_answer = True
+    success_message = "Správně! Našli jste adresář odpovídající vzoru."
+    validators = [
+        CommonMistakeValidator(
+            {
+                (
+                    "data.txt",
+                    "dog.md",
+                    "drama.log",
+                ): "To je soubor, ne adresář. Hledejte adresář začínající na 'd' a končící na 'a'.",
+                "data": "'data' končí na 'a', ale není to adresář. Zkuste 'ls -F' pro rozlišení adresářů.",
+            }
         )
+    ]
 
     @override
     def setup(self, workspace: Path) -> None:
         """Structure already created in 1.1."""
-        _setup_level1_common(workspace)
+        _setup_navigation_common(workspace)
 
     @override
     def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:  # noqa: PLR0911
@@ -199,54 +181,47 @@ Najděte adresář odpovídající vzoru.
         )
 
 
-class Level1_3(Level):
-    """Level 1.3: Enter & Report (Extension Concept)."""
+class ExtensionLevel(Level):
+    title = "Vstup a hlášení (Koncept přípony)"
+    instructions = """
+        ### Cíl
+        Identifikujte soubor bez přípony.
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="1.3",
-            section=1,
-            title="Vstup a hlášení (Koncept přípony)",
-            instructions="""
-### Cíl
-Identifikujte soubor bez přípony.
+        ### Příkazy
+        - `cd <název>` - změnit adresář
 
-### Příkazy
-- `cd <název>` - změnit adresář
-
-### Úkol
-1. Jděte do `alpha` (`cd alpha`)
-2. Najděte soubor uvnitř (`ls`)
-3. Odevzdejte název souboru **BEZ** přípony (část za tečkou)
-            """.strip(),
-            hints=[
-                "Použijte 'cd alpha' pro vstup do adresáře alpha.",
-                "Vypište obsah pomocí 'ls'. Uvidíte soubor s příponou '.txt'.",
-                "Odevzdejte název tohoto souboru, ale vynechejte část '.txt'.",
-                "Příklad: Pokud je soubor 'data.csv', odevzdejte 'data'.",
-            ],
-            start_directory="level-1",
-            required_cwd="alpha",
-            require_answer=True,
-            expected_answer="inside",
-            success_message="Správně! Správně jste odstranili příponu.",
-            validators=[
-                CommonMistakeValidator(
-                    {
-                        "inside.txt": Messages.L1_3_INCLUDED_EXTENSION,
-                        "alpha": (
-                            "'alpha' je název adresáře, ne souboru uvnitř. "
-                            "Nejdřív vstupte do alpha a podívejte se, co je uvnitř."
-                        ),
-                    }
-                )
-            ],
+        ### Úkol
+        1. Jděte do `alpha` (`cd alpha`)
+        2. Najděte soubor uvnitř (`ls`)
+        3. Odevzdejte název souboru **BEZ** přípony (část za tečkou)
+        """
+    hints = [
+        "Použijte 'cd alpha' pro vstup do adresáře alpha.",
+        "Vypište obsah pomocí 'ls'. Uvidíte soubor s příponou '.txt'.",
+        "Odevzdejte název tohoto souboru, ale vynechejte část '.txt'.",
+        "Příklad: Pokud je soubor 'data.csv', odevzdejte 'data'.",
+    ]
+    start_directory = "level-1"
+    required_cwd = "alpha"
+    require_answer = True
+    expected_answer = "inside"
+    success_message = "Správně! Správně jste odstranili příponu."
+    validators = [
+        CommonMistakeValidator(
+            {
+                "inside.txt": Messages.L1_3_INCLUDED_EXTENSION,
+                "alpha": (
+                    "'alpha' je název adresáře, ne souboru uvnitř. "
+                    "Nejdřív vstupte do alpha a podívejte se, co je uvnitř."
+                ),
+            }
         )
+    ]
 
     @override
     def setup(self, workspace: Path) -> None:
         """Structure already created in 1.1."""
-        _setup_level1_common(workspace)
+        _setup_navigation_common(workspace)
 
     @override
     def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
@@ -265,151 +240,123 @@ Identifikujte soubor bez přípony.
         return False, msg
 
 
-class Level1_4(Level):
-    """Level 1.4: Return to Base - Learn cd .. to go up one level."""
+class CdUpLevel(Level):
+    title = "Návrat na základnu"
+    instructions = """
+        ### Cíl
+        Vraťte se o úroveň výše.
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="1.4",
-            section=1,
-            title="Návrat na základnu",
-            instructions="""
-### Cíl
-Vraťte se o úroveň výše.
+        ### Příkazy
+        - `cd ..` - jít o úroveň výše
 
-### Příkazy
-- `cd ..` - jít o úroveň výše
-
-### Úkol
-1. Jděte do nadřazeného adresáře (`cd ..`)
-2. Odevzdejte název tohoto adresáře
-            """.strip(),
-            hints=[
-                "Použijte 'cd ..' pro přesun o jednu úroveň adresáře výše.",
-                "Po přesunu spusťte 'pwd' pro potvrzení, že jste v nadřazeném adresáři.",
-                "Odevzdejte název adresáře, do kterého jste se právě přesunuli.",
-                "Dvě tečky '..' vždy reprezentují nadřazený adresář.",
-            ],
-            start_directory="level-1/alpha",
-            require_answer=True,
-            expected_answer="level-1",
-        )
+        ### Úkol
+        1. Jděte do nadřazeného adresáře (`cd ..`)
+        2. Odevzdejte název tohoto adresáře
+        """
+    hints = [
+        "Použijte 'cd ..' pro přesun o jednu úroveň adresáře výše.",
+        "Po přesunu spusťte 'pwd' pro potvrzení, že jste v nadřazeném adresáři.",
+        "Odevzdejte název adresáře, do kterého jste se právě přesunuli.",
+        "Dvě tečky '..' vždy reprezentují nadřazený adresář.",
+    ]
+    start_directory = "level-1/alpha"
+    require_answer = True
+    expected_answer = "level-1"
 
     def setup(self, workspace: Path) -> None:
         """Structure already created."""
-        _setup_level1_common(workspace)
+        _setup_navigation_common(workspace)
 
 
-class Level1_5(Level):
-    """Level 1.5: Deep Dive - Navigate down."""
+class DeepDiveLevel(Level):
+    title = "Hluboký ponor"
+    instructions = """
+        ### Cíl
+        Sestupte hluboko do adresářové struktury.
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="1.5",
-            section=1,
-            title="Hluboký ponor",
-            instructions="""
-### Cíl
-Sestupte hluboko do adresářové struktury.
-
-### Úkol
-1. ShellGame vás na začátku levelu umístí do správné části workspace
-   (nemusíte spoléhat na to, kde jste skončili minule).
-2. Jděte do `gamma/deep/a/b/c/` (v adresáři `level-1`)
-3. Odevzdejte název aktuálního adresáře
-            """.strip(),
-            hints=[
-                "Použijte 'cd' pro vstup do adresářů.",
-                "Můžete jít postupně: cd gamma, cd deep, cd a...",
-                "Nebo najednou: cd gamma/deep/a/b/c",
-                "Pokud nejste v 'level-1', nejprve se do něj přesuňte (ověřte si to příkazem 'pwd').",
-            ],
-            start_directory="level-1",
-            require_answer=True,
-            expected_answer="c",
-        )
+        ### Úkol
+        1. ShellGame vás na začátku umístí do správné části workspace
+           (nemusíte spoléhat na to, kde jste skončili minule).
+        2. Jděte do `gamma/deep/a/b/c/` (v adresáři `level-1`)
+        3. Odevzdejte název aktuálního adresáře
+        """
+    hints = [
+        "Použijte 'cd' pro vstup do adresářů.",
+        "Můžete jít postupně: cd gamma, cd deep, cd a...",
+        "Nebo najednou: cd gamma/deep/a/b/c",
+        "Pokud nejste v 'level-1', nejprve se do něj přesuňte (ověřte si to příkazem 'pwd').",
+    ]
+    start_directory = "level-1"
+    require_answer = True
+    expected_answer = "c"
 
     def setup(self, workspace: Path) -> None:
         """Create deep directory structure."""
-        _setup_level1_common(workspace)
+        _setup_navigation_common(workspace)
         deep_path = workspace / "level-1" / "gamma" / "deep" / "a" / "b" / "c"
         deep_path.mkdir(parents=True, exist_ok=True)
 
 
-class Level1_6(Level):
-    """Level 1.6: Multi-Level Ascent - Learn cd ../../.."""
+class MultiLevelAscentLevel(Level):
+    title = "Víceúrovňový výstup"
+    instructions = """
+        ### Cíl
+        Vystoupejte o více úrovní najednou.
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="1.6",
-            section=1,
-            title="Víceúrovňový výstup",
-            instructions="""
-### Cíl
-Vystoupejte o více úrovní najednou.
+        ### Příkazy
+        - `cd ../../..` - jít o 3 úrovně výše
 
-### Příkazy
-- `cd ../../..` - jít o 3 úrovně výše
-
-### Úkol
-1. ShellGame vás na začátku levelu umístí do správného adresáře (nemusíte řešit, kde jste skončili minule).
-2. Vraťte se o 3 úrovně výše **JEDNÍM** příkazem
-3. Odevzdejte název adresáře, kde jste skončili
-            """.strip(),
-            hints=[
-                "Použijte 'cd ../../..' pro přesun o 3 úrovně výše najednou.",
-                "Odevzdejte název adresáře, ve kterém jste skončili (měl by to být 'deep').",
-            ],
-            start_directory="level-1/gamma/deep/a/b/c",
-            expected_answer="deep",
-            allow_cwd_as_answer=True,
-            success_message="Správně! Úspěšně jste vystoupali o 3 úrovně.",
-        )
+        ### Úkol
+        1. ShellGame vás na začátku umístí do správného adresáře (nemusíte řešit, kde jste skončili minule).
+        2. Vraťte se o 3 úrovně výše **JEDNÍM** příkazem
+        3. Odevzdejte název adresáře, kde jste skončili
+        """
+    hints = [
+        "Použijte 'cd ../../..' pro přesun o 3 úrovně výše najednou.",
+        "Odevzdejte název adresáře, ve kterém jste skončili (měl by to být 'deep').",
+    ]
+    start_directory = "level-1/gamma/deep/a/b/c"
+    expected_answer = "deep"
+    allow_cwd_as_answer = True
+    success_message = "Správně! Úspěšně jste vystoupali o 3 úrovně."
 
     def setup(self, workspace: Path) -> None:
         """Structure already created in 1.5."""
-        _setup_level1_common(workspace)
+        _setup_navigation_common(workspace)
         (workspace / "level-1" / "gamma" / "deep" / "a" / "b" / "c").mkdir(parents=True, exist_ok=True)
 
 
-class Level1_7(Level):
-    """Level 1.7: Maze Navigation - Follow instruction files through a maze."""
+class MazeLevel(Level):
+    title = "Navigace v bludišti"
+    instructions = """
+        ### Cíl
+        Projděte bludištěm podle instrukcí.
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="1.7",
-            section=1,
-            title="Navigace v bludišti",
-            instructions="""
-### Cíl
-Projděte bludištěm podle instrukcí.
+        ### Pravidla
+        - Start: `level-1/maze/00/`
+        - Sledujte soubory začínající na `GO_`
+        - `GO_TO_DIR_x` -> `cd x`
+        - `GO_UP_N_...` -> `cd ..` (N-krát)
 
-### Pravidla
-- Start: `level-1/maze/00/`
-- Sledujte soubory začínající na `GO_`
-- `GO_TO_DIR_x` -> `cd x`
-- `GO_UP_N_...` -> `cd ..` (N-krát)
-
-### Úkol
-1. Jděte do startu
-2. Sledujte instrukce až do cíle
-3. Odevzdejte název cílového adresáře
-            """.strip(),
-            hints=[
-                "Sledujte pouze názvy souborů začínající na 'GO_'. Vypište je pomocí 'ls'.",
-                "Pro instrukce typu 'GO_UP_4_THEN_GO_TO_02' použijte 'cd ../../../..' a poté 'cd 02'.",
-                "Pokračujte ve sledování instrukcí, dokud nenajdete soubor 'VICTORY.marker'.",
-                "Ignorujte soubory, které nezačínají na 'GO_', jsou to pasti.",
-            ],
-            extension=True,
-            start_directory="level-1/maze/00",
-            required_cwd="final",
-            success_message="Správně! Prošli jste bludištěm.",
-        )
+        ### Úkol
+        1. Jděte do startu
+        2. Sledujte instrukce až do cíle
+        3. Odevzdejte název cílového adresáře
+        """
+    hints = [
+        "Sledujte pouze názvy souborů začínající na 'GO_'. Vypište je pomocí 'ls'.",
+        "Pro instrukce typu 'GO_UP_4_THEN_GO_TO_02' použijte 'cd ../../../..' a poté 'cd 02'.",
+        "Pokračujte ve sledování instrukcí, dokud nenajdete soubor 'VICTORY.marker'.",
+        "Ignorujte soubory, které nezačínají na 'GO_', jsou to pasti.",
+    ]
+    extension = True
+    start_directory = "level-1/maze/00"
+    required_cwd = "final"
+    success_message = "Správně! Prošli jste bludištěm."
 
     def setup(self, workspace: Path) -> None:
         """Create the maze structure with instruction files."""
-        _setup_level1_common(workspace)
+        _setup_navigation_common(workspace)
         maze_base = workspace / "level-1" / "maze"
 
         # Create maze directories and instruction files.
@@ -490,50 +437,43 @@ Projděte bludištěm podle instrukcí.
                 (full_path / "YOU_ARE_NOT_SUPPOSED_TO_BE_HERE").unlink(missing_ok=True)
 
 
-class Level1_8(Level):
-    """Level 1.8: Absolute Path Jump - Learn to use absolute paths."""
+class AbsoluteCdLevel(Level):
+    title = "Skok absolutní cestou"
+    instructions = """
+        ### Cíl
+        Použijte absolutní cestu.
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="1.8",
-            section=1,
-            title="Skok absolutní cestou",
-            instructions="""
-### Cíl
-Použijte absolutní cestu.
+        ### Příkazy
+        - `cd /cesta` - absolutní cesta (od kořene)
 
-### Příkazy
-- `cd /cesta` - absolutní cesta (od kořene)
-
-### Úkol
-1. Zjistěte svou aktuální polohu (`pwd`)
-2. Použijte **JEDEN** příkaz `cd` s absolutní cestou do:
-   `level-1/absolute-target/`
-3. Odevzdejte název cílového adresáře
-            """.strip(),
-            hints=[
-                "Absolutní cesty začínají na /. Použijte 'pwd' pro zobrazení vaší plné cesty.",
-                "Sestavte plnou cestu kombinací výstupu pwd a cílového adresáře.",
-                "Odevzdejte název cílového adresáře.",
-                "Příklad: cd /tmp/shellgame-user/level-1/absolute-target",
-            ],
-            start_directory="level-1",
-            required_cwd="absolute-target",
-            marker_name=MarkerManager.LEVEL1_8_ABSOLUTE_CD,
-            marker_error=Messages.ABSOLUTE_CD_NOT_USED,
-            success_message="Správně! Dostali jste se sem absolutní cestou.",
-        )
+        ### Úkol
+        1. Zjistěte svou aktuální polohu (`pwd`)
+        2. Použijte **JEDEN** příkaz `cd` s absolutní cestou do:
+           `level-1/absolute-target/`
+        3. Odevzdejte název cílového adresáře
+        """
+    hints = [
+        "Absolutní cesty začínají na /. Použijte 'pwd' pro zobrazení vaší plné cesty.",
+        "Sestavte plnou cestu kombinací výstupu pwd a cílového adresáře.",
+        "Odevzdejte název cílového adresáře.",
+        "Příklad: cd /tmp/shellgame-user/level-1/absolute-target",
+    ]
+    start_directory = "level-1"
+    required_cwd = "absolute-target"
+    marker_name = MarkerManager.LEVEL1_8_ABSOLUTE_CD
+    marker_error = Messages.ABSOLUTE_CD_NOT_USED
+    success_message = "Správně! Dostali jste se sem absolutní cestou."
 
     def setup(self, workspace: Path) -> None:
         """Create absolute-target directory."""
-        _setup_level1_common(workspace)
+        _setup_navigation_common(workspace)
         target_dir = workspace / "level-1" / "absolute-target"
         target_dir.mkdir(parents=True, exist_ok=True)
         (target_dir / "PLACEHOLDER.answer").write_text("")
 
     @property
     @override
-    def hooks(self) -> dict[str, callable]:
+    def hooks(self) -> dict[str, Callable[..., object]]:
         return {"cd": self._handle_cd}
 
     def _handle_cd(self, *, target: str | None, pwd: str | None, post_move: bool, state: GameStateProtocol) -> None:
@@ -550,43 +490,36 @@ Použijte absolutní cestu.
             sys.exit(1)
 
         # Valid absolute path used
-        MarkerManager.from_state(state).create(MarkerManager.LEVEL1_8_ABSOLUTE_CD)
+        MarkerManager.from_state(cast(MarkersGameStateProtocol, state)).create(MarkerManager.LEVEL1_8_ABSOLUTE_CD)
 
 
-class Level1_9(Level):
-    """Level 1.9: Root to Home Walk (Extension) - Manual path reconstruction."""
+class HomeWalkLevel(Level):
+    title = "Cesta z kořene domů"
+    instructions = """
+        ### Cíl
+        Zrekonstruujte cestu domů.
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="1.9",
-            section=1,
-            title="Cesta z kořene domů",
-            instructions="""
-### Cíl
-Zrekonstruujte cestu domů.
+        ### Příkazy
+        - `cd /` - jít do kořene
+        - `echo $HOME` - zobrazit cestu domů
 
-### Příkazy
-- `cd /` - jít do kořene
-- `echo $HOME` - zobrazit cestu domů
-
-### Úkol
-1. Jděte do kořene (`cd /`)
-2. Zjistěte cestu domů (`echo $HOME`)
-3. Jděte domů krok za krokem (každý segment zvlášť)
-4. Nakonec použijte jen `shellgame submit`
-            """.strip(),
-            hints=[
-                "Zjistěte cestu k domovu pomocí 'echo $HOME'.",
-                "Začněte v / a vstupujte do každého adresáře v cestě jeden po druhém (bez přeskakování).",
-                "Tip: pokud je HOME třeba /home/ada, udělejte: cd / ; cd home ; cd ada.",
-                "V tomhle levelu neodevzdáváte textovou odpověď – důležitá je správná sekvence `cd`.",
-            ],
-            extension=True,
-            marker_name=MarkerManager.LEVEL1_9_CD_WALK_COMPLETED,
-            marker_error=Messages.CD_WALK_NOT_COMPLETED,
-            success_message="Správně! Došli jste domů krok za krokem.",
-            validators=[HomeDirectoryValidator(check_basename=False)],
-        )
+        ### Úkol
+        1. Jděte do kořene (`cd /`)
+        2. Zjistěte cestu domů (`echo $HOME`)
+        3. Jděte domů krok za krokem (každý segment zvlášť)
+        4. Nakonec použijte jen `shellgame submit`
+        """
+    hints = [
+        "Zjistěte cestu k domovu pomocí 'echo $HOME'.",
+        "Začněte v / a vstupujte do každého adresáře v cestě jeden po druhém (bez přeskakování).",
+        "Tip: pokud je HOME třeba /home/ada, udělejte: cd / ; cd home ; cd ada.",
+        "V tomhle levelu neodevzdáváte textovou odpověď – důležitá je správná sekvence `cd`.",
+    ]
+    extension = True
+    marker_name = MarkerManager.LEVEL1_9_CD_WALK_COMPLETED
+    marker_error = Messages.CD_WALK_NOT_COMPLETED
+    success_message = "Správně! Došli jste domů krok za krokem."
+    validators = [HomeDirectoryValidator(check_basename=False)]
 
     @override
     def setup(self, workspace: Path) -> None:
@@ -599,11 +532,13 @@ Zrekonstruujte cestu domů.
 
     @property
     @override
-    def hooks(self) -> dict[str, callable]:
+    def hooks(self) -> dict[str, Callable[..., object]]:
         return {"cd": self._handle_cd}
 
-    def _handle_cd(self, *, target: str | None, pwd: str | None, post_move: bool, state: GameStateProtocol) -> None:
-        markers = MarkerManager.from_state(state)
+    def _handle_cd(  # noqa: PLR0912
+        self, *, target: str | None, pwd: str | None, post_move: bool, state: GameStateProtocol
+    ) -> None:
+        markers = MarkerManager.from_state(cast(MarkersGameStateProtocol, state))
 
         if not post_move:
             # Level 1.9 Pre-move: Enforce step-by-step (no jumps)
@@ -668,36 +603,29 @@ Zrekonstruujte cestu domů.
                 markers.remove(MarkerManager.LEVEL1_9_CD_WALK_PROGRESS)
 
 
-class Level1_10(Level):
-    """Level 1.10: Home Confirmation (Extension)."""
+class HomeCheckLevel(Level):
+    title = "Potvrzení domova"
+    instructions = """
+        ### Cíl
+        Ověřte, že jste doma.
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="1.10",
-            section=1,
-            title="Potvrzení domova",
-            instructions="""
-### Cíl
-Ověřte, že jste doma.
+        ### Příkazy
+        - `cd ~` - jít domů
 
-### Příkazy
-- `cd ~` - jít domů
-
-### Úkol
-1. Jděte domů (`cd ~`)
-2. Odevzdejte název domovského adresáře
-            """.strip(),
-            hints=[
-                "Můžete použít 'cd ~' nebo 'cd $HOME' pro rychlý návrat domů.",
-                "Použijte 'pwd' pro kontrolu, kde jste.",
-                "Odevzdejte název vašeho domovského adresáře (poslední část cesty).",
-                "Vlnovka '~' je zkratka pro domovský adresář aktuálního uživatele.",
-            ],
-            extension=True,
-            allow_cwd_as_answer=True,
-            success_message="Správně! Jste doma.",
-            validators=[HomeDirectoryValidator(check_basename=True)],
-        )
+        ### Úkol
+        1. Jděte domů (`cd ~`)
+        2. Odevzdejte název domovského adresáře
+        """
+    hints = [
+        "Můžete použít 'cd ~' nebo 'cd $HOME' pro rychlý návrat domů.",
+        "Použijte 'pwd' pro kontrolu, kde jste.",
+        "Odevzdejte název vašeho domovského adresáře (poslední část cesty).",
+        "Vlnovka '~' je zkratka pro domovský adresář aktuálního uživatele.",
+    ]
+    extension = True
+    allow_cwd_as_answer = True
+    success_message = "Správně! Jste doma."
+    validators = [HomeDirectoryValidator(check_basename=True)]
 
     @override
     def setup(self, workspace: Path) -> None:
@@ -709,42 +637,35 @@ Ověřte, že jste doma.
         return super().validate(answer, state)
 
 
-class Level1_11(Level):
-    """Level 1.11: Visualizing Structure (Optional)."""
+class StructureLevel(Level):
+    title = "Vizualizace struktury"
+    instructions = """
+        ### Cíl
+        Vizualizujte strukturu.
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="1.11",
-            section=1,
-            title="Vizualizace struktury",
-            instructions="""
-### Cíl
-Vizualizujte strukturu.
+        ### Příkazy
+        - `ls -F` - výpis s typy
 
-### Příkazy
-- `ls -F` - výpis s typy
-
-### Úkol
-1. Jděte do `level-1`
-2. Vypište adresáře
-3. Odevzdejte seznam adresářů (abecedně, oddělené čárkami)
-            """.strip(),
-            hints=[
-                "Jděte do level-1 a spusťte 'ls'.",
-                "Vypište názvy adresářů abecedně, oddělené čárkami.",
-                "Ujistěte se, že uvádíte pouze adresáře, ne soubory.",
-                "Přepínač -F přidá za názvy adresářů lomítko /, což pomáhá v orientaci.",
-            ],
-            optional=True,
-            start_directory="level-1",
-            require_answer=True,
-            validators=[OrderedListValidator(["absolute-target", "alpha", "delta", "gamma", "maze", "patterns"])],
-        )
+        ### Úkol
+        1. Jděte do `level-1`
+        2. Vypište adresáře
+        3. Odevzdejte seznam adresářů (abecedně, oddělené čárkami)
+        """
+    hints = [
+        "Jděte do level-1 a spusťte 'ls'.",
+        "Vypište názvy adresářů abecedně, oddělené čárkami.",
+        "Ujistěte se, že uvádíte pouze adresáře, ne soubory.",
+        "Přepínač -F přidá za názvy adresářů lomítko /, což pomáhá v orientaci.",
+    ]
+    optional = True
+    start_directory = "level-1"
+    require_answer = True
+    validators = [OrderedListValidator(["absolute-target", "alpha", "delta", "gamma", "maze", "patterns"])]
 
     @override
     def setup(self, workspace: Path) -> None:
         """Structure already exists."""
-        _setup_level1_common(workspace)
+        _setup_navigation_common(workspace)
         # Ensure all directories for this level exist
         (workspace / "level-1" / "absolute-target").mkdir(parents=True, exist_ok=True)
         (workspace / "level-1" / "maze").mkdir(parents=True, exist_ok=True)
@@ -754,66 +675,59 @@ Vizualizujte strukturu.
         return super().validate(answer, state)
 
 
-class Level1_12(Level):
-    """Level 1.12: Section 1 Summary Challenge."""
+class SummaryLevel(Level):
+    title = "Souhrn"
+    instructions = """
+        ### Výzva: Otestujte své dovednosti!
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="1.12",
-            section=1,
-            title="Souhrn Sekce 1",
-            instructions="""
-### 🎯 Výzva: Otestujte své dovednosti!
+        Ukažte, co jste se naučili v této sekci. Proveďte následující kroky:
 
-Ukažte, co jste se naučili v této sekci. Proveďte následující kroky:
+        ### Úkol
+        1. Zjistěte svou aktuální polohu (`pwd`)
+        2. Přejděte do adresáře `level-1/gamma/deep/a/b/c`
+        3. Vraťte se o 4 úrovně výše jedním příkazem
+        4. Odevzdejte název adresáře, kde jste skončili
 
-### Úkol
-1. Zjistěte svou aktuální polohu (`pwd`)
-2. Přejděte do adresáře `level-1/gamma/deep/a/b/c`
-3. Vraťte se o 4 úrovně výše jedním příkazem
-4. Odevzdejte název adresáře, kde jste skončili
+        ### Shrnutí příkazů
+        ```
+        pwd           → Kde jsem?
+        ls            → Co tu je?
+        cd adresář    → Vstup do adresáře
+        cd ..         → O úroveň výše
+        cd ../..      → O více úrovní výše
+        cd /cesta     → Absolutní cesta
+        cd ~          → Domů
+        ```
 
-### Shrnutí příkazů Sekce 1
-```
-pwd           → Kde jsem?
-ls            → Co tu je?
-cd adresář    → Vstup do adresáře
-cd ..         → O úroveň výše
-cd ../..      → O více úrovní výše
-cd /cesta     → Absolutní cesta
-cd ~          → Domů
-```
-
-### Odevzdání
-`shellgame submit <název_adresáře>`
-            """.strip(),
-            hints=[
-                "Nejdřív se dostaňte do c: cd level-1/gamma/deep/a/b/c",
-                "Z 'c' o 4 úrovně výše: cd ../../../..",
-                "Spočítejte: c → b → a → deep → gamma. Odpověď je 'gamma'.",
-            ],
-            start_directory="level-1",
-            expected_answer="gamma",
-            allow_cwd_as_answer=True,
-            success_message="🎉 Výborně! Dokončili jste Sekci 1. Ovládáte základy navigace!",
-            validators=[
-                CommonMistakeValidator(
-                    {
-                        "deep": "Téměř! 'deep' je o 3 úrovně nad 'c'. Potřebujete jít o 4 úrovně.",
-                        (
-                            "a",
-                            "b",
-                            "c",
-                        ): "To není dost vysoko. Spočítejte: c→b→a→deep→gamma = 4 kroky.",
-                    }
-                )
-            ],
+        ### Odevzdání
+        `shellgame submit <název_adresáře>`
+        """
+    hints = [
+        "Nejdřív se dostaňte do c: cd level-1/gamma/deep/a/b/c",
+        "Z 'c' o 4 úrovně výše: cd ../../../..",
+        "Spočítejte: c → b → a → deep → gamma. Odpověď je 'gamma'.",
+    ]
+    start_directory = "level-1"
+    expected_answer = "gamma"
+    allow_cwd_as_answer = True
+    success_message = "Výborně! Ovládáte základy navigace!"
+    validators = [
+        CommonMistakeValidator(
+            {
+                "deep": "Téměř! 'deep' je o 3 úrovně nad 'c'. Potřebujete jít o 4 úrovně.",
+                (
+                    "a",
+                    "b",
+                    "c",
+                ): "To není dost vysoko. Spočítejte: c→b→a→deep→gamma = 4 kroky.",
+            }
         )
+    ]
 
     @override
     def setup(self, workspace: Path) -> None:
         """Structure already created in 1.5."""
-        _setup_level1_common(workspace)
+        _setup_navigation_common(workspace)
         # Ensure deep structure exists
         (workspace / "level-1" / "gamma" / "deep" / "a" / "b" / "c").mkdir(parents=True, exist_ok=True)
 
@@ -837,19 +751,26 @@ cd ~          → Domů
 
 
 def get_levels() -> list[Level]:
-    """Return all Section 1 level instances."""
-    return [
-        Level1_0(),
-        Level1_1(),
-        Level1_2(),
-        Level1_3(),
-        Level1_4(),
-        Level1_5(),
-        Level1_6(),
-        Level1_7(),
-        Level1_8(),
-        Level1_9(),
-        Level1_10(),
-        Level1_11(),
-        Level1_12(),
+    """Return all levels for this section."""
+    levels = [
+        Section1Intro(),
+        PwdLevel(),
+        LsLevel(),
+        ExtensionLevel(),
+        CdUpLevel(),
+        DeepDiveLevel(),
+        MultiLevelAscentLevel(),
+        MazeLevel(),
+        AbsoluteCdLevel(),
+        HomeWalkLevel(),
+        HomeCheckLevel(),
+        StructureLevel(),
+        SummaryLevel(),
     ]
+
+    section_num = 1
+    for i, level in enumerate(levels):
+        level.section = section_num
+        level.id = f"{section_num}.{i}"
+
+    return levels

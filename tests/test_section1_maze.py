@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
-from shellgame.levels.sections.section1 import Level1_7
+from shellgame.levels.sections.section1 import MazeLevel
 
 
 def test_level1_7_maze_has_first_step(tmp_path: Path) -> None:
-    level = Level1_7()
+    level = MazeLevel()
     level.setup(tmp_path)
 
     start_dir = tmp_path / "level-1" / "maze" / "00"
@@ -18,7 +18,7 @@ def test_level1_7_maze_has_first_step(tmp_path: Path) -> None:
 
 
 def test_level1_7_deep_step_go_up_4_then_go_to_02_is_valid(tmp_path: Path) -> None:
-    level = Level1_7()
+    level = MazeLevel()
     level.setup(tmp_path)
 
     maze_root = tmp_path / "level-1" / "maze"

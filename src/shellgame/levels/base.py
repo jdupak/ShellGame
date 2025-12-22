@@ -1,7 +1,9 @@
 """Base level interface and abstract class."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
+from textwrap import dedent
 from typing import Optional
 
 from shellgame.markers import MarkerManager
@@ -28,24 +30,24 @@ class Level(ABC):
 
     def __init__(  # noqa: PLR0913
         self,
-        id: str,
-        section: int,
-        title: str,
-        instructions: str = "",
+        id: Optional[str] = None,
+        section: Optional[int] = None,
+        title: Optional[str] = None,
+        instructions: Optional[str] = None,
         hints: Optional[list[str]] = None,
-        optional: bool = False,
-        extension: bool = False,
+        optional: Optional[bool] = None,
+        extension: Optional[bool] = None,
         instructions_file: Optional[str] = None,
         validators: Optional[list[Validator]] = None,
         # New declarative attributes
         start_directory: Optional[str] = None,
         required_cwd: Optional[str] = None,
-        require_answer: bool = False,
+        require_answer: Optional[bool] = None,
         marker_name: Optional[str] = None,
         marker_error: Optional[str] = None,
         expected_answer: Optional[str] = None,
         success_message: Optional[str] = None,
-        allow_cwd_as_answer: bool = False,
+        allow_cwd_as_answer: Optional[bool] = None,
     ):
         """Initialize a level.
 
@@ -68,32 +70,60 @@ class Level(ABC):
             success_message: Custom success message
             allow_cwd_as_answer: If True, accept being in target dir as valid answer
         """
-        self.id = id
-        self.section = section
-        self.title = title
-        self.hints = hints or []
-        self.optional = optional
-        self.extension = extension
-        self.validators = validators or []
+        self.id = id if id is not None else getattr(self, "id", None)
+        # Allow id to be None initially for auto-numbering
+        
+        self.section = section if section is not None else getattr(self, "section", None)
+        # Allow section to be None initially for auto-numbering
+
+        self.title = title if title is not None else getattr(self, "title", None)
+        if self.title is None:
+            raise ValueError("Level must have a title")
+
+        # Handle mutable defaults safely by copying from class attributes if needed
+        _hints = hints if hints is not None else getattr(self, "hints", [])
+        self.hints = list(_hints)  # Create a copy
+
+        self.optional = optional if optional is not None else getattr(self, "optional", False)
+        self.extension = extension if extension is not None else getattr(self, "extension", False)
+        
+        _validators = validators if validators is not None else getattr(self, "validators", [])
+        self.validators = list(_validators)  # Create a copy
 
         # Declarative validation attributes
-        self.start_directory = start_directory
-        self.required_cwd = required_cwd
-        self.require_answer = require_answer
-        self.marker_name = marker_name
-        self.marker_error = marker_error or Messages.MARKER_NOT_FOUND
-        self.expected_answer = expected_answer
-        self.success_message = success_message or Messages.CORRECT
-        self.allow_cwd_as_answer = allow_cwd_as_answer
+        self.start_directory = start_directory if start_directory is not None else getattr(
+            self, "start_directory", None
+        )
+        self.required_cwd = required_cwd if required_cwd is not None else getattr(self, "required_cwd", None)
+        self.require_answer = require_answer if require_answer is not None else getattr(self, "require_answer", False)
+        self.marker_name = marker_name if marker_name is not None else getattr(self, "marker_name", None)
+        self.marker_error = marker_error if marker_error is not None else getattr(
+            self, "marker_error", Messages.MARKER_NOT_FOUND
+        )
+        self.expected_answer = expected_answer if expected_answer is not None else getattr(
+            self, "expected_answer", None
+        )
+        self.success_message = success_message if success_message is not None else getattr(
+            self, "success_message", Messages.CORRECT
+        )
+        self.allow_cwd_as_answer = allow_cwd_as_answer if allow_cwd_as_answer is not None else getattr(
+            self, "allow_cwd_as_answer", False
+        )
 
-        if instructions_file:
-            content_path = Path(__file__).parent / "content" / instructions_file
+        inst_file = instructions_file if instructions_file is not None else getattr(self, "instructions_file", None)
+        inst_text = instructions if instructions is not None else getattr(self, "instructions", "")
+
+        if inst_file:
+            content_path = Path(__file__).parent / "content" / inst_file
             if content_path.exists():
-                self.instructions = content_path.read_text()
+                self.instructions = dedent(content_path.read_text()).strip()
             else:
-                self.instructions = f"Error: Instructions file {instructions_file} not found."
+                self.instructions = f"Error: Instructions file {inst_file} not found."
         else:
-            self.instructions = instructions
+            # Allow instructions to be indented nicely in source code.
+            # We normalize by removing common leading indentation (and outer whitespace)
+            # so rendered markdown is stable.
+            self.instructions = dedent(inst_text).strip()
 
     @abstractmethod
     def setup(self, workspace: Path) -> None:
@@ -188,7 +218,7 @@ class Level(ABC):
         return workspace / self.start_directory
 
     @property
-    def hooks(self) -> dict[str, callable]:
+    def hooks(self) -> dict[str, Callable[..., object]]:
         """Return a dictionary of command hooks.
 
         Returns:

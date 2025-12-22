@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import contextlib
 import os
-import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -25,7 +24,6 @@ from typing import Any, Callable, Protocol
 from shellgame import shell
 from shellgame.cli.subshell import detect_interactive_shell, launch_subshell
 from shellgame.levels.registry import LevelRegistry
-from shellgame.markers import MarkerManager
 from shellgame.state.manager import GameState, StateManager
 from shellgame.ui.display import Display
 from shellgame.workspace.builder import WorkspaceManager

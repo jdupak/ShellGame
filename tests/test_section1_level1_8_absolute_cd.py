@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from shellgame.levels.sections.section1 import Level1_8
+from shellgame.levels.sections.section1 import AbsoluteCdLevel
 
 
 class _State:
@@ -20,7 +20,7 @@ class _State:
 
 
 def test_level1_8_submit_without_answer_requires_cwd_and_marker(tmp_path: Path, monkeypatch: Any) -> None:
-    level = Level1_8()
+    level = AbsoluteCdLevel()
     level.setup(tmp_path)
 
     state = _State(tmp_path, "tester")
@@ -43,7 +43,7 @@ def test_level1_8_submit_without_answer_requires_cwd_and_marker(tmp_path: Path, 
 
 
 def test_level1_8_answer_is_optional_and_ignored(tmp_path: Path, monkeypatch: Any) -> None:
-    level = Level1_8()
+    level = AbsoluteCdLevel()
     level.setup(tmp_path)
 
     state = _State(tmp_path, "tester2")

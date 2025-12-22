@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from shellgame.levels.sections.section1 import Level1_7
+from shellgame.levels.sections.section1 import MazeLevel
 
 
 @dataclass
@@ -21,7 +21,7 @@ def test_level1_7_each_dir_has_go_xor_warning(tmp_path: Path, monkeypatch: Any) 
     workspace = tmp_path / "ws"
     workspace.mkdir()
 
-    level = Level1_7()
+    level = MazeLevel()
     level.setup(workspace)
 
     maze_root = workspace / "level-1" / "maze"

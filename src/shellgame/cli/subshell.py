@@ -44,7 +44,6 @@ from string import Template
 
 from shellgame.cli.hooks import generate_bash_cd_hooks, generate_fish_cd_hooks
 
-
 DEV_SHORTCUTS = {
     "r": "shellgame dev reload",
     "n": "shellgame dev next",

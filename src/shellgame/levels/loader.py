@@ -84,6 +84,9 @@ class LevelLoader:
     def _register_section(self, levels: list[Level]) -> None:
         """Index a batch of levels by id and section."""
         for level in levels:
+            if level.id is None or level.section is None:
+                raise ValueError("Levels must have id and section set before registration")
+
             self._levels[level.id] = level
             self._sections.setdefault(level.section, []).append(level)
 

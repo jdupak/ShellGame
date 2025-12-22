@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
-from shellgame.levels.sections.section1 import Level1_7
+from shellgame.levels.sections.section1 import MazeLevel
 
 
 def test_level1_7_maze_has_branches_and_a_loop(tmp_path: Path) -> None:
-    level = Level1_7()
+    level = MazeLevel()
     level.setup(tmp_path)
 
     maze_root = tmp_path / "level-1" / "maze"

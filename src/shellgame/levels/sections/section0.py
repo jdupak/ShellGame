@@ -8,21 +8,16 @@ from typing_extensions import override
 
 from shellgame.levels.base import Level
 from shellgame.protocols import GameStateProtocol
-from shellgame.validation.validators import StringValidator
+from shellgame.validation.validators import StringValidator, ValidationResult
 
 
-class Level0_0(Level):
-    """Level 0.0: Introduction - How to play."""
+class IntroLevel(Level):
+    """Introduction - How to play."""
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="0.0",
-            section=0,
-            title="Vítejte v ShellGame",
-            instructions_file="section0_intro.md",
-            hints=["Přečtěte si instrukce a pokračujte příkazem 'shellgame submit'."],
-            start_directory="",
-        )
+    title = "Vítejte v ShellGame"
+    instructions_file = "section0_intro.md"
+    hints = ["Přečtěte si instrukce a pokračujte příkazem 'shellgame submit'."]
+    start_directory = ""
 
     @override
     def setup(self, workspace: Path) -> None:
@@ -30,59 +25,54 @@ class Level0_0(Level):
         pass
 
     @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
-        """Always valid, just moving to next level."""
+    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
+        """
+        Always valid, just moving to next level.
+
+        Note: This still goes through the base validation (if any declarative checks
+        are added later), but always succeeds afterwards.
+        """
+        super().validate(answer, state)
         return True, "Vítejte ve hře!"
 
 
-class Level0_1(Level):
-    """Level 0.1: Warmup Task."""
+class WarmupPasswordLevel(Level):
+    """Warmup task: submit the password."""
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="0.1",
-            section=0,
-            title="Zahřívací kolo",
-            instructions="""
-### Zahřívací kolo
+    title = "Zahřívací kolo"
+    instructions = """
+        ### Zahřívací kolo
 
-Toto je první testovací úkol, abychom si ověřili, že vše funguje.
+        Toto je první testovací úkol, abychom si ověřili, že vše funguje.
 
-### Úkol
-Pro postup do první sekce stačí odevzdat heslo `start`.
+        ### Úkol
+        Pro postup do první sekce stačí odevzdat heslo `start`.
 
-Odevzdejte pomocí: `shellgame submit start`
-            """.strip(),
-            hints=[
-                "Opravdu jen napište: shellgame submit start",
-                "Nic víc v tom nehledejte :)",
-            ],
-            start_directory="",
-        )
+        Odevzdejte pomocí: `shellgame submit start`
+        """
+    hints = [
+        "Opravdu jen napište: shellgame submit start",
+        "Nic víc v tom nehledejte :)",
+    ]
+    start_directory = ""
+    require_answer = True
+    validators = [StringValidator("start", case_sensitive=False)]
 
     @override
     def setup(self, workspace: Path) -> None:
         """No setup needed."""
         pass
 
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> tuple[bool, str]:
-        """Validate that answer is 'start'."""
-        if answer is None:
-            return False, "Musíte zadat heslo: shellgame submit start"
-
-        validator = StringValidator("start", case_sensitive=False)
-        return validator.validate(answer, state.workspace)
-
 
 def get_levels() -> list[Level]:
-    """
-    Return all Section 0 level classes.
-
-    Returns:
-        List of Level instances for Section 0
-    """
-    return [
-        Level0_0(),
-        Level0_1(),
+    levels: list[Level] = [
+        IntroLevel(),
+        WarmupPasswordLevel(),
     ]
+
+    section_num = 0
+    for i, level in enumerate(levels):
+        level.section = section_num
+        level.id = f"{section_num}.{i}"
+
+    return levels

@@ -4,11 +4,10 @@ These tests lock in path-mapping behavior so it doesn't regress.
 """
 
 from pathlib import Path
-
 from typing import Any
 
 from shellgame.cli.commands import get_level_start_directory
-from shellgame.levels.sections.section1 import Level1_1
+from shellgame.levels.sections.section1 import PwdLevel
 
 
 def test_get_level_start_directory_selected_levels(tmp_path: Path) -> None:
@@ -59,7 +58,7 @@ def test_level1_1_requires_pwd_marker(tmp_path: Path, monkeypatch: Any) -> None:
     if marker.exists():
         marker.unlink()
 
-    level = Level1_1()
+    level = PwdLevel()
 
     ok, msg = level.validate("level-1", state)
     assert ok is False
@@ -90,7 +89,7 @@ def test_level1_1_wrong_answer_does_not_spoil_expected(tmp_path: Path) -> None:
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text("")
 
-    level = Level1_1()
+    level = PwdLevel()
     try:
         ok, msg = level.validate("shellgame-viper", state)
         assert ok is False

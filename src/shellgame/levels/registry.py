@@ -20,6 +20,9 @@ class LevelRegistry:
         Args:
             level: Level instance to register
         """
+        if level.id is None:
+            raise ValueError("Cannot register level without id")
+
         self.levels[level.id] = level
         if level.id not in self._level_order:
             self._level_order.append(level.id)

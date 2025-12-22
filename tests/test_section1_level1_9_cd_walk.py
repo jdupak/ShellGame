@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from shellgame.levels.sections.section1 import Level1_9
+from shellgame.levels.sections.section1 import HomeWalkLevel
 
 
 @dataclass
@@ -26,7 +26,7 @@ def _run_in_cwd(tmp_path: Path, cwd: Path, fn: Any) -> Any:
 
 
 def test_level1_9_rejects_when_not_at_home(tmp_path: Path, monkeypatch: Any) -> None:
-    level = Level1_9()
+    level = HomeWalkLevel()
 
     fake_home = tmp_path / "home" / "student"
     (tmp_path / "home" / "student").mkdir(parents=True)
@@ -45,7 +45,7 @@ def test_level1_9_rejects_when_not_at_home(tmp_path: Path, monkeypatch: Any) -> 
 
 
 def test_level1_9_requires_marker_even_if_at_home(tmp_path: Path, monkeypatch: Any) -> None:
-    level = Level1_9()
+    level = HomeWalkLevel()
 
     fake_home = tmp_path / "home" / "student"
     fake_home.mkdir(parents=True)
@@ -66,7 +66,7 @@ def test_level1_9_requires_marker_even_if_at_home(tmp_path: Path, monkeypatch: A
 
 
 def test_level1_9_accepts_submit_without_answer_when_marker_present(tmp_path: Path, monkeypatch: Any) -> None:
-    level = Level1_9()
+    level = HomeWalkLevel()
 
     fake_home = tmp_path / "home" / "student"
     fake_home.mkdir(parents=True)

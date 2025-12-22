@@ -1,69 +1,68 @@
 """Section 10: Wildcards."""
 
+from __future__ import annotations
+
 import shutil
 from pathlib import Path
-from typing import Any, Optional
+
+from typing_extensions import override
 
 from shellgame.levels.base import Level
-from shellgame.validation.validators import FileExistsValidator, MultiValidator
+from shellgame.protocols import GameStateProtocol
+from shellgame.validation.validators import FileExistsValidator, ValidationResult
 
 
-class Level10_0(Level):
-    """Level 10.0: Section 10 Introduction."""
+class SectionIntro(Level):
+    title = "Sekce 10: Žolíky (Wildcards)"
+    instructions_file = "section10_intro.md"
+    hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
+    success_message = "Jdeme na to!"
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="10.0",
-            section=10,
-            title="Sekce 10: Žolíky (Wildcards)",
-            instructions_file="section10_intro.md",
-            hints=["Přečtěte si úvod a pokračujte stisknutím Enter."],
-        )
-
+    @override
     def setup(self, workspace: Path) -> None:
-        """No setup needed."""
-        pass
+        return
 
-    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
-        """Always valid."""
-        return True, "Jdeme na to!"
+    @override
+    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
+        return super().validate(answer, state)
 
 
-class Level10_1(Level):
-    """Level 10.1: The Star Wildcard."""
+class StarWildcardCopyLevel(Level):
+    title = "Hvězdička *"
+    instructions = """
+        # Hvězdička *
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="10.1",
-            section=10,
-            title="Hvězdička *",
-            instructions="""# Level 10.1: Hvězdička *
+        Hvězdička `*` nahradí JAKOUKOLIV sekvenci znaků (včetně prázdné).
+        Je velmi užitečná pro výběr souborů se specifickou příponou.
 
-Hvězdička `*` nahradí JAKOUKOLIV sekvenci znaků (včetně prázdné).
-Je velmi užitečná pro výběr souborů se specifickou příponou.
+        ### Proč je to užitečné
+        Představte si, že máte 100 fotografií a chcete je všechny zkopírovat.
+        Místo `cp foto1.jpg foto2.jpg foto3.jpg ...` stačí `cp *.jpg cíl/`.
 
-### Proč je to užitečné
-Představte si, že máte 100 fotografií a chcete je všechny zkopírovat.
-Místo `cp foto1.jpg foto2.jpg foto3.jpg ...` stačí `cp *.jpg cíl/`.
+        ### Úkol
+        Zkopírujte všechny soubory s příponou `.jpg` do adresáře `images`.
+        (Adresář `images` již existuje).
 
-### Úkol
-Zkopírujte všechny soubory s příponou `.jpg` do adresáře `images`.
-(Adresář `images` již existuje).
+        ### Příkazy
+        - `cp *.jpg adresář/` - zkopíruje všechny .jpg soubory
 
-### Příkazy
-- `cp *.jpg adresář/` - zkopíruje všechny .jpg soubory
+        ### Odevzdání
+        Po splnění úkolu odevzdejte: `shellgame submit`
+        """
+    hints = [
+        "Hvězdička (*) nahrazuje libovolný počet znaků.",
+        "Příkaz 'ls *.txt' vypíše všechny soubory s příponou .txt.",
+    ]
+    # NOTE: preserve original UX (start dir at section hub), not the actual task dir
+    start_directory = "level-10/wildcards"
+    validators = [
+        FileExistsValidator("level-10/star/images/photo1.jpg", should_exist=True),
+        FileExistsValidator("level-10/star/images/photo2.jpg", should_exist=True),
+        FileExistsValidator("level-10/star/images/notes.txt", should_exist=False),
+    ]
 
-### Odevzdání
-Po splnění úkolu odevzdejte: `shellgame submit`""",
-            hints=[
-                "Hvězdička (*) nahrazuje libovolný počet znaků.",
-                "Příkaz 'ls *.txt' vypíše všechny soubory s příponou .txt.",
-            ],
-            start_directory="level-10/wildcards",
-        )
-
+    @override
     def setup(self, workspace: Path) -> None:
-        """Create files and directory."""
         level_dir = workspace / "level-10" / "star"
         level_dir.mkdir(parents=True, exist_ok=True)
 
@@ -78,56 +77,43 @@ Po splnění úkolu odevzdejte: `shellgame submit`""",
         for f in (level_dir / "images").glob("*"):
             f.unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
-        """Validate copy."""
-        base = "level-10/star/images"
 
-        validators = [
-            FileExistsValidator(f"{base}/photo1.jpg", should_exist=True),
-            FileExistsValidator(f"{base}/photo2.jpg", should_exist=True),
-            FileExistsValidator(f"{base}/notes.txt", should_exist=False),
-        ]
+class QuestionMarkWildcardCopyLevel(Level):
+    title = "Otazník ?"
+    instructions = """
+        # Otazník ?
 
-        validator = MultiValidator(validators)
-        return validator.validate(answer or "", state.workspace)
+        Otazník `?` nahradí PRÁVĚ JEDEN znak.
+        Je užitečný, když chcete být přesnější než s hvězdičkou.
 
+        ### Rozdíl od hvězdičky
+        - `*` = libovolný počet znaků (0 nebo více)
+        - `?` = přesně jeden znak
 
-class Level10_2(Level):
-    """Level 10.2: The Question Mark."""
+        ### Úkol
+        Zkopírujte `data1.txt` a `data2.txt` do adresáře `short_data/`.
+        NEKOPÍRUJTE `data10.txt` (má dvouciferné číslo).
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="10.2",
-            section=10,
-            title="Otazník ?",
-            instructions="""# Level 10.2: Otazník ?
+        ### Příkazy
+        - `cp data?.txt adresář/` - ? nahradí právě jeden znak
 
-Otazník `?` nahradí PRÁVĚ JEDEN znak.
-Je užitečný, když chcete být přesnější než s hvězdičkou.
+        ### Odevzdání
+        Po splnění úkolu odevzdejte: `shellgame submit`
+        """
+    hints = [
+        "Otazník nahradí právě jeden znak. Kolik znaků je mezi 'data' a '.txt' v data1.txt?",
+        "data?.txt zachytí data1.txt a data2.txt, ale ne data10.txt (tam jsou dva znaky).",
+        "Použijte 'cp data?.txt short_data/'.",
+    ]
+    start_directory = "level-10/wildcards"
+    validators = [
+        FileExistsValidator("level-10/question/short_data/data1.txt", should_exist=True),
+        FileExistsValidator("level-10/question/short_data/data2.txt", should_exist=True),
+        FileExistsValidator("level-10/question/short_data/data10.txt", should_exist=False),
+    ]
 
-### Rozdíl od hvězdičky
-- `*` = libovolný počet znaků (0 nebo více)
-- `?` = přesně jeden znak
-
-### Úkol
-Zkopírujte `data1.txt` a `data2.txt` do adresáře `short_data/`.
-NEKOPÍRUJTE `data10.txt` (má dvouciferné číslo).
-
-### Příkazy
-- `cp data?.txt adresář/` - ? nahradí právě jeden znak
-
-### Odevzdání
-Po splnění úkolu odevzdejte: `shellgame submit`""",
-            hints=[
-                "Otazník nahradí právě jeden znak. Kolik znaků je mezi 'data' a '.txt' v data1.txt?",
-                "data?.txt zachytí data1.txt a data2.txt, ale ne data10.txt (tam jsou dva znaky).",
-                "Použijte 'cp data?.txt short_data/'.",
-            ],
-            start_directory="level-10/wildcards",
-        )
-
+    @override
     def setup(self, workspace: Path) -> None:
-        """Create files."""
         level_dir = workspace / "level-10" / "question"
         level_dir.mkdir(parents=True, exist_ok=True)
 
@@ -137,60 +123,47 @@ Po splnění úkolu odevzdejte: `shellgame submit`""",
         (level_dir / "data2.txt").touch()
         (level_dir / "data10.txt").touch()
 
-        # Clean up
+        # Clean up destination
         for f in (level_dir / "short_data").glob("*"):
             f.unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
-        """Validate copy."""
-        base = "level-10/question/short_data"
 
-        validators = [
-            FileExistsValidator(f"{base}/data1.txt", should_exist=True),
-            FileExistsValidator(f"{base}/data2.txt", should_exist=True),
-            FileExistsValidator(f"{base}/data10.txt", should_exist=False),
-        ]
+class CharacterClassWildcardCopyLevel(Level):
+    title = "Výběr znaků []"
+    instructions = """
+        # Výběr znaků []
 
-        validator = MultiValidator(validators)
-        return validator.validate(answer or "", state.workspace)
+        Hranaté závorky `[...]` nahradí JEDEN ze znaků uvnitř.
+        Například `[abc]` odpovídá znaku 'a', 'b' nebo 'c'.
 
+        ### Příklady
+        - `file_[ab].txt` → file_a.txt, file_b.txt
+        - `log[123].txt` → log1.txt, log2.txt, log3.txt
 
-class Level10_3(Level):
-    """Level 10.3: Character Classes."""
+        ### Úkol
+        Zkopírujte `file_a.txt` a `file_b.txt` do adresáře `ab_files/`.
+        NEKOPÍRUJTE `file_c.txt`.
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="10.3",
-            section=10,
-            title="Výběr znaků []",
-            instructions="""# Level 10.3: Výběr znaků []
+        ### Příkazy
+        - `cp file_[ab].txt adresář/`
 
-Hranaté závorky `[...]` nahradí JEDEN ze znaků uvnitř.
-Například `[abc]` odpovídá znaku 'a', 'b' nebo 'c'.
+        ### Odevzdání
+        Po splnění úkolu odevzdejte: `shellgame submit`
+        """
+    hints = [
+        "Hranaté závorky definují množinu povolených znaků na dané pozici.",
+        "[ab] znamená 'a nebo b', takže file_[ab].txt zachytí file_a.txt a file_b.txt.",
+        "Použijte 'cp file_[ab].txt ab_files/'.",
+    ]
+    start_directory = "level-10/wildcards"
+    validators = [
+        FileExistsValidator("level-10/brackets/ab_files/file_a.txt", should_exist=True),
+        FileExistsValidator("level-10/brackets/ab_files/file_b.txt", should_exist=True),
+        FileExistsValidator("level-10/brackets/ab_files/file_c.txt", should_exist=False),
+    ]
 
-### Příklady
-- `file_[ab].txt` → file_a.txt, file_b.txt
-- `log[123].txt` → log1.txt, log2.txt, log3.txt
-
-### Úkol
-Zkopírujte `file_a.txt` a `file_b.txt` do adresáře `ab_files/`.
-NEKOPÍRUJTE `file_c.txt`.
-
-### Příkazy
-- `cp file_[ab].txt adresář/`
-
-### Odevzdání
-Po splnění úkolu odevzdejte: `shellgame submit`""",
-            hints=[
-                "Hranaté závorky definují množinu povolených znaků na dané pozici.",
-                "[ab] znamená 'a nebo b', takže file_[ab].txt zachytí file_a.txt a file_b.txt.",
-                "Použijte 'cp file_[ab].txt ab_files/'.",
-            ],
-            start_directory="level-10/wildcards",
-        )
-
+    @override
     def setup(self, workspace: Path) -> None:
-        """Create files."""
         level_dir = workspace / "level-10" / "brackets"
         level_dir.mkdir(parents=True, exist_ok=True)
 
@@ -200,62 +173,50 @@ Po splnění úkolu odevzdejte: `shellgame submit`""",
         (level_dir / "file_b.txt").touch()
         (level_dir / "file_c.txt").touch()
 
-        # Clean up
+        # Clean up destination
         for f in (level_dir / "ab_files").glob("*"):
             f.unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
-        """Validate copy."""
-        base = "level-10/brackets/ab_files"
 
-        validators = [
-            FileExistsValidator(f"{base}/file_a.txt", should_exist=True),
-            FileExistsValidator(f"{base}/file_b.txt", should_exist=True),
-            FileExistsValidator(f"{base}/file_c.txt", should_exist=False),
-        ]
+class RangeWildcardCopyLevel(Level):
+    title = "Rozsahy [a-z]"
+    instructions = """
+        # Rozsahy znaků [a-z]
 
-        validator = MultiValidator(validators)
-        return validator.validate(answer or "", state.workspace)
+        Uvnitř hranatých závorek můžete zadat rozsah znaků pomocí pomlčky `-`.
+        - `[a-z]` odpovídá jakémukoliv malému písmenu
+        - `[0-9]` odpovídá jakékoliv číslici
+        - `[A-Z]` odpovídá jakémukoliv velkému písmenu
 
+        ### Příklady
+        - `[a-c]` = a, b, nebo c
+        - `[0-5]` = 0, 1, 2, 3, 4, nebo 5
 
-class Level10_4(Level):
-    """Level 10.4: Ranges."""
+        ### Úkol
+        Zkopírujte všechny soubory začínající malým písmenem do adresáře `lowercase/`.
+        NEKOPÍRUJTE soubory začínající velkým písmenem.
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="10.4",
-            section=10,
-            title="Rozsahy [a-z]",
-            instructions="""# Level 10.4: Rozsahy znaků [a-z]
+        ### Příkazy
+        - `cp [a-z]* lowercase/`
 
-Uvnitř hranatých závorek můžete zadat rozsah znaků pomocí pomlčky `-`.
-- `[a-z]` odpovídá jakémukoliv malému písmenu
-- `[0-9]` odpovídá jakékoliv číslici
-- `[A-Z]` odpovídá jakémukoliv velkému písmenu
+        ### Odevzdání
+        Po splnění úkolu odevzdejte: `shellgame submit`
+        """
+    hints = [
+        "Rozsah [a-z] vybere všechna malá písmena od 'a' do 'z'.",
+        "Vzor [a-z]* znamená: začíná malým písmenem, pak cokoliv.",
+        "Použijte 'cp [a-z]* lowercase/'.",
+    ]
+    start_directory = "level-10/wildcards"
+    validators = [
+        FileExistsValidator("level-10/ranges/lowercase/apple.txt", should_exist=True),
+        FileExistsValidator("level-10/ranges/lowercase/cherry.txt", should_exist=True),
+        FileExistsValidator("level-10/ranges/lowercase/Banana.txt", should_exist=False),
+        FileExistsValidator("level-10/ranges/lowercase/Date.txt", should_exist=False),
+    ]
 
-### Příklady
-- `[a-c]` = a, b, nebo c
-- `[0-5]` = 0, 1, 2, 3, 4, nebo 5
-
-### Úkol
-Zkopírujte všechny soubory začínající malým písmenem do adresáře `lowercase/`.
-NEKOPÍRUJTE soubory začínající velkým písmenem.
-
-### Příkazy
-- `cp [a-z]* lowercase/`
-
-### Odevzdání
-Po splnění úkolu odevzdejte: `shellgame submit`""",
-            hints=[
-                "Rozsah [a-z] vybere všechna malá písmena od 'a' do 'z'.",
-                "Vzor [a-z]* znamená: začíná malým písmenem, pak cokoliv.",
-                "Použijte 'cp [a-z]* lowercase/'.",
-            ],
-            start_directory="level-10/wildcards",
-        )
-
+    @override
     def setup(self, workspace: Path) -> None:
-        """Create files."""
         level_dir = workspace / "level-10" / "ranges"
         level_dir.mkdir(parents=True, exist_ok=True)
 
@@ -266,70 +227,52 @@ Po splnění úkolu odevzdejte: `shellgame submit`""",
         (level_dir / "cherry.txt").touch()
         (level_dir / "Date.txt").touch()
 
-        # Clean up
+        # Clean up destination
         for f in (level_dir / "lowercase").glob("*"):
             f.unlink()
 
-    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:
-        """Validate copy."""
-        base = "level-10/ranges/lowercase"
 
-        validators = [
-            FileExistsValidator(f"{base}/apple.txt", should_exist=True),
-            FileExistsValidator(f"{base}/cherry.txt", should_exist=True),
-            FileExistsValidator(f"{base}/Banana.txt", should_exist=False),
-            FileExistsValidator(f"{base}/Date.txt", should_exist=False),
-        ]
+class WildcardsChallengeLevel(Level):
+    title = "Souhrn Sekce 10"
+    instructions = """
+        ### Výzva: Mistr wildcardů
 
-        validator = MultiValidator(validators)
-        return validator.validate(answer or "", state.workspace)
+        Ukažte, že ovládáte zástupné znaky!
 
+        ### Úkol
+        V `level-10/challenge`:
 
-class Level10_5(Level):
-    """Level 10.5: Section 10 Summary."""
+        1. Vypište **pouze** soubory končící na `.log` pomocí `ls *.log`
+        2. Spočítejte, kolik je `.txt` souborů
+        3. Najděte soubor, který začíná na `report` a má příponu `.csv`
 
-    def __init__(self) -> None:
-        super().__init__(
-            id="10.5",
-            section=10,
-            title="Souhrn Sekce 10",
-            instructions="""### 🎯 Výzva: Mistr wildcardů
+        ### Formát odpovědi
+        `<pocet_log>,<pocet_txt>,<nazev_csv>`
 
-Ukažte, že ovládáte zástupné znaky!
+        Příklad: `5,3,report_2024.csv`
 
-### Úkol
-V `level-10/challenge`:
+        ### Shrnutí příkazů Sekce 10
+        ```
+        *           → libovolné znaky (i žádné)
+        ?           → právě jeden znak
+        [abc]       → jeden znak z množiny
+        [a-z]       → jeden znak z rozsahu
+        ls *.txt    → soubory končící na .txt
+        rm temp*    → smaže vše začínající na temp
+        ```
 
-1. Vypište **pouze** soubory končící na `.log` pomocí `ls *.log`
-2. Spočítejte, kolik je `.txt` souborů
-3. Najděte soubor, který začíná na `report` a má příponu `.csv`
+        ### Odevzdání
+        `shellgame submit <log>,<txt>,<csv>`
+        """
+    hints = [
+        "'ls *.log' a spočítejte řádky. 'ls *.txt | wc -l' pro počet txt souborů.",
+        "'ls report*.csv' pro nalezení CSV souboru.",
+        "Jsou tam 3 log soubory, 4 txt soubory, a CSV je 'report_final.csv'.",
+    ]
+    require_answer = True
 
-### Formát odpovědi
-`<pocet_log>,<pocet_txt>,<nazev_csv>`
-
-Příklad: `5,3,report_2024.csv`
-
-### Shrnutí příkazů Sekce 10
-```
-*           → libovolné znaky (i žádné)
-?           → právě jeden znak
-[abc]       → jeden znak z množiny
-[a-z]       → jeden znak z rozsahu
-ls *.txt    → soubory končící na .txt
-rm temp*    → smaže vše začínající na temp
-```
-
-### Odevzdání
-`shellgame submit <log>,<txt>,<csv>`""",
-            hints=[
-                "'ls *.log' a spočítejte řádky. 'ls *.txt | wc -l' pro počet txt souborů.",
-                "'ls report*.csv' pro nalezení CSV souboru.",
-                "Jsou tam 3 log soubory, 4 txt soubory, a CSV je 'report_final.csv'.",
-            ],
-        )
-
+    @override
     def setup(self, workspace: Path) -> None:
-        """Create challenge files."""
         challenge_dir = workspace / "level-10" / "challenge"
 
         if challenge_dir.exists():
@@ -355,13 +298,19 @@ rm temp*    → smaže vše začínající na temp
         (challenge_dir / "script.sh").write_text("#!/bin/bash\n")
         (challenge_dir / "config.json").write_text("{}")
 
-    def validate(self, answer: Optional[str], state: Any) -> tuple[bool, str]:  # noqa: PLR0911
-        """Validate wildcard knowledge."""
-        if answer is None:
-            return False, "Zadejte odpověď ve formátu: počet_log,počet_txt,název_csv"
+    @override
+    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
+        # No declarative validators/expected_answer here, but keep the standard entrypoint.
+        _success, _msg = super().validate(answer, state)
 
-        answer = answer.strip()
-        parts = answer.split(",")
+        ok = False
+        msg = "Zadejte odpověď ve formátu: počet_log,počet_txt,název_csv"
+
+        if answer is None:
+            return ok, msg
+
+        text = answer.strip()
+        parts = text.split(",")
 
         if len(parts) != 3:
             return False, "Formát: počet_log,počet_txt,název_csv (např. 5,3,report.csv)"
@@ -369,34 +318,37 @@ rm temp*    → smaže vše začínající na temp
         try:
             log_count = int(parts[0].strip())
             txt_count = int(parts[1].strip())
-            csv_name = parts[2].strip().lower()
         except ValueError:
             return False, "První dvě hodnoty musí být čísla."
 
+        csv_name = parts[2].strip().lower()
+
         if log_count != 3:
-            return False, f"Počet .log souborů není {log_count}. Použijte 'ls *.log'."
+            msg = f"Počet .log souborů není {log_count}. Použijte 'ls *.log'."
+        elif txt_count != 4:
+            msg = f"Počet .txt souborů není {txt_count}. Použijte 'ls *.txt | wc -l'."
+        elif csv_name != "report_final.csv":
+            msg = f"CSV soubor není {csv_name}. Použijte 'ls report*.csv'."
+        else:
+            ok = True
+            msg = "Výborně! Dokončili jste Sekci 10. Wildcards jsou váš nejlepší přítel!"
 
-        if txt_count != 4:
-            return False, f"Počet .txt souborů není {txt_count}. Použijte 'ls *.txt | wc -l'."
-
-        if csv_name != "report_final.csv":
-            return False, f"CSV soubor není {csv_name}. Použijte 'ls report*.csv'."
-
-        return True, "🎉 Výborně! Dokončili jste Sekci 10. Wildcards jsou váš nejlepší přítel!"
+        return ok, msg
 
 
-def get_levels() -> list:
-    """
-    Return all Section 10 level classes.
-
-    Returns:
-        List of Level instances for Section 10
-    """
-    return [
-        Level10_0(),
-        Level10_1(),
-        Level10_2(),
-        Level10_3(),
-        Level10_4(),
-        Level10_5(),
+def get_levels() -> list[Level]:
+    levels: list[Level] = [
+        SectionIntro(),
+        StarWildcardCopyLevel(),
+        QuestionMarkWildcardCopyLevel(),
+        CharacterClassWildcardCopyLevel(),
+        RangeWildcardCopyLevel(),
+        WildcardsChallengeLevel(),
     ]
+
+    section_num = 10
+    for i, level in enumerate(levels):
+        level.section = section_num
+        level.id = f"{section_num}.{i}"
+
+    return levels
