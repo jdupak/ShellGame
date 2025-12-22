@@ -2,63 +2,49 @@
 
 from __future__ import annotations
 
+import importlib
+import pkgutil
+import re
+from types import ModuleType
+
+from shellgame.levels import sections
 from shellgame.levels.base import Level
 from shellgame.levels.registry import get_registry
-from shellgame.levels.sections import (
-    section0,
-    section1,
-    section2,
-    section3,
-    section4,
-    section5,
-    section6,
-    section7,
-    section8,
-    section9,
-    section10,
-    section11,
-)
+
+
+def _get_section_number(module_name: str) -> int | None:
+    """Extract section number from module name (e.g. 'section1' -> 1)."""
+    match = re.search(r"section(\d+)$", module_name)
+    if match:
+        return int(match.group(1))
+    return None
+
+
+def _discover_sections() -> list[tuple[int, ModuleType]]:
+    """Dynamically discover section modules in the sections package."""
+    found_sections = []
+    
+    # Iterate over all modules in the sections package
+    for _, name, _ in pkgutil.iter_modules(sections.__path__):
+        section_num = _get_section_number(name)
+        if section_num is not None:
+            module_name = f"shellgame.levels.sections.{name}"
+            module = importlib.import_module(module_name)
+            found_sections.append((section_num, module))
+    
+    # Sort by section number to ensure deterministic order
+    found_sections.sort(key=lambda x: x[0])
+    return found_sections
 
 
 def initialize_levels() -> None:
-    """Register all levels from all sections."""
+    """Register all levels from all discovered sections."""
     registry = get_registry()
-
-    # Register Section 0 levels
-    registry.register_section(0, section0.get_levels())
-
-    # Register Section 1 levels
-    registry.register_section(1, section1.get_levels())
-
-    # Register Section 2 levels
-    registry.register_section(2, section2.get_levels())
-
-    # Register Section 3 levels
-    registry.register_section(3, section3.get_levels())
-
-    # Register Section 4 levels
-    registry.register_section(4, section4.get_levels())
-
-    # Register Section 5 levels
-    registry.register_section(5, section5.get_levels())
-
-    # Register Section 6 levels
-    registry.register_section(6, section6.get_levels())
-
-    # Register Section 7 levels
-    registry.register_section(7, section7.get_levels())
-
-    # Register Section 8 levels
-    registry.register_section(8, section8.get_levels())
-
-    # Register Section 9 levels
-    registry.register_section(9, section9.get_levels())
-
-    # Register Section 10 levels
-    registry.register_section(10, section10.get_levels())
-
-    # Register Section 11 levels
-    registry.register_section(11, section11.get_levels())
+    
+    for section_num, module in _discover_sections():
+        if hasattr(module, "get_levels"):
+            levels = module.get_levels()
+            registry.register_section(section_num, levels)
 
 
 class LevelLoader:
@@ -79,17 +65,7 @@ class LevelLoader:
             self._sections.setdefault(level.section, []).append(level)
 
     def _load_levels(self) -> None:
-        """Load all levels from section modules."""
-        # Load levels from each section
-        self._register_section(section0.get_levels())
-        self._register_section(section1.get_levels())
-        self._register_section(section2.get_levels())
-        self._register_section(section3.get_levels())
-        self._register_section(section4.get_levels())
-        self._register_section(section5.get_levels())
-        self._register_section(section6.get_levels())
-        self._register_section(section7.get_levels())
-        self._register_section(section8.get_levels())
-        self._register_section(section9.get_levels())
-        self._register_section(section10.get_levels())
-        self._register_section(section11.get_levels())
+        """Load all levels from discovered section modules."""
+        for _, module in _discover_sections():
+            if hasattr(module, "get_levels"):
+                self._register_section(module.get_levels())

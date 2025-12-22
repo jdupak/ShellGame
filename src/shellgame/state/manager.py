@@ -124,17 +124,18 @@ class StateManager:
         # Atomic rename
         Path(tmp_path).rename(self.state_file)
 
-    def init(self, username: str) -> GameState:
+    def init(self, username: str, workspace_path: Optional[Path] = None) -> GameState:
         """
         Initialize new game state.
 
         Args:
             username: Player username
+            workspace_path: Optional custom workspace path
 
         Returns:
             New GameState instance
         """
-        workspace = Path(f"/tmp/shellgame-{username}")
+        workspace = workspace_path if workspace_path else Path(f"/tmp/shellgame-{username}")
         state = GameState(
             username=username,
             workspace=workspace,

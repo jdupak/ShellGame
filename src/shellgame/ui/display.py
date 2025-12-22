@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, cast
+from pathlib import Path
 
 from rich.align import Align
 from rich.console import Console, ConsoleOptions, RenderResult
@@ -195,86 +196,6 @@ class Display:
         self.note(self._HINT_REPEAT_TIP)
         self.console.print()
 
-    def show_level_hint(self, level: Any, state: Any, *, repeat: bool = False) -> None:
-        """Level-aware hint flow with progressive + repeat semantics.
-
-        Rules:
-        - `shellgame hint` reveals the next hint and consumes it (increments hint counter).
-        - `shellgame hint --repeat` reprints already revealed hints without consuming new ones.
-        - When using `--repeat`:
-          - do not print per-hint helper footers repeatedly
-          - print the repeat tip once at the end
-          - only show “Potřebujete další pomoc? …” if another hint still exists
-        - No-more-hints UX:
-          - show a yellow framed panel with the fixed message
-          - under it, show a note with: [violet]shellgame hint --repeat[/violet]
-        """
-        hints: list[str] = list(getattr(level, "hints", []) or [])
-        total = len(hints)
-
-        if total == 0:
-            self.show_no_more_hints()
-            return
-
-        level_id = getattr(level, "id", None)
-        if not isinstance(level_id, str) or not level_id:
-            # Fallback: behave safely, but we can't track per-level reliably.
-            level_id = str(getattr(level, "id", ""))
-
-        # Source of truth for how many hints were already revealed.
-        revealed = 0
-        if hasattr(state, "level_hints_used") and isinstance(state.level_hints_used, dict):
-            revealed = int(state.level_hints_used.get(level_id, 0) or 0)
-
-        revealed = max(0, min(revealed, total))
-
-        if repeat:
-            if revealed == 0:
-                # Nothing was revealed yet -> do not consume; don't show next-help.
-                self.show_hint(
-                    hints[0],
-                    0,
-                    total,
-                    show_repeat_tip=False,
-                    show_next_help=False,
-                )
-                self.note(self._HINT_REPEAT_TIP)
-                if total > 1:
-                    self.note(self._HINT_NEXT_HELP)
-                self.console.print()
-                return
-
-            # Reprint already revealed hints without consuming new ones.
-            for idx in range(revealed):
-                self.show_hint(
-                    hints[idx],
-                    idx,
-                    total,
-                    show_repeat_tip=False,
-                    show_next_help=False,
-                )
-
-            # Repeat tip once at the end.
-            self.note(self._HINT_REPEAT_TIP)
-
-            # Only show “need more help” if another hint still exists.
-            if revealed < total:
-                self.note(self._HINT_NEXT_HELP)
-            self.console.print()
-            return
-
-        # Progressive mode: reveal next hint if available.
-        if revealed >= total:
-            self.show_no_more_hints()
-            return
-
-        next_idx = revealed
-        self.show_hint(hints[next_idx], next_idx, total)
-
-        # Consume a hint (record in state).
-        if hasattr(state, "level_hints_used") and isinstance(state.level_hints_used, dict):
-            state.level_hints_used[level_id] = revealed + 1
-
     def show_success(self, message: str, time_sec: int = 0, hints_used: int = 0) -> None:
         """
         Celebrate success.
@@ -392,6 +313,10 @@ class Display:
         """
         self.console.print(f"[green]✓ Level {level_id} byl resetován.[/green]\n")
 
+    def show_current_directory(self, path: str | Path) -> None:
+        """Show the current directory (usually after auto-teleport)."""
+        self.console.print(f"[dim]Aktuální adresář: {path}[/dim]")
+
     def _format_duration(self, seconds: int) -> str:
         """
         Format duration in a human-readable way.
@@ -452,3 +377,116 @@ class Display:
         if count < total:
             self.note(self._HINT_NEXT_HELP)
         self.console.print()
+
+    def show_workspace_restored(self, workspace: str | Path) -> None:
+        """Show message when workspace is restored."""
+        self.console.print(
+            "[yellow]⚠ Pracovní prostor byl smazán (např. restart systému). Obnovuji...[/yellow]"
+        )
+        self.console.print(f"[green]✓ Pracovní prostor obnoven: {workspace}[/green]\n")
+
+    def show_init_success(self, username: str, workspace: str) -> None:
+        """
+        Show initialization success message.
+
+        Args:
+            username: Player username
+            workspace: Workspace path
+        """
+        self.console.print(f"\n[green]✓ ShellGame inicializována pro {username}[/green]")
+        self.console.print(f"[dim]Pracovní prostor: {workspace}[/dim]\n")
+
+        self.console.print("[bold]Automaticky vás přesměrovávám do pracovního prostoru...[/bold]\n")
+
+    def show_already_initialized(self) -> None:
+        """Show message when already initialized."""
+        self.console.print("[yellow]Již inicializováno! Spusťte 'shellgame' pro pokračování.[/yellow]\n")
+
+    def show_not_initialized(self) -> None:
+        """Show message when not initialized."""
+        self.console.print("[yellow]Neinicializováno. Spusťte: shellgame init[/yellow]\n")
+
+    def show_removed(self) -> None:
+        """Show message when state is removed."""
+        self.console.print("[green]Stav ShellGame a pracovní prostor odstraněny.[/green]\n")
+
+    def show_reset(self, level_id: str) -> None:
+        """
+        Show message when level is reset.
+
+        Args:
+            level_id: Level that was reset
+        """
+        self.console.print(f"[green]✓ Level {level_id} byl resetován.[/green]\n")
+
+    def show_current_directory(self, path: str | Path) -> None:
+        """Show the current directory (usually after auto-teleport)."""
+        self.console.print(f"[dim]Aktuální adresář: {path}[/dim]")
+
+    def _format_duration(self, seconds: int) -> str:
+        """
+        Format duration in a human-readable way.
+
+        Args:
+            seconds: Duration in seconds
+
+        Returns:
+            Formatted string (e.g., "5m 30s")
+        """
+        if seconds < 60:
+            return f"{seconds}s"
+
+        minutes = seconds // 60
+        remaining_seconds = seconds % 60
+
+        if minutes < 60:
+            return f"{minutes}m {remaining_seconds}s"
+
+        hours = minutes // 60
+        remaining_minutes = minutes % 60
+        return f"{hours}h {remaining_minutes}m {remaining_seconds}s"
+
+    def show_repeated_hints(self, hints: list[str], revealed_count: int) -> None:
+        """Show all revealed hints with appropriate footer."""
+        total = len(hints)
+        count = min(revealed_count, total)
+
+        if count == 0:
+            # Nothing was revealed yet -> do not consume; don't show next-help.
+            self.show_hint(
+                hints[0],
+                0,
+                total,
+                show_repeat_tip=False,
+                show_next_help=False,
+            )
+            self.note(self._HINT_REPEAT_TIP)
+            if total > 1:
+                self.note(self._HINT_NEXT_HELP)
+            self.console.print()
+            return
+
+        # Reprint already revealed hints without consuming new ones.
+        for idx in range(count):
+            self.show_hint(
+                hints[idx],
+                idx,
+                total,
+                show_repeat_tip=False,
+                show_next_help=False,
+            )
+
+        # Repeat tip once at the end.
+        self.note(self._HINT_REPEAT_TIP)
+
+        # Only show “need more help” if another hint still exists.
+        if count < total:
+            self.note(self._HINT_NEXT_HELP)
+        self.console.print()
+
+    def show_workspace_restored(self, workspace: str | Path) -> None:
+        """Show message when workspace is restored."""
+        self.console.print(
+            "[yellow]⚠ Pracovní prostor byl smazán (např. restart systému). Obnovuji...[/yellow]"
+        )
+        self.console.print(f"[green]✓ Pracovní prostor obnoven: {workspace}[/green]\n")

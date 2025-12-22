@@ -9,24 +9,9 @@ These tests validate the UX contract around:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
 from rich.console import Console
 
 from shellgame.ui.display import Display
-
-
-@dataclass
-class _FakeState:
-    """Minimal state shape required by Display.show_level_hint()."""
-
-    level_hints_used: dict[str, int] = field(default_factory=dict)
-
-
-@dataclass
-class _FakeLevel:
-    id: str
-    hints: list[str]
 
 
 def _make_display() -> tuple[Display, Console]:
@@ -39,34 +24,25 @@ def _output(console: Console) -> str:
     return console.export_text()
 
 
-def test_progressive_hint_consumes_one_and_updates_state() -> None:
+def test_show_hint_output() -> None:
     display, console = _make_display()
-    state = _FakeState()
-    level = _FakeLevel(id="1.1", hints=["H1", "H2", "H3"])
+    
+    display.show_hint("H1", 0, 3)
 
-    display.show_level_hint(level, state, repeat=False)
-
-    assert state.level_hints_used["1.1"] == 1
     out = _output(console)
     assert "H1" in out
-    assert "H2" not in out
     assert "shellgame hint --repeat" in out  # repeat tip under normal hint
     assert "Potřebujete další pomoc? Napište: shellgame hint" in out  # next-help shown
 
 
-def test_repeat_with_no_revealed_hints_does_not_consume() -> None:
+def test_repeat_with_no_revealed_hints_shows_first_hint() -> None:
     display, console = _make_display()
-    state = _FakeState(level_hints_used={})
-    level = _FakeLevel(id="1.1", hints=["H1", "H2"])
+    hints = ["H1", "H2"]
 
-    display.show_level_hint(level, state, repeat=True)
-
-    # Must not consume new hints
-    assert state.level_hints_used.get("1.1", 0) == 0
+    display.show_repeated_hints(hints, 0)
 
     out = _output(console)
-    # It still shows the first hint as a preview of "already revealed" (0 -> none),
-    # but does not mark it consumed.
+    # It shows the first hint as a preview of "already revealed" (0 -> none)
     assert "H1" in out
     assert "H2" not in out
     # Repeat tip should appear once
@@ -75,15 +51,11 @@ def test_repeat_with_no_revealed_hints_does_not_consume() -> None:
     assert out.count("Potřebujete další pomoc? Napište: shellgame hint") == 1
 
 
-def test_repeat_reprints_only_revealed_hints_without_consuming_new_ones() -> None:
+def test_repeat_reprints_only_revealed_hints() -> None:
     display, console = _make_display()
-    state = _FakeState(level_hints_used={"1.1": 2})
-    level = _FakeLevel(id="1.1", hints=["H1", "H2", "H3"])
+    hints = ["H1", "H2", "H3"]
 
-    display.show_level_hint(level, state, repeat=True)
-
-    # Must not consume new hints
-    assert state.level_hints_used["1.1"] == 2
+    display.show_repeated_hints(hints, 2)
 
     out = _output(console)
     assert "H1" in out
@@ -98,12 +70,9 @@ def test_repeat_reprints_only_revealed_hints_without_consuming_new_ones() -> Non
 
 def test_repeat_when_all_hints_revealed_does_not_show_next_help() -> None:
     display, console = _make_display()
-    state = _FakeState(level_hints_used={"1.1": 3})
-    level = _FakeLevel(id="1.1", hints=["H1", "H2", "H3"])
+    hints = ["H1", "H2", "H3"]
 
-    display.show_level_hint(level, state, repeat=True)
-
-    assert state.level_hints_used["1.1"] == 3
+    display.show_repeated_hints(hints, 3)
 
     out = _output(console)
     assert "H1" in out and "H2" in out and "H3" in out
@@ -113,15 +82,10 @@ def test_repeat_when_all_hints_revealed_does_not_show_next_help() -> None:
     assert "Potřebujete další pomoc? Napište: shellgame hint" not in out
 
 
-def test_no_more_hints_panel_is_used_when_progressive_exhausted() -> None:
+def test_no_more_hints_panel() -> None:
     display, console = _make_display()
-    state = _FakeState(level_hints_used={"1.1": 2})
-    level = _FakeLevel(id="1.1", hints=["H1", "H2"])
-
-    display.show_level_hint(level, state, repeat=False)
-
-    # Must not change (already at end, nothing consumed)
-    assert state.level_hints_used["1.1"] == 2
+    
+    display.show_no_more_hints()
 
     out = _output(console)
     assert "Pro tento level již nejsou k dispozici žádné další nápovědy." in out
@@ -129,24 +93,11 @@ def test_no_more_hints_panel_is_used_when_progressive_exhausted() -> None:
     assert "shellgame hint --repeat" in out
 
 
-def test_no_hints_defined_behaves_like_no_more_hints() -> None:
-    display, console = _make_display()
-    state = _FakeState(level_hints_used={})
-    level = _FakeLevel(id="1.1", hints=[])
-
-    display.show_level_hint(level, state, repeat=False)
-
-    out = _output(console)
-    assert "Pro tento level již nejsou k dispozici žádné další nápovědy." in out
-    assert "shellgame hint --repeat" in out
-
-
 def test_repeat_does_not_print_next_help_multiple_times() -> None:
     display, console = _make_display()
-    state = _FakeState(level_hints_used={"1.1": 2})
-    level = _FakeLevel(id="1.1", hints=["H1", "H2", "H3", "H4"])
+    hints = ["H1", "H2", "H3", "H4"]
 
-    display.show_level_hint(level, state, repeat=True)
+    display.show_repeated_hints(hints, 2)
 
     out = _output(console)
     # Ensure helper line is not repeated per-hint

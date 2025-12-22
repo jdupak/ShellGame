@@ -85,16 +85,8 @@ class GameSession:
         self._shell_client.export("SHELLGAME_WORKSPACE", str(workspace))
         self._shell_client.export("SHELLGAME_LEVEL", level_id)
 
-    def _auto_init_if_needed(self) -> GameState:
-        """Load state or initialize everything if missing.
-
-        Returns the loaded/created state object.
-        """
-        state = self._state_manager.load()
-        if state:
-            return state
-
-        username = os.environ.get("USER", "player")
+    def _initialize_game(self, username: str) -> GameState:
+        """Initialize new game state and workspace."""
         state = self._state_manager.init(username)
 
         workspace_manager = self._workspace_factory(username)
@@ -106,24 +98,31 @@ class GameSession:
 
         self._display.show_init_success(username, str(state.workspace))
 
-        # Auto-teleport to first start dir (if defined) and show current dir.
         start_dir = self._navigation_manager.get_level_start_directory(
             state.current_level, state.workspace
         )
         if start_dir:
             self._navigation_manager.maybe_teleport(start_dir)
-            self._console.print(f"[dim]Aktuální adresář: {start_dir}[/dim]")
+            self._display.show_current_directory(start_dir)
 
         return state
+
+    def _auto_init_if_needed(self) -> GameState:
+        """Load state or initialize everything if missing.
+
+        Returns the loaded/created state object.
+        """
+        state = self._state_manager.load()
+        if state:
+            return state
+
+        username = os.environ.get("USER", "player")
+        return self._initialize_game(username)
 
     def _restore_workspace_if_missing(self, state: GameState) -> None:
         """If workspace is missing, rebuild and re-setup current level."""
         if state.workspace.exists():
             return
-
-        self._console.print(
-            "[yellow]⚠ Pracovní prostor byl smazán (např. restart systému). Obnovuji...[/yellow]"
-        )
 
         workspace_manager = self._workspace_factory(state.username)
         workspace_manager.init()
@@ -132,7 +131,7 @@ class GameSession:
         if current_level:
             current_level.setup(state.workspace)
 
-        self._console.print(f"[green]✓ Pracovní prostor obnoven: {state.workspace}[/green]\n")
+        self._display.show_workspace_restored(state.workspace)
 
     # ---- boot / show -----------------------------------------------------
 
@@ -178,23 +177,7 @@ class GameSession:
             return
 
         username = os.environ.get("USER", "player")
-        state = self._state_manager.init(username)
-
-        workspace_manager = self._workspace_factory(username)
-        workspace_manager.init()
-
-        first_level = self._level_registry.get(state.current_level)
-        if first_level:
-            first_level.setup(state.workspace)
-
-        self._display.show_init_success(username, str(state.workspace))
-
-        start_dir = self._navigation_manager.get_level_start_directory(
-            state.current_level, state.workspace
-        )
-        if start_dir:
-            self._navigation_manager.maybe_teleport(start_dir)
-            self._console.print(f"[dim]Aktuální adresář: {start_dir}[/dim]")
+        self._initialize_game(username)
 
     def status(self) -> None:
         state = self._state_manager.load()
