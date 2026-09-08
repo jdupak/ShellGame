@@ -268,7 +268,7 @@ class WildcardsChallengeLevel(Level):
     hints = [
         "Zástupný znak '*' vybere všechny soubory s danou příponou (např. *.log nebo *.txt).",
         "Příkazy 'ls *.log' a 'ls *.txt' vypíší hledané soubory. Spočítat je můžete i přes '| wc -l'.",
-        "Pro nalezení CSV souboru začínajícího na 'report' použijte 'ls report*.csv'. Odpověď zadejte ve formátu tří hodnot oddělených čárkou.",
+        "Hledaný CSV soubor najdete přes 'ls report*.csv'. Odpověď odevzdejte jako tři hodnoty oddělené čárkou.",
     ]
     start_directory = "challenge"
     fixture = WorkspaceFixture(

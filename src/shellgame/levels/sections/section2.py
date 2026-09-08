@@ -65,7 +65,7 @@ class SiblingNavigationLevel(Level):
     hints = [
         "Do sourozeneckého adresáře se dostanete přes rodičovský adresář ('..').",
         "Můžete použít 'cd ..' a pak 'cd finish', nebo to spojit do jednoho příkazu 'cd ../finish'.",
-        "Po přesunu ověřte polohu příkazem 'pwd'. Odevzdejte poslední část cesty nebo zadejte prázdný 'shellgame submit'.",
+        "Po přesunu ověřte polohu příkazem 'pwd'. Odevzdejte poslední část cesty nebo prázdný 'shellgame submit'.",
     ]
     start_directory = "start"
     fixture = WorkspaceFixture(directories=("start", "finish"))

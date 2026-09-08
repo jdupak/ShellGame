@@ -230,7 +230,29 @@ def test_every_level_has_usable_hints(levels: list) -> None:
 
 def test_hint_progression_scaffolding(levels: list[Level]) -> None:
     """Verify that multi-step hints in key operational levels introduce concept first."""
-    checked_levels = {"7.3", "7.4", "8.2", "6.2", "6.3", "6.4", "6.5", "11.1"}
+    checked_levels = {
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4",
+        "2.6",
+        "4.2",
+        "4.7",
+        "6.2",
+        "6.3",
+        "6.4",
+        "6.5",
+        "6.6",
+        "7.1",
+        "7.3",
+        "7.4",
+        "8.2",
+        "8.3",
+        "8.4",
+        "10.1",
+        "10.5",
+        "11.1",
+    }
     for level in levels:
         if level.id in checked_levels:
             assert len(level.hints) >= 2, f"{level.id} should have at least 2 hints"
