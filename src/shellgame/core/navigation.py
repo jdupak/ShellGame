@@ -1,9 +1,11 @@
 """Navigation manager for player movement and teleportation."""
 
+import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional, Set
 
 from shellgame.levels.registry import LevelRegistry
+from shellgame.paths import current_directory
 from shellgame.shell.client import ShellClient
 from shellgame.state.manager import GameState
 
@@ -14,34 +16,40 @@ class NavigationManager:
         level_registry: LevelRegistry,
         shell_client: ShellClient,
         teleport_notice: Callable[[Path], None],
-    ):
+    ) -> None:
         self._level_registry = level_registry
         self._shell = shell_client
         self._teleport_notice = teleport_notice
-        self._no_autocd_levels: Set[str] = {"1.5"}
 
-    def get_level_start_directory(self, level_id: str, workspace: Path) -> Optional[Path]:
+    def get_level_start_directory(self, level_id: str, workspace: Path) -> Path | None:
         level = self._level_registry.get(level_id)
         if level:
             return level.get_start_directory(workspace)
         return None
 
-    def maybe_teleport(self, start_dir: Optional[Path]) -> None:
+    def maybe_teleport(self, start_dir: Path | None) -> None:
         if not start_dir:
             return
 
-        current_dir = Path.cwd().resolve()
+        # A missing cwd (the player deleted it) always needs teleporting.
+        current_dir = current_directory()
         target_dir = start_dir.resolve()
 
         if current_dir != target_dir:
+            try:
+                os.chdir(target_dir)
+            except OSError:
+                self._shell.cd(start_dir)
+                return
             self._shell.cd(start_dir)
             self._teleport_notice(start_dir)
 
     def ensure_user_in_reasonable_place(self, state: GameState) -> None:
-        if state.current_level in self._no_autocd_levels:
+        level = self._level_registry.get(state.current_level)
+        if level is None or not level.enforce_start_directory:
             return
 
-        start_dir = self.get_level_start_directory(state.current_level, state.workspace)
+        start_dir = level.get_start_directory(state.workspace)
         if not start_dir:
             return
 

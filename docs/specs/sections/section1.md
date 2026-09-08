@@ -343,7 +343,7 @@ Task:
 2. cd /tmp/.../level-1/absolute-target  (adjust ... to match your workspace)
 3. Submit the basename of that directory.
 
-Submit with: shellgame submit -f absolute-target
+Submit with: shellgame submit absolute-target
 Need help? Type: shellgame hint
 ══════════════════════════════════════════════════════
 ```

@@ -1,39 +1,32 @@
 from __future__ import annotations
 
-import shutil
-from pathlib import Path
-
 from shellgame.levels.base import Level
 from shellgame.levels.collector import Section
-from shellgame.protocols import GameStateProtocol
-from shellgame.validation.validators import (
-    CopyValidator,
-    FileExistsValidator,
-    MoveValidator,
-    MultiValidator,
-    StringValidator,
-    ValidationResult,
+from shellgame.levels.completion import (
+    Completion,
+    ExactAnswer,
+    FileExists,
+    PathMoved,
+    PathsMatch,
 )
+from shellgame.levels.fixture import FileFixture, WorkspaceFixture
+from shellgame.levels.solution import RunShell, Solution
 
-section = Section()
+section = Section(6, root="level-6")
 
 
-@section.level
+@section.level(0)
 class SectionIntro(Level):
+    is_intro = True
     title = "Sekce 6: Kopírování a přesouvání"
     instructions_file = "section6_intro.md"
     hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
     success_message = "Jdeme na to!"
 
-    def setup(self, workspace: Path) -> None:
-        pass
 
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
-
-
-@section.level
+@section.level(1)
 class BackupImportantFileLevel(Level):
+    solution = Solution(steps=(RunShell("cp dulezite.txt dulezite.bak"),), answer="dulezite.bak")
     title = "Kopírování souboru"
     instructions = """
         Příkaz `cp` (copy) vytvoří kopii souboru.
@@ -54,33 +47,32 @@ class BackupImportantFileLevel(Level):
 
         ## Odevzdání:
         Odevzdejte název vytvořené kopie.
-        `shellgame submit -f dulezite.bak`
+        `shellgame submit dulezite.bak`
         """
     hints = [
         "Příkaz cp má dva argumenty: odkud a kam kopírujete.",
         "Syntaxe je: cp zdrojový_soubor cílový_soubor",
         "Použijte 'cp dulezite.txt dulezite.bak'.",
     ]
-    start_directory = "level-6/copying"
-    require_answer = True
-    validators = [
-        StringValidator("dulezite.bak"),
-        CopyValidator("level-6/copying/dulezite.txt", "level-6/copying/dulezite.bak"),
-    ]
-
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-6" / "copying"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        (level_dir / "dulezite.txt").write_text("Very important data.")
-
-        bak = level_dir / "dulezite.bak"
-        if bak.exists():
-            bak.unlink()
+    start_directory = "copying"
+    fixture = WorkspaceFixture(
+        files=(FileFixture("copying/dulezite.txt", "Very important data."),),
+        clean=("copying/dulezite.bak",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("dulezite.bak"),
+        requirements=(
+            PathsMatch(
+                "copying/dulezite.txt",
+                "copying/dulezite.bak",
+            ),
+        ),
+    )
 
 
-@section.level
+@section.level(2)
 class BackupProjectDirectoryLevel(Level):
+    solution = Solution(steps=(RunShell("cp -r projekt projekt_zaloha"),), answer="projekt_zaloha")
     title = "Kopírování adresáře"
     instructions = """
         Pro kopírování adresářů musíte použít přepínač `-r` (recursive), aby se zkopíroval i jejich obsah.
@@ -93,31 +85,31 @@ class BackupProjectDirectoryLevel(Level):
 
         ## Odevzdání:
         Odevzdejte název nového adresáře.
-        `shellgame submit -f projekt_zaloha`
+        `shellgame submit projekt_zaloha`
         """
-    hints = ["Použijte 'cp -r projekt projekt_zaloha'.", "Bez -r to nepůjde."]
-    start_directory = "level-6/copying"
-    require_answer = True
-    validators = [
-        StringValidator("projekt_zaloha"),
-        CopyValidator("level-6/copying/projekt", "level-6/copying/projekt_zaloha"),
+    hints = [
+        "Pro kopírování celého adresáře včetně obsahu je nutné použít rekurzivní přepínač '-r'.",
+        "Spusťte 'cp -r projekt projekt_zaloha'.",
     ]
+    start_directory = "copying"
+    fixture = WorkspaceFixture(
+        files=(FileFixture("copying/projekt/main.py", "print('hello')"),),
+        clean=("copying/projekt_zaloha",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("projekt_zaloha"),
+        requirements=(
+            PathsMatch(
+                "copying/projekt",
+                "copying/projekt_zaloha",
+            ),
+        ),
+    )
 
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-6" / "copying"
-        level_dir.mkdir(parents=True, exist_ok=True)
 
-        dst = level_dir / "projekt_zaloha"
-        if dst.exists():
-            shutil.rmtree(dst)
-
-        project_dir = level_dir / "projekt"
-        project_dir.mkdir(parents=True, exist_ok=True)
-        (project_dir / "main.py").write_text("print('hello')")
-
-
-@section.level
+@section.level(3)
 class RenameFileLevel(Level):
+    solution = Solution(steps=(RunShell("mv spatne_jmeno.txt spravne_jmeno.txt"),), answer="spravne_jmeno.txt")
     title = "Přejmenování souboru"
     instructions = """
         Příkaz `mv` (move) se používá k přesouvání,
@@ -131,32 +123,31 @@ class RenameFileLevel(Level):
 
         ## Odevzdání:
         Odevzdejte nový název souboru.
-        `shellgame submit -f spravne_jmeno.txt`
+        `shellgame submit spravne_jmeno.txt`
         """
     hints = [
-        "Použijte 'mv spatne_jmeno.txt spravne_jmeno.txt'.",
-        "Příkaz mv slouží i k přejmenování.",
+        "Příkaz 'mv' slouží nejen k přesunu, ale i k přejmenování souboru: 'mv staré nové'.",
+        "Spusťte 'mv spatne_jmeno.txt spravne_jmeno.txt'.",
     ]
-    start_directory = "level-6/moving"
-    require_answer = True
-    validators = [
-        StringValidator("spravne_jmeno.txt"),
-        MoveValidator("level-6/moving/spatne_jmeno.txt", "level-6/moving/spravne_jmeno.txt"),
-    ]
-
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-6" / "moving"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        correct = level_dir / "spravne_jmeno.txt"
-        if correct.exists():
-            correct.unlink()
-
-        (level_dir / "spatne_jmeno.txt").write_text("content")
+    start_directory = "moving"
+    fixture = WorkspaceFixture(
+        files=(FileFixture("moving/spatne_jmeno.txt", "content"),),
+        clean=("moving/spravne_jmeno.txt",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("spravne_jmeno.txt"),
+        requirements=(
+            PathMoved(
+                "moving/spatne_jmeno.txt",
+                "moving/spravne_jmeno.txt",
+            ),
+        ),
+    )
 
 
-@section.level
+@section.level(4)
 class MoveReportToDocumentsLevel(Level):
+    solution = Solution(steps=(RunShell("mv report.pdf dokumenty/"),), answer="dokumenty")
     title = "Přesun souboru"
     instructions = """
         Pokud jako cíl příkazu `mv` uvedete existující adresář,
@@ -170,34 +161,32 @@ class MoveReportToDocumentsLevel(Level):
 
         ## Odevzdání:
         Odevzdejte název adresáře, kam jste soubor přesunuli.
-        `shellgame submit -f dokumenty`
+        `shellgame submit dokumenty`
         """
     hints = [
-        "Použijte 'mv report.pdf dokumenty/'.",
-        "Lomítko na konci není nutné, ale je dobrým zvykem.",
+        "Syntaxe pro přesun do adresáře: 'mv <soubor> <cílový_adresář>/'.",
+        "Spusťte 'mv report.pdf dokumenty/'. Lomítko na konci značí adresář.",
     ]
-    start_directory = "level-6/moving"
-    require_answer = True
-    validators = [
-        StringValidator("dokumenty"),
-        MoveValidator("level-6/moving/report.pdf", "level-6/moving/dokumenty/report.pdf"),
-    ]
-
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-6" / "moving"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        (level_dir / "dokumenty").mkdir(exist_ok=True)
-
-        moved = level_dir / "dokumenty" / "report.pdf"
-        if moved.exists():
-            moved.unlink()
-
-        (level_dir / "report.pdf").write_text("report data")
+    start_directory = "moving"
+    fixture = WorkspaceFixture(
+        directories=("moving/dokumenty",),
+        files=(FileFixture("moving/report.pdf", "report data"),),
+        clean=("moving/dokumenty/report.pdf",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("dokumenty"),
+        requirements=(
+            PathMoved(
+                "moving/report.pdf",
+                "moving/dokumenty/report.pdf",
+            ),
+        ),
+    )
 
 
-@section.level
+@section.level(5)
 class RenameDirectoryLevel(Level):
+    solution = Solution(steps=(RunShell("mv tmp_data data"),), answer="data")
     title = "Přejmenování adresáře"
     instructions = """
         Stejně jako soubory, i adresáře se přejmenovávají pomocí `mv`.
@@ -210,32 +199,32 @@ class RenameDirectoryLevel(Level):
 
         ## Odevzdání:
         Odevzdejte nový název adresáře.
-        `shellgame submit -f data`
+        `shellgame submit data`
         """
-    hints = ["Použijte 'mv tmp_data data'.", "Funguje to stejně jako u souborů."]
-    extension = True
-    start_directory = "level-6/renaming"
-    require_answer = True
-    validators = [
-        StringValidator("data"),
-        MoveValidator("level-6/renaming/tmp_data", "level-6/renaming/data"),
+    hints = [
+        "Přejmenování adresáře funguje stejně jako u souborů: 'mv <starý_název> <nový_název>'.",
+        "Spusťte 'mv tmp_data data'.",
     ]
+    extension = True
+    start_directory = "renaming"
+    fixture = WorkspaceFixture(
+        files=(FileFixture("renaming/tmp_data/file.txt", "content"),),
+        clean=("renaming/data",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("data"),
+        requirements=(
+            PathMoved(
+                "renaming/tmp_data",
+                "renaming/data",
+            ),
+        ),
+    )
 
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-6" / "renaming"
-        level_dir.mkdir(parents=True, exist_ok=True)
 
-        dst = level_dir / "data"
-        if dst.exists():
-            shutil.rmtree(dst)
-
-        src = level_dir / "tmp_data"
-        src.mkdir(exist_ok=True)
-        (src / "file.txt").write_text("content")
-
-
-@section.level
+@section.level(6)
 class OrganizeLogsLevel(Level):
+    solution = Solution(steps=(RunShell("mv app.log error.log logs/"),), answer="logs")
     title = "Úklid logů"
     instructions = """
         V adresáři je nepořádek. Všechny soubory s příponou `.log` by měly být v adresáři `logs`.
@@ -249,42 +238,46 @@ class OrganizeLogsLevel(Level):
 
         ## Odevzdání:
         Odevzdejte název adresáře, kam jste soubory přesunuli.
-        `shellgame submit -f logs`
+        `shellgame submit logs`
         """
     hints = [
-        "Použijte 'mv *.log logs/'.",
-        "Hvězdička vybere všechny soubory končící na .log.",
+        "Žolík '*' nahradí libovolný počet znaků, takže vzor '*.log' vybere všechny soubory s touto příponou.",
+        "Příkaz 'mv' dokáže přesunout více souborů najednou do cílového adresáře: 'mv <soubory> <cíl>/'.",
+        "Spusťte 'mv *.log logs/' a odevzdejte 'logs'.",
     ]
     optional = True
-    start_directory = "level-6/organize"
-    require_answer = True
-    validators = [
-        StringValidator("logs"),
-        MultiValidator(
-            [
-                MoveValidator("level-6/organize/app.log", "level-6/organize/logs/app.log"),
-                MoveValidator("level-6/organize/error.log", "level-6/organize/logs/error.log"),
-                FileExistsValidator("level-6/organize/other.txt", should_exist=True),
-            ]
+    start_directory = "organize"
+    fixture = WorkspaceFixture(
+        directories=("organize/logs",),
+        files=(
+            FileFixture("organize/app.log", "log1"),
+            FileFixture("organize/error.log", "log2"),
+            FileFixture("organize/other.txt", "keep me"),
         ),
-    ]
+        clean=("organize/logs",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("logs"),
+        requirements=(
+            PathMoved(
+                "organize/app.log",
+                "organize/logs/app.log",
+            ),
+            PathMoved(
+                "organize/error.log",
+                "organize/logs/error.log",
+            ),
+            FileExists("organize/other.txt"),
+        ),
+    )
 
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-6" / "organize"
-        level_dir.mkdir(parents=True, exist_ok=True)
 
-        logs_dir = level_dir / "logs"
-        if logs_dir.exists():
-            shutil.rmtree(logs_dir)
-
-        logs_dir.mkdir(exist_ok=True)
-        (level_dir / "app.log").write_text("log1")
-        (level_dir / "error.log").write_text("log2")
-        (level_dir / "other.txt").write_text("keep me")
-
-
-@section.level
+@section.level(7)
 class FileOrganizerChallengeLevel(Level):
+    solution = Solution(
+        steps=(RunShell("cp original.txt backup/ && mv temp_data.csv data.csv && mv misplaced.log logs/"),),
+        answer="organizer",
+    )
     title = "Souhrn Sekce 6"
     instructions = """
         ### Výzva: Organizátor souborů
@@ -320,47 +313,44 @@ class FileOrganizerChallengeLevel(Level):
             "'ls' (je tam data.csv?), 'ls logs/' (je tam misplaced.log?)."
         ),
     ]
-    require_answer = True
-    expected_answer = "organizer"
-
-    def setup(self, workspace: Path) -> None:
-        test_dir = workspace / "level-6" / "final_test"
-
-        if test_dir.exists():
-            shutil.rmtree(test_dir)
-
-        test_dir.mkdir(parents=True, exist_ok=True)
-        (test_dir / "backup").mkdir()
-        (test_dir / "logs").mkdir()
-
-        (test_dir / "original.txt").write_text("Important data - do not delete!\n")
-        (test_dir / "temp_data.csv").write_text("col1,col2\n1,2\n")
-        (test_dir / "misplaced.log").write_text("Log entry\n")
-
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:  # noqa: PLR0911
-        ok, msg = super().validate(answer, state)
-        if not ok:
-            return ok, msg
-
-        test_dir = state.workspace / "level-6" / "final_test"
-
-        if not (test_dir / "original.txt").exists():
-            return False, "Smazali jste original.txt! Měli jste ho zkopírovat, ne přesunout."
-        if not (test_dir / "backup" / "original.txt").exists():
-            return False, "Chybí kopie v backup/. Použijte 'cp original.txt backup/'."
-
-        if (test_dir / "temp_data.csv").exists():
-            return False, "temp_data.csv stále existuje. Přejmenujte ho na data.csv pomocí 'mv'."
-        if not (test_dir / "data.csv").exists():
-            return False, "Chybí data.csv. Přejmenujte temp_data.csv pomocí 'mv temp_data.csv data.csv'."
-
-        if (test_dir / "misplaced.log").exists():
-            return False, "misplaced.log stále v hlavní složce. Přesuňte do logs/ pomocí 'mv'."
-        if not (test_dir / "logs" / "misplaced.log").exists():
-            return False, "Chybí misplaced.log v logs/. Přesuňte pomocí 'mv misplaced.log logs/'."
-
-        return True, "Výborně! Dokončili jste Sekci 6. Umíte kopírovat, přesouvat i přejmenovávat!"
-
-
-def get_levels() -> list[Level]:
-    return section.levels
+    start_directory = "final_test"
+    fixture = WorkspaceFixture(
+        directories=("final_test/backup", "final_test/logs"),
+        files=(
+            FileFixture(
+                "final_test/original.txt",
+                "Important data - do not delete!\n",
+            ),
+            FileFixture("final_test/temp_data.csv", "col1,col2\n1,2\n"),
+            FileFixture("final_test/misplaced.log", "Log entry\n"),
+        ),
+        clean=("final_test",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("organizer"),
+        requirements=(
+            FileExists(
+                "final_test/original.txt",
+                error_message="Smazali jste original.txt! Měli jste ho zkopírovat, ne přesunout.",
+            ),
+            PathsMatch(
+                "final_test/original.txt",
+                "final_test/backup/original.txt",
+                error_message="Kopie v backup/ neodpovídá originálu.",
+                destination_error="Chybí kopie v backup/. Použijte 'cp original.txt backup/'.",
+            ),
+            PathMoved(
+                "final_test/temp_data.csv",
+                "final_test/data.csv",
+                source_error="temp_data.csv stále existuje. Přejmenujte ho na data.csv pomocí 'mv'.",
+                destination_error="Chybí data.csv. Přejmenujte temp_data.csv pomocí 'mv temp_data.csv data.csv'.",
+            ),
+            PathMoved(
+                "final_test/misplaced.log",
+                "final_test/logs/misplaced.log",
+                source_error="misplaced.log stále v hlavní složce. Přesuňte do logs/ pomocí 'mv'.",
+                destination_error="Chybí misplaced.log v logs/. Přesuňte pomocí 'mv misplaced.log logs/'.",
+            ),
+        ),
+    )
+    success_message = "Výborně! Dokončili jste Sekci 6. Umíte kopírovat, přesouvat i přejmenovávat!"

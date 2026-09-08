@@ -14,7 +14,7 @@ class TestProgressTracker:
         manager = StateManager()
         manager.state_dir = tmp_path
         manager.state_file = tmp_path / "state.json"
-        tracker = ProgressTracker(manager)
+        tracker = ProgressTracker()
 
         state = manager.init("testuser")
         tracker.record_attempt(state, level_id="1.1")
@@ -24,25 +24,11 @@ class TestProgressTracker:
         assert state.level_attempts["1.1"] == 2
         assert state.level_attempts["2.0"] == 1
 
-    def test_record_hint_used_increments(self, tmp_path: Path) -> None:
-        manager = StateManager()
-        manager.state_dir = tmp_path
-        manager.state_file = tmp_path / "state.json"
-        tracker = ProgressTracker(manager)
-
-        state = manager.init("testuser")
-        tracker.record_hint_used(state, level_id="1.1")
-        tracker.record_hint_used(state, level_id="1.1", count=2)
-        tracker.record_hint_used(state, level_id="2.0", count=0)
-
-        assert state.level_hints_used["1.1"] == 3
-        assert "2.0" not in state.level_hints_used
-
     def test_ensure_level_started_sets_once(self, tmp_path: Path) -> None:
         manager = StateManager()
         manager.state_dir = tmp_path
         manager.state_file = tmp_path / "state.json"
-        tracker = ProgressTracker(manager)
+        tracker = ProgressTracker()
 
         state = manager.init("testuser")
 
@@ -58,7 +44,7 @@ class TestProgressTracker:
         manager = StateManager()
         manager.state_dir = tmp_path
         manager.state_file = tmp_path / "state.json"
-        tracker = ProgressTracker(manager)
+        tracker = ProgressTracker()
 
         state = manager.init("testuser")
 
@@ -68,9 +54,7 @@ class TestProgressTracker:
         state.level_hints_used["1.1"] = 1
 
         completed_at = datetime.now()
-        completion = tracker.record_completion(
-            state, level_id="1.1", completed_at=completed_at
-        )
+        completion = tracker.record_completion(state, level_id="1.1", completed_at=completed_at)
 
         assert state.levels_complete["1.1"] == completion
         assert completion.attempts == 2

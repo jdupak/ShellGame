@@ -2,12 +2,12 @@
 
 from pathlib import Path
 
-from shellgame.levels.sections.section1 import MazeLevel
+from shellgame.levels.sections.section1 import MazeLevel, resolve_maze_instruction
 
 
 def test_level1_7_maze_has_branches_and_a_loop(tmp_path: Path) -> None:
     level = MazeLevel()
-    level.setup(tmp_path)
+    level.prepare(tmp_path)
 
     maze_root = tmp_path / "level-1" / "maze"
     start = maze_root / "00"
@@ -22,4 +22,5 @@ def test_level1_7_maze_has_branches_and_a_loop(tmp_path: Path) -> None:
     # A small loop: 00/side/loop contains an instruction that points back to 00.
     loop_dir = start / "side" / "loop"
     assert loop_dir.is_dir()
-    assert (loop_dir / "GO_UP_2_THEN_GO_TO_00").is_file()
+    assert (loop_dir / "GO_UP_2").is_file()
+    assert resolve_maze_instruction("GO_UP_2", loop_dir) == start

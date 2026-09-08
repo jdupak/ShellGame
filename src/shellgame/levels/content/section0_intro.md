@@ -8,9 +8,9 @@ Výsledkem může být textová odpověď, přesun do správného adresáře neb
 
 ### Jak hrát
 1. Hra se skládá ze sekcí, které se věnují různým tématům.
-2. Každá sekce začníná úvodním textem, který vás naučí nové příkazy a koncepty.
+2. Každá sekce začíná úvodním textem. Úvod jen čtete — pokračujte stisknutím Enter.
 3. Každá sekce obsahuje několik levelů, ve kterých postupně plníte úkoly.
-4. **Odevzdejte řešení** pomocí příkazu `shellgame submit`.
+4. **Odevzdejte řešení úkolu** příkazem `shellgame submit`.
 5. Pokud si nevíte rady, můžete si vyžádat nápovědu příkazem:
 `shellgame hint`.
 

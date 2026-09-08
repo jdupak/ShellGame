@@ -22,11 +22,11 @@ Souborový systém vašeho počítače je organizován jako stromová struktura 
 
 V každé chvíli se v terminálu nacházíte v určitém adresáři, který se nazývá "pracovní adresář" (working directory). Je to stejné, jako když máte v grafickém rozhraní otevřenou složku a vidíte její obsah. V terminálu však musíte vědět, kde jste, abyste mohli správně zadávat příkazy.
 
-V této sekci si představujte, obrázek souborového stroumu jako výše a na něm si představujte šipku stále ukazující na váš aktuální pracovní adresář. Pokažde, když se někam přesunete pomocí příkazu `cd`, šipka vás bude následovat.
+V této sekci si představujte, obrázek souborového stromu jako výše a na něm si představujte šipku stále ukazující na váš aktuální pracovní adresář. Pokaždé, když se někam přesunete pomocí příkazu `cd`, šipka vás bude následovat.
 
 ### Cesta (Path)
 
-Cesta (path) je textový řetězec popisující umístění souboru nebo adresáře v systému. Cesta se zkládá z jednotlivých adresářů oddělených lomítky (např. `/home/student/dokumenty`).
+Cesta (path) je textový řetězec popisující umístění souboru nebo adresáře v systému. Cesta se skládá z jednotlivých adresářů oddělených lomítky (např. `/home/student/dokumenty`).
 
 ---
 

@@ -3,10 +3,12 @@
 These tests lock in path-mapping behavior so it doesn't regress.
 """
 
+import os
 from pathlib import Path
-from typing import Any
+from unittest.mock import MagicMock
 
-from shellgame.cli.commands import get_level_start_directory
+from shellgame.cli.commands import level_registry
+from shellgame.core.navigation import NavigationManager
 from shellgame.levels.sections.section1 import PwdLevel
 
 
@@ -14,22 +16,35 @@ def test_get_level_start_directory_selected_levels(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
 
     # Intro levels start in the workspace root.
-    assert get_level_start_directory("0.0", workspace) == workspace
+    assert level_registry.get("0.0").get_start_directory(workspace) == workspace
 
     # A representative "starts somewhere specific" level.
-    assert get_level_start_directory("1.4", workspace) == workspace / "level-1" / "alpha"
+    assert level_registry.get("1.4").get_start_directory(workspace) == workspace / "level-1" / "alpha"
 
     # 1.5 is a navigation task; it must not start at the goal directory.
-    assert get_level_start_directory("1.5", workspace) == workspace / "level-1"
+    assert level_registry.get("1.5").get_start_directory(workspace) == workspace / "level-1"
 
     # Section intro levels ("x.0") default to "no forced start dir".
-    assert get_level_start_directory("2.0", workspace) is None
+    assert level_registry.get("2.0").get_start_directory(workspace) is None
 
     # Unknown levels also default to "no forced start dir".
-    assert get_level_start_directory("999.9", workspace) is None
+    assert level_registry.get("999.9") is None
 
 
-def test_level1_1_requires_pwd_marker(tmp_path: Path, monkeypatch: Any) -> None:
+def test_failed_local_teleport_is_delegated_without_notice(tmp_path: Path, monkeypatch) -> None:
+    shell_client = MagicMock()
+    teleport_notice = MagicMock()
+    navigation = NavigationManager(level_registry, shell_client, teleport_notice)
+    destination = tmp_path / "missing"
+    monkeypatch.setattr(os, "chdir", MagicMock(side_effect=FileNotFoundError(destination)))
+
+    navigation.maybe_teleport(destination)
+
+    shell_client.cd.assert_called_once_with(destination)
+    teleport_notice.assert_not_called()
+
+
+def test_level1_1_requires_pwd_marker(tmp_path: Path) -> None:
     """Level 1.1 should require evidence that `pwd` was used."""
 
     # Fake state object with just the fields Level1_1.validate expects.
@@ -39,24 +54,9 @@ def test_level1_1_requires_pwd_marker(tmp_path: Path, monkeypatch: Any) -> None:
             self.workspace = workspace
             self.current_level = "1.1"
 
-    username = "testuser"
-    state = _State(username=username, workspace=tmp_path / "workspace")
-
-    # Make /tmp/shellgame-testuser point inside our tmp dir.
-    fake_tmp_shellgame = tmp_path / "tmp_shellgame" / f"shellgame-{username}"
-    fake_tmp_shellgame.mkdir(parents=True)
-    monkeypatch.setattr(
-        "shellgame.levels.sections.section1.Path",
-        lambda p="": Path(str(p)).__class__(str(p)),
-        raising=False,
-    )
-
-    # A lighter-weight approach: monkeypatch the pwd_marker path computation via cwd
-    # isn't practical, so we create the real marker file in /tmp.
-    # This test assumes the test environment can write to /tmp.
-    marker = Path(f"/tmp/shellgame-{username}") / ".pwd_used"
-    if marker.exists():
-        marker.unlink()
+    state = _State(username="testuser", workspace=tmp_path / "workspace")
+    state.workspace.mkdir()
+    marker = state.workspace / ".pwd_used"
 
     level = PwdLevel()
 
@@ -82,11 +82,9 @@ def test_level1_1_wrong_answer_does_not_spoil_expected(tmp_path: Path) -> None:
             self.workspace = workspace
             self.current_level = "1.1"
 
-    username = "testuser"
-    state = _State(username=username, workspace=tmp_path / "workspace")
-
-    marker = Path(f"/tmp/shellgame-{username}") / ".pwd_used"
-    marker.parent.mkdir(parents=True, exist_ok=True)
+    state = _State(username="testuser", workspace=tmp_path / "workspace")
+    state.workspace.mkdir()
+    marker = state.workspace / ".pwd_used"
     marker.write_text("")
 
     level = PwdLevel()

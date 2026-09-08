@@ -1,159 +1,79 @@
 # Shell Command Protocol
 
-## Overview
+ShellGame uses a small line protocol to update the wrapped shell after a Python
+command exits. Protocol directives are written to stderr; normal stderr is
+preserved and shown to the player.
 
-ShellGame uses a **shell command protocol** to execute shell commands from Python, enabling features like automatic directory navigation between levels.
+## Format
 
-## Status (shell integration)
-
-Shell integration is **built-in**: when you run `shellgame` outside the wrapped environment, ShellGame automatically starts a wrapped subshell (bash/fish) with integration loaded.
-
-Integration scripts are generated at runtime from templates in:
-
-- `src/shellgame/cli/templates/`
-
-This document covers both the **protocol contract** (markers + execution) and how subshells are launched.
-
-## Architecture
-
-### Communication Flow
-
-```
-┌──────────┐        stderr         ┌──────────────┐
-│          │  __SHELLGAME_EXEC__   │              │
-│  Python  │  ─────────────────>   │ Shell Wrapper│
-│   Game   │      cd /path         │  (Fish/Bash) │
-│          │                       │              │
-└──────────┘                       └──────────────┘
-                                          │
-                                          │ eval
-                                          ▼
-                                   User's Shell State
-                                   (CWD, env vars, etc.)
+```text
+__SHELLGAME_EXEC__v1 <verb> [base64-argument...]
 ```
 
-### Protocol Specification
+Arguments are UTF-8 strings encoded with standard base64. This avoids shell
+word splitting and preserves spaces and shell metacharacters without `eval`.
 
-Python emits specially formatted commands to stderr:
+| Verb | Arguments | Effect |
+| --- | --- | --- |
+| `cd` | destination | Change the wrapper's directory with `builtin cd` |
+| `export` | variable name, value | Set and export one environment variable |
+| `echo` | message | Print one message |
+| `pwd` | none | Print the wrapper's working directory |
+| `exit` | none | Exit the wrapped subshell |
 
-```
-__SHELLGAME_EXEC__<shell_command>
-```
+Unknown versions, verbs, or argument counts are ignored. Environment variable
+names must match `[A-Za-z_][A-Za-z0-9_]*`.
 
-Shell wrappers intercept stderr, parse these markers, and execute the commands.
+## Python side
 
-## Implementation
+`src/shellgame/shell/client.py` validates verbs, encodes each argument, and
+emits the directive. Callers use `ShellClient`; they do not build protocol
+lines manually.
 
-### Python side
+## Shell side
 
-The Python runtime emits protocol lines via `src/shellgame/shell/__init__.py`. The wrapper executes only the lines that start with the protocol marker.
+The bash and fish templates:
 
-**Security note**: arguments are shell-escaped on the Python side to reduce injection risk; still, treat any new “verbs” you add to the protocol as a security boundary.
+1. capture command stderr in a temporary file,
+2. recognize only lines beginning with `__SHELLGAME_EXEC__`,
+3. split the protocol header and encoded tokens,
+4. decode arguments,
+5. dispatch a fixed verb implementation,
+6. print all non-protocol stderr unchanged.
 
-### Shell Side
+There is no arbitrary-command fallback.
 
-ShellGame generates per-shell integration scripts at runtime (from templates) and starts a wrapped subshell:
+## Wrapper launch
 
-- **Fish**: launched with `--init-command` that suppresses `fish_greeting` and sources the integration script. Autostart is inside the template.
-- **Bash**: launched with `--rcfile <integration_script> -i`. The integration script is used directly as the rcfile (no separate rc template).
+### Bash
 
-**CRITICAL bash notes**:
-- Do NOT use `--norc` — it disables `--rcfile` entirely!
-- Do NOT use `--noprofile` — let users keep their PATH/env setup.
-
-No manual sourcing is required. Just run:
-
-```sh
-shellgame
-```
-
-Both templates follow the same pattern:
-1. Shell setup (disable interfering features)
-2. Function definitions (`shellgame`, `pwd`, `cd` hooks, `__shellgame_eval`)
-3. Autostart block **at the end** (calls `shellgame` function after it's defined)
-
-The `shellgame` function (defined in the template) intercepts stderr and executes lines emitted by Python that start with:
-
-```
-__SHELLGAME_EXEC__<shell_command>
+```text
+bash --rcfile <integration_script> -i
 ```
 
-Implementation excerpts live in the template files:
+`--norc` must not be used because it disables the selected rcfile.
 
-- `src/shellgame/cli/templates/fish_integration.template`
-- `src/shellgame/cli/templates/bash_integration.template`
+### Fish
 
-## Usage in Game
-
-The protocol is used primarily for:
-
-1. **Navigation/teleportation** (e.g., `cd` into a level’s start directory)
-2. Small integration helpers (env exports, etc.) tied to the wrapper session
-
-Concrete orchestration lives in `src/shellgame/core/session.py` and the wrapper/integration glue in `src/shellgame/cli/*`.
-
-## User Experience
-
-### Without wrapper (manual navigation)
-
-```sh
-$ shellgame init
-✓ Initialized ShellGame for user
-Workspace: /tmp/shellgame-user
-
-Important: Navigate to your workspace to begin:
-  cd /tmp/shellgame-user/level-1
-
-$ pwd
-/home/user
-$ cd /tmp/shellgame-user/level-1  # Manual navigation required
+```text
+fish --init-command "function fish_greeting; end; source <integration_script>"
 ```
 
-### With built-in wrapper (recommended)
+Autostart remains at the end of each template after the `shellgame` function
+has been defined.
 
-```sh
-$ shellgame
-# ShellGame will launch a wrapped subshell if needed.
-# Inside that wrapper, navigation can be automatic.
-```
+## Remove handling
 
-## Testing
+`shellgame remove` is handled specially by the wrapper. After successful
+removal it exits directly, avoiding cwd errors when the workspace being
+removed is the current directory.
 
-Automated coverage lives in `tests/` (including wrapper generation and linting).
+## Extending the protocol
 
-If you want a quick protocol sanity check, run ShellGame and observe that stderr contains protocol markers when it needs to change directory.
+Adding a verb expands the shell-facing security boundary. New verbs must:
 
-## Benefits
-
-1. **Seamless UX**: No manual navigation between levels
-2. **Universal**: Works with any shell command (cd, export, echo, etc.)
-3. **Safe**: Proper escaping prevents command injection
-4. **Flexible**: Easy to add new shell operations
-5. **Transparent**: Regular stderr is preserved
-6. **Testable**: Can be tested with/without wrappers
-
-## Future Extensions
-
-Potential additional shell commands:
-
-Keep any new protocol commands conservative: every new verb expands what the wrapper is willing to execute.
-
-## Troubleshooting
-
-### Commands Not Executing
-
-If navigation isn’t happening automatically, ensure you’re running `shellgame` normally (not via an alias that bypasses the wrapper), and check your default shell selection via `shellgame --shell fish|bash`.
-
-### Debugging Protocol
-
-View raw stderr output:
-```sh
-command shellgame init 2>&1 | grep SHELLGAME_EXEC
-```
-
-### Shell Compatibility
-
-- **Fish**: Tested and working
-- **Bash**: Tested and working
-- **Zsh**: Should work (similar to Bash)
-- **Other shells**: May need custom wrappers
+- have fixed arity,
+- validate arguments in Python and shell code,
+- avoid generic evaluation,
+- be implemented for both bash and fish,
+- include runtime parity tests.

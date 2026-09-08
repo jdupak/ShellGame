@@ -9,8 +9,9 @@ Shell override:
 """
 
 import os
+import sys
 from pathlib import Path
-from typing import Optional
+from typing import cast
 
 import click
 from rich.console import Console
@@ -18,35 +19,57 @@ from rich.console import Console
 from shellgame.cli.boot import boot_if_needed
 from shellgame.core.services import GameServices
 from shellgame.core.session import GameSession
-from shellgame.levels.loader import initialize_levels
-from shellgame.levels.registry import get_registry
+from shellgame.levels.registry import LevelRegistry
+from shellgame.messages import Messages
+from shellgame.paths import current_directory
 from shellgame.shell.client import ShellClient
-from shellgame.state.manager import StateManager
+from shellgame.state.manager import StateManager, StatePersistenceError
 from shellgame.ui.display import Display
 
-services = GameServices()
-console = services.console
-state_manager = services.state_manager
-level_registry = services.level_registry
-display = services.display
-shell_client = services.shell_client
+
+class _Services:
+    instance: GameServices | None = None
+
+
+def _game_services() -> GameServices:
+    """Create process-wide services on first use, not at import.
+
+    `StateManager` reads XDG paths in its constructor. Binding it at import
+    time would freeze those paths before tests or playtesting can isolate HOME.
+    """
+    if _Services.instance is None:
+        _Services.instance = GameServices()
+    return _Services.instance
+
+
+def __getattr__(name: str) -> object:
+    if name in {"console", "display", "state_manager", "level_registry", "shell_client", "services"}:
+        default = _game_services()
+        if name == "services":
+            return default
+        return getattr(default, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def _module_attr(name: str) -> object:
+    return getattr(sys.modules[__name__], name)
 
 
 def _teleport_notice(destination: Path) -> None:
-    console.print(
-        f"[yellow] Byli jste [bold]teleportováni[/bold] do adresáře [violet]{destination}[/violet][/yellow]\n"
+    cast(Console, _module_attr("console")).print(
+        f"[yellow]Byli jste [bold]teleportováni[/bold] do adresáře [violet]{destination}[/violet][/yellow]\n"
     )
 
 
 def _get_session() -> GameSession:
     return GameSession(
-        console=console,
-        display=display,
-        state_manager=state_manager,
-        level_registry=level_registry,
+        console=cast(Console, _module_attr("console")),
+        display=cast(Display, _module_attr("display")),
+        state_manager=cast(StateManager, _module_attr("state_manager")),
+        level_registry=cast(LevelRegistry, _module_attr("level_registry")),
         teleport_notice=_teleport_notice,
-        shell_client=shell_client,
-        workspace_factory=services.get_workspace_manager_factory(),
+        shell_client=cast(ShellClient, _module_attr("shell_client")),
+        workspace_factory=_game_services().get_workspace_manager_factory(),
     )
 
 
@@ -63,12 +86,18 @@ class CzechGroup(click.Group):
             help_text = help_text.replace(eng, cze)
         return help_text
 
-
-def get_level_start_directory(level_id: str, workspace: Path) -> Optional[Path]:
-    level = level_registry.get(level_id)
-    if level:
-        return level.get_start_directory(workspace)
-    return None
+    def invoke(self, ctx: click.Context) -> object:
+        try:
+            return super().invoke(ctx)
+        except StatePersistenceError as exc:
+            cast(Display, _module_attr("display")).show_state_error(str(exc))
+            ctx.exit(1)
+        except OSError as exc:
+            message = Messages.FILESYSTEM_ERROR.format(error=exc)
+            if current_directory() is None:
+                message = f"{Messages.CWD_MISSING}\n\n{exc}"
+            cast(Display, _module_attr("display")).show_state_error(message)
+            ctx.exit(1)
 
 
 @click.group(cls=CzechGroup, invoke_without_command=True)
@@ -81,7 +110,7 @@ def get_level_start_directory(level_id: str, workspace: Path) -> Optional[Path]:
     help="Vynutit typ subshellu (bash/fish).",
 )
 @click.pass_context
-def cli(ctx: click.Context, devmode: bool, forced_shell: Optional[str]) -> None:
+def cli(ctx: click.Context, devmode: bool, forced_shell: str | None) -> None:
     """ShellGame - Interaktivní výuka navigace v terminálu."""
     ctx.ensure_object(dict)
     ctx.obj["devmode"] = devmode
@@ -94,7 +123,9 @@ def cli(ctx: click.Context, devmode: bool, forced_shell: Optional[str]) -> None:
     try:
         boot = boot_if_needed(wrapped=wrapped, devmode=devmode)
     except Exception as e:
-        console.print(f"[bold red]CHYBA: Nepodařilo se spustit herní shell ({e})[/bold red]")
+        cast(Console, _module_attr("console")).print(
+            f"[bold red]CHYBA: Nepodařilo se spustit herní shell ({e})[/bold red]"
+        )
         ctx.exit(1)
 
     if boot.should_exit:
@@ -125,7 +156,7 @@ def hint(repeat: bool) -> None:
 @cli.command()
 @click.argument("answer", required=False)
 @click.pass_context
-def submit(ctx: click.Context, answer: Optional[str] = None) -> None:
+def submit(ctx: click.Context, answer: str | None = None) -> None:
     """Odeslat odpověď pro aktuální level."""
     _get_session().submit(answer)
 
@@ -134,6 +165,12 @@ def submit(ctx: click.Context, answer: Optional[str] = None) -> None:
 def status() -> None:
     """Zobrazit postup a statistiky."""
     _get_session().status()
+
+
+@cli.command()
+def skip() -> None:
+    """Přeskočit aktuální level (pouze nepovinné levely)."""
+    _get_session().skip()
 
 
 @cli.command()
@@ -157,7 +194,7 @@ def reset() -> None:
     default=None,
     help="ID levelu ke zopakování (např. 1.7). Pokud neuvedete, zopakuje se aktuální level.",
 )
-def repeat(section_num: Optional[int], level_id: Optional[str]) -> None:
+def repeat(section_num: int | None, level_id: str | None) -> None:
     """Znovu zobrazit zadání (aktuálního nebo zvoleného) levelu."""
     _get_session().repeat(section_num=section_num, level_id=level_id)
 
@@ -175,32 +212,7 @@ def repeat(section_num: Optional[int], level_id: Optional[str]) -> None:
 )
 def show(section: bool, level: bool) -> None:
     """Zobrazit znovu zadání aktuálního levelu nebo úvod aktuální sekce."""
-    state = state_manager.load()
-    if not state:
-        display.show_not_initialized()
-        return
-
-    if (1 if section else 0) + (1 if level else 0) != 1:
-        console.print("[yellow]Použití: shellgame show --level  nebo  shellgame show --section[/yellow]\n")
-        return
-
-    if level:
-        target_id = state.current_level
-    else:
-        try:
-            section_prefix = state.current_level.split(".", 1)[0]
-            int(section_prefix)
-            target_id = f"{section_prefix}.0"
-        except Exception:
-            console.print(f"[red]Chyba: Neplatný formát aktuálního levelu: {state.current_level}[/red]\n")
-            return
-
-    target_level = level_registry.get(target_id)
-    if target_level is None:
-        console.print(f"[red]Chyba: Level {target_id} nenalezen[/red]\n")
-        return
-
-    display.show_instructions(target_level)
+    _get_session().show(section=section, level=level)
 
 
 @cli.command()
@@ -213,8 +225,7 @@ def remove() -> None:
 @cli.command()
 def exit() -> None:
     """Ukončit ShellGame."""
-    console.print("[yellow]Ukončuji ShellGame...[/yellow]")
-    raise SystemExit(0)
+    _get_session().exit()
 
 
 @cli.group(hidden=True)
@@ -230,75 +241,29 @@ def dev_jump(level_id: str) -> None:
 
 @dev.command(name="next")
 def dev_next() -> None:
-    state = state_manager.load()
-    if not state:
-        display.show_not_initialized()
-        return
-
-    next_id = level_registry.next_level(state.current_level)
-    if not next_id:
-        console.print("[yellow]Žádný další level.[/yellow]")
-        return
-
-    _get_session().dev_jump_to(next_id)
+    _get_session().dev_next()
 
 
 @dev.command(name="prev")
 def dev_prev() -> None:
-    state = state_manager.load()
-    if not state:
-        display.show_not_initialized()
-        return
-
-    levels = level_registry.list_levels()
-    prev_id = None
-    for lvl in levels:
-        if lvl.id == state.current_level:
-            break
-        prev_id = lvl.id
-
-    if not prev_id:
-        console.print("[yellow]Žádný předchozí level.[/yellow]")
-        return
-
-    _get_session().dev_jump_to(prev_id)
+    _get_session().dev_previous()
 
 
 @dev.command(name="reload")
 def dev_reload() -> None:
-    state = state_manager.load()
-    if not state:
-        display.show_not_initialized()
-        return
-
-    level = level_registry.get(state.current_level)
-    if not level:
-        console.print(f"[red]Chyba: Level {state.current_level} nenalezen[/red]\n")
-        return
-
-    level.reset(state.workspace)
-    display.wait_for_continue()
-    display.show_instructions(level)
-    console.print(f"[green]✓ Level {state.current_level} znovu načten.[/green]")
+    _get_session().dev_reload()
 
 
 @dev.command(name="start")
 def dev_start() -> None:
-    levels = level_registry.list_levels()
-    if not levels:
-        console.print("[red]No levels registered[/red]")
-        return
-
-    first_id = levels[0].id
-    ctx = click.get_current_context()
-    ctx.invoke(dev_jump, level_id=first_id)
+    _get_session().dev_start()
 
 
 @cli.command(hidden=True, name="cd-hook")
 @click.argument("arg1", required=False)
 @click.argument("arg2", required=False)
 @click.option("--post-move", is_flag=True)
-def cd_hook(arg1: Optional[str], arg2: Optional[str], post_move: bool) -> None:
+def cd_hook(arg1: str | None, arg2: str | None, post_move: bool) -> None:
     if post_move:
         target = None
         pwd = arg1
@@ -306,9 +271,9 @@ def cd_hook(arg1: Optional[str], arg2: Optional[str], post_move: bool) -> None:
         target = arg1
         pwd = arg2
 
-    try:
-        _get_session().handle_cd_hook(target=target, pwd=pwd, post_move=post_move)
-    except SystemExit:
-        raise
-    except Exception:
-        pass
+    _get_session().handle_cd_hook(target=target, pwd=pwd, post_move=post_move)
+
+
+@cli.command(hidden=True, name="fd-hook")
+def fd_hook() -> None:
+    _get_session().handle_fd_hook()

@@ -1,161 +1,216 @@
 """Base level interface and abstract class."""
 
-from abc import ABC, abstractmethod
-from collections.abc import Callable
+import contextlib
+import stat
+import sys
+from collections.abc import Sequence
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional
+from typing import NoReturn, final
 
+from shellgame.levels.cdpolicy import CdPolicy, CdRequest
+from shellgame.levels.completion import Completion
+from shellgame.levels.fixture import WorkspaceFixture
+from shellgame.levels.solution import Solution
 from shellgame.markers import MarkerManager
 from shellgame.messages import Messages
-from shellgame.protocols import GameStateProtocol
-from shellgame.validation.validators import (
-    ValidationResult,
-    Validator,
-)
+from shellgame.paths import WorkspaceRoot, current_directory, resolve_within
+from shellgame.protocols import CdHookCallback, GameStateProtocol, ValidationResult
 
 
-class Level(ABC):
-    def __init__(  # noqa: PLR0913
-        self,
-        id: Optional[str] = None,
-        section: Optional[int] = None,
-        title: Optional[str] = None,
-        instructions: Optional[str] = None,
-        hints: Optional[list[str]] = None,
-        optional: Optional[bool] = None,
-        extension: Optional[bool] = None,
-        instructions_file: Optional[str] = None,
-        validators: Optional[list[Validator]] = None,
-        start_directory: Optional[str] = None,
-        required_cwd: Optional[str] = None,
-        require_answer: Optional[bool] = None,
-        marker_name: Optional[str] = None,
-        marker_error: Optional[str] = None,
-        expected_answer: Optional[str] = None,
-        success_message: Optional[str] = None,
-        allow_cwd_as_answer: Optional[bool] = None,
-    ):
-        self.id = id if id is not None else getattr(self, "id", None)
-        
-        self.section = section if section is not None else getattr(self, "section", None)
+def block_cd(level_id: str, message: str) -> NoReturn:
+    """Reject a `cd` attempt and always tell the player how to recover.
 
-        self.title = title if title is not None else getattr(self, "title", None)
-        if self.title is None:
+    Strict navigation levels only accept one command shape. Without an explicit
+    recovery path a player who moves one step too far can be left in a directory
+    from which every permitted move leads further away.
+    """
+    sys.stderr.write(f"ShellGame ({level_id}): {message}\n")
+    sys.stderr.write(f"ShellGame ({level_id}): {Messages.CD_RECOVERY_TIP}\n")
+    sys.exit(1)
+
+
+class Level:
+    id = ""
+    section: int | None = None
+    title = ""
+    instructions = ""
+    instructions_file: str | None = None
+    hints: Sequence[str] = ()
+    optional = False
+    extension = False
+    start_directory: str | WorkspaceRoot | None = None
+    reset_markers: Sequence[str] = ()
+    success_message = Messages.CORRECT
+    is_intro = False
+    enforce_start_directory = True
+    section_root = ""
+    section_fixture: WorkspaceFixture | None = None
+    fixture: WorkspaceFixture | None = None
+    completion: Completion | None = None
+    cd_policy: CdPolicy | None = None
+    solution: Solution | None = None
+
+    def __init__(self) -> None:
+        if not self.title:
             raise ValueError("Level must have a title")
+        if not self.is_intro and self.completion is None and type(self).validate is Level.validate:
+            raise ValueError(f"{type(self).__name__}: regular levels require Completion or a custom validate()")
 
-        _hints = hints if hints is not None else getattr(self, "hints", [])
-        self.hints = list(_hints)
+        self.hints = list(self.hints)
 
-        self.optional = optional if optional is not None else getattr(self, "optional", False)
-        self.extension = extension if extension is not None else getattr(self, "extension", False)
-        
-        _validators = validators if validators is not None else getattr(self, "validators", [])
-        self.validators = list(_validators)
-
-        self.start_directory = start_directory if start_directory is not None else getattr(
-            self, "start_directory", None
-        )
-        self.required_cwd = required_cwd if required_cwd is not None else getattr(self, "required_cwd", None)
-        self.require_answer = require_answer if require_answer is not None else getattr(self, "require_answer", False)
-        self.marker_name = marker_name if marker_name is not None else getattr(self, "marker_name", None)
-        self.marker_error = marker_error if marker_error is not None else getattr(
-            self, "marker_error", Messages.MARKER_NOT_FOUND
-        )
-        self.expected_answer = expected_answer if expected_answer is not None else getattr(
-            self, "expected_answer", None
-        )
-        self.success_message = success_message if success_message is not None else getattr(
-            self, "success_message", Messages.CORRECT
-        )
-        self.allow_cwd_as_answer = allow_cwd_as_answer if allow_cwd_as_answer is not None else getattr(
-            self, "allow_cwd_as_answer", False
-        )
-
-        inst_file = instructions_file if instructions_file is not None else getattr(self, "instructions_file", None)
-        inst_text = instructions if instructions is not None else getattr(self, "instructions", "")
-
-        if inst_file:
-            content_path = Path(__file__).parent / "content" / inst_file
-            if content_path.exists():
-                self.instructions = dedent(content_path.read_text()).strip()
-            else:
-                self.instructions = f"Error: Instructions file {inst_file} not found."
+        if self.instructions_file:
+            content_path = Path(__file__).parent / "content" / self.instructions_file
+            self.instructions = dedent(content_path.read_text(encoding="utf-8")).strip()
         else:
-            self.instructions = dedent(inst_text).strip()
+            self.instructions = dedent(self.instructions).strip()
 
-    @abstractmethod
     def setup(self, workspace: Path) -> None:
-        pass
+        return
 
-    def _check_marker(self, state: GameStateProtocol) -> Optional[ValidationResult]:
-        if not self.marker_name:
-            return None
-        username = getattr(state, "username", None)
-        if username and not MarkerManager(username).exists(self.marker_name):
-            return False, self.marker_error
-        return None
+    @final
+    def prepare(self, workspace: Path) -> None:
+        markers = MarkerManager(workspace)
+        completion_markers = self.completion.evidence_markers if self.completion else ()
+        marker_names = [name for name in (*self.reset_markers, *completion_markers) if name]
+        for marker_name in dict.fromkeys(marker_names):
+            markers.remove(marker_name)
+        if self.section_root:
+            target = workspace / self.section_root
+            if target.exists() and not target.is_dir() and not target.is_symlink():
+                with contextlib.suppress(OSError):
+                    target.chmod(stat.S_IRUSR | stat.S_IWUSR)
+                target.unlink(missing_ok=True)
+            elif target.is_dir() and not target.is_symlink():
+                with contextlib.suppress(OSError):
+                    target.chmod(stat.S_IRWXU)
+        fixture_root = self.section_path(workspace)
+        if self.section_fixture:
+            self.section_fixture.apply(fixture_root)
+        else:
+            fixture_root.mkdir(parents=True, exist_ok=True)
+        if self.fixture:
+            self.fixture.apply(fixture_root)
+        self.setup(workspace)
 
-    def _check_cwd(self) -> Optional[ValidationResult]:
-        if not self.required_cwd:
-            return None
-        cwd_name = Path.cwd().name
-        if cwd_name != self.required_cwd:
-            return False, Messages.wrong_directory(cwd_name, self.required_cwd)
-        return None
+    def section_path(self, workspace: Path) -> Path:
+        """The directory every path this level declares is resolved against."""
+        return resolve_within(workspace, self.section_root, kind="Section root")
 
-    def _check_answer_presence(self, answer: Optional[str]) -> Optional[ValidationResult]:
-        if self.require_answer and answer is None:
-            return False, Messages.ANSWER_REQUIRED
-        return None
-
-    def _check_cwd_as_answer(self, answer: Optional[str]) -> Optional[ValidationResult]:
-        if answer is None and self.allow_cwd_as_answer and self.expected_answer:
-            if Path.cwd().name == self.expected_answer:
-                return True, self.success_message
-            return False, Messages.wrong_directory(Path.cwd().name, self.expected_answer)
-        return None
-
-    def _check_expected_answer(self, answer: Optional[str]) -> Optional[ValidationResult]:
-        if self.expected_answer and answer is not None:
-            if answer.strip() == self.expected_answer:
-                return True, self.success_message
-            return False, Messages.INCORRECT
-        return None
-
-    def validate(self, answer: Optional[str], state: GameStateProtocol) -> ValidationResult:
-        checks = [
-            lambda: self._check_marker(state),
-            lambda: self._check_cwd(),
-            lambda: self._check_answer_presence(answer),
-            lambda: self._check_cwd_as_answer(answer),
-            lambda: self._check_expected_answer(answer),
-        ]
-
-        for check in checks:
-            if result := check():
-                return result
-
-        for validator in self.validators:
-            success, message = validator.validate(answer, state)
-            if not success:
-                return False, message
-
+    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
+        if self.completion:
+            return self.completion.validate(
+                answer,
+                state,
+                root=self.section_path(state.workspace),
+                success_message=self.success_message,
+            )
         return True, self.success_message
 
     def reset(self, workspace: Path) -> None:
-        self.setup(workspace)
+        self.prepare(workspace)
 
-    def get_start_directory(self, workspace: Path) -> Optional[Path]:
+    def get_start_directory(self, workspace: Path) -> Path | None:
         if self.start_directory is None:
             return None
 
-        if not self.start_directory:
+        if isinstance(self.start_directory, WorkspaceRoot):
             return workspace
 
-        return workspace / self.start_directory
+        return self.section_path(workspace) / self.start_directory
 
     @property
-    def hooks(self) -> dict[str, Callable[..., object]]:
+    def is_bonus(self) -> bool:
+        """Extension and optional levels must never gate advancement."""
+        return bool(self.optional or self.extension)
+
+    def returns_to_start(self, *, target: str | None, pwd: str | None, state: GameStateProtocol) -> bool:
+        """True when this `cd` would bring the player back to the level start directory.
+
+        Strict `cd` hooks use this to always permit the recovery move, so a
+        player can never be locked out of the level's own workspace.
+        """
+        if not target:
+            return False
+
+        start = self.get_start_directory(state.workspace)
+        if start is None:
+            return False
+
+        candidate = Path(target).expanduser()
+        if not candidate.is_absolute():
+            base = Path(pwd) if pwd else current_directory()
+            if base is None:
+                return False
+            candidate = base / candidate
+
+        try:
+            return candidate.resolve() == start.resolve()
+        except (OSError, RuntimeError):
+            return False
+
+    def cd_enforcement_lifted(
+        self,
+        marker: str,
+        *,
+        target: str | None,
+        pwd: str | None,
+        state: GameStateProtocol,
+    ) -> bool:
+        """True when a strict `cd` rule must not block this move.
+
+        Enforcement is lifted once the player has demonstrated the required
+        command (evidence marker exists) and for any move that returns them to
+        the level start directory. Without this, a single extra step could leave
+        a player in a directory from which every permitted move leads away.
+        """
+        if MarkerManager.from_state(state).exists(marker):
+            return True
+        return self.returns_to_start(target=target, pwd=pwd, state=state)
+
+    @property
+    def hooks(self) -> dict[str, CdHookCallback]:
+        if self.cd_policy is not None:
+            return {"cd": self._enforce_cd_policy}
         return {}
 
+    @final
+    def _enforce_cd_policy(
+        self,
+        *,
+        target: str | None,
+        pwd: str | None,
+        post_move: bool,
+        state: GameStateProtocol,
+    ) -> None:
+        """Apply this level's `cd_policy` under the anti-soft-lock contract.
+
+        The order here is the contract: out-of-scope moves pass silently,
+        enforcement is always consulted before any rejection, rejections always
+        go through `block_cd()` so the player is told how to recover, and
+        evidence is recorded only for a move that satisfied every rule.
+        """
+        policy = self.cd_policy
+        if policy is None or post_move:
+            return
+
+        request = CdRequest(target=target, pwd=pwd, state=state, root=self.section_path(state.workspace))
+        if not policy.applies(request):
+            return
+
+        if self.cd_enforcement_lifted(policy.marker, target=target, pwd=pwd, state=state):
+            return
+
+        if (message := policy.rejection(request)) is not None:
+            block_cd(self.id, message)
+
+        MarkerManager.from_state(state).create(policy.marker)
+
+    def record_fd_evidence(
+        self,
+        *,
+        stdout_target: str,
+        stderr_target: str,
+        state: GameStateProtocol,
+    ) -> None:
+        return

@@ -2,36 +2,24 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from typing_extensions import override
-
 from shellgame.levels.base import Level
 from shellgame.levels.collector import Section
-from shellgame.protocols import GameStateProtocol
-from shellgame.validation.validators import StringValidator, ValidationResult
+from shellgame.levels.completion import Completion, ExactAnswer
 
-section = Section()
+section = Section(0)
 
 
-@section.level
+@section.level(0)
 class IntroLevel(Level):
+    is_intro = True
     title = "Vítejte v ShellGame"
     instructions_file = "section0_intro.md"
-    hints = ["Přečtěte si instrukce a pokračujte příkazem 'shellgame submit'."]
+    hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
     start_directory = ""
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        pass
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        super().validate(answer, state)
-        return True, "Vítejte ve hře!"
+    success_message = "Vítejte ve hře!"
 
 
-@section.level
+@section.level(1)
 class WarmupPasswordLevel(Level):
     title = "Zahřívací kolo"
     instructions = """
@@ -49,13 +37,4 @@ class WarmupPasswordLevel(Level):
         "Nic víc v tom nehledejte :)",
     ]
     start_directory = ""
-    require_answer = True
-    validators = [StringValidator("start", case_sensitive=False)]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        pass
-
-
-def get_levels() -> list[Level]:
-    return section.levels
+    completion = Completion(answer=ExactAnswer("start", case_sensitive=False))

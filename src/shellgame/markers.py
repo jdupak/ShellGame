@@ -1,33 +1,32 @@
-"""Centralized marker file management for shell wrapper communication.
+"""Marker file management for shell wrapper communication.
 
 Marker files are used to verify that the user performed specific shell actions
 (like using `pwd`, `cd` with absolute path, etc.) that cannot be detected
 directly from Python.
 
-The markers live in /tmp/shellgame-{username}/ and are created by shell
-wrappers defined in commands.py.
+Markers live directly in the configured workspace.
 """
 
 from pathlib import Path
-from typing import Optional
+
+from shellgame.protocols import GameStateProtocol
 
 
 class MarkerManager:
+    #: Markers shared across levels. A level's own `cd` evidence marker is
+    #: derived from its ID instead (see `levels.cdpolicy.cd_marker`), so it
+    #: cannot be misspelled or reused by another level.
     PWD_USED = "pwd_used"
-    LEVEL1_8_ABSOLUTE_CD = "level1_8_absolute_cd_used"
     LEVEL1_9_CD_WALK_PROGRESS = "level1_9_cd_walk_progress"
     LEVEL1_9_CD_WALK_COMPLETED = "level1_9_cd_walk_completed"
+    LEVEL9_4_DEV_NULL = "level9_4_dev_null_used"
 
-    def __init__(self, username: str):
-        self.username = username
-        self.base_dir = Path(f"/tmp/shellgame-{username}")
+    def __init__(self, workspace: Path):
+        self.base_dir = workspace
 
     @classmethod
-    def from_state(cls, state: "GameStateProtocol") -> "MarkerManager":
-        username = getattr(state, "username", None)
-        if not username:
-            raise ValueError("State must have a username attribute")
-        return cls(username)
+    def from_state(cls, state: GameStateProtocol) -> "MarkerManager":
+        return cls(state.workspace)
 
     def _marker_path(self, name: str) -> Path:
         marker_name = f".{name}" if not name.startswith(".") else name
@@ -43,18 +42,8 @@ class MarkerManager:
     def remove(self, name: str) -> None:
         self._marker_path(name).unlink(missing_ok=True)
 
-    def read(self, name: str) -> Optional[str]:
+    def read(self, name: str) -> str | None:
         path = self._marker_path(name)
         if path.exists():
             return path.read_text()
         return None
-
-    def clear_all(self) -> None:
-        if self.base_dir.exists():
-            for marker in self.base_dir.glob(".*"):
-                if marker.is_file():
-                    marker.unlink()
-
-
-class GameStateProtocol:
-    username: str

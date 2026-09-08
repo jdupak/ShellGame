@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
 from pathlib import Path
+from typing import Any, cast
 
 from rich.align import Align
 from rich.console import Console, ConsoleOptions, RenderResult
@@ -11,8 +11,19 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
+from rich.text import Text
+
+from shellgame.levels.registry import parse_level_id
 
 Heading = cast(Any, Markdown.elements["heading_open"])  # type: ignore[valid-type]
+
+
+def _level_sort_key(item: tuple[str, Any]) -> tuple[int, int, str]:
+    """Sort level IDs numerically so that 1.2 precedes 1.10."""
+    parsed = parse_level_id(item[0])
+    if parsed is None:
+        return (10**6, 0, item[0])
+    return (*parsed, "")
 
 
 class LeftHeading(Heading):  # type: ignore[misc, valid-type]
@@ -48,7 +59,7 @@ class Display:
         self.console.input(" [dim]Stiskněte Enter pro pokračování...[/dim]")
 
     def show_instructions(self, level: Any) -> None:
-        if level.id.endswith(".0"):
+        if level.is_intro:
             title_str = f"[bold cyan]{level.title}[/bold cyan]"
 
             raw = level.instructions or ""
@@ -79,6 +90,13 @@ class Display:
         panel = Panel(md, title=title_str, border_style="cyan", padding=(1, 2))
         self.console.print(panel)
 
+        if getattr(level, "is_bonus", False):
+            self.note(
+                "[dim]Tento level je [bold]nepovinný[/bold]. Můžete ho přeskočit příkazem: "
+                "[violet]shellgame skip[/violet][/dim]"
+            )
+            self.console.print()
+
     def note(self, text: str, indent: str = " ") -> None:
         for line in text.splitlines():
             self.console.print(indent + line if line else indent.rstrip())
@@ -88,7 +106,6 @@ class Display:
         "[violet]shellgame hint --repeat[/violet][/dim]"
     )
     _HINT_NEXT_HELP = "[dim]Potřebujete další pomoc? Napište: shellgame hint[/dim]"
-    _HINT_ALL_SHOWN = ""
 
     def _hint_footer(
         self,
@@ -120,7 +137,7 @@ class Display:
         show_next_help: bool = True,
     ) -> None:
         panel = Panel(
-            hint_text,
+            Text(hint_text),
             title=f"[yellow]💡 Nápověda {hint_num + 1} z {total_hints}[/yellow]",
             border_style="yellow",
             padding=(1, 2),
@@ -144,13 +161,56 @@ class Display:
         self.note(self._HINT_REPEAT_TIP)
         self.console.print()
 
-    def show_success(self, message: str, time_sec: int = 0, hints_used: int = 0) -> None:
+    def show_no_hints_available(self) -> None:
         panel = Panel(
-            Align.center(f"[bold green]{message}[/bold green]", vertical="middle"),
+            "[yellow]Pro tento level nejsou k dispozici žádné nápovědy.[/yellow]",
+            title="[yellow]💡 Nápověda[/yellow]",
+            border_style="yellow",
+            padding=(1, 2),
+        )
+        self.console.print(panel)
+        self.console.print()
+
+    def show_no_hints_revealed(self) -> None:
+        panel = Panel(
+            "[yellow]Zatím jste si nezobrazili žádnou nápovědu.[/yellow]",
+            title="[yellow]💡 Nápověda[/yellow]",
+            border_style="yellow",
+            padding=(1, 2),
+        )
+        self.console.print(panel)
+        self.note("[dim]První nápovědu zobrazíte příkazem: [violet]shellgame hint[/violet][/dim]")
+        self.console.print()
+
+    def show_success(
+        self,
+        message: str,
+        time_sec: int | None = None,
+        hints_used: int | None = None,
+        attempts: int | None = None,
+    ) -> None:
+        body = f"[bold green]{message}[/bold green]"
+
+        stats = self._format_stats(time_sec, hints_used, attempts)
+        if stats:
+            body += f"\n\n[dim]{stats}[/dim]"
+
+        panel = Panel(
+            Align.center(body, vertical="middle"),
             border_style="green",
             padding=(1, 4),
         )
         self.console.print(panel)
+
+    def _format_stats(self, time_sec: int | None, hints_used: int | None, attempts: int | None) -> str:
+        parts: list[str] = []
+        if time_sec is not None:
+            parts.append(f"Čas: {self._format_duration(time_sec)}")
+        if hints_used is not None:
+            parts.append(f"Nápovědy: {hints_used}")
+        if attempts:
+            parts.append(f"Chybné pokusy: {attempts}")
+        return "  |  ".join(parts)
 
     def show_failure(self, message: str, suggestion: str = "") -> None:
         body = f"[bold red]{message}[/bold red]"
@@ -178,12 +238,12 @@ class Display:
             table.add_column("Level", style="cyan")
             table.add_column("Čas", justify="right")
             table.add_column("Nápovědy", justify="right")
-            table.add_column("Pokusy", justify="right")
+            table.add_column("Chybné pokusy", justify="right")
 
-            for level_id, completion in sorted(state.levels_complete.items()):
+            for level_id, completion in sorted(state.levels_complete.items(), key=_level_sort_key):
                 table.add_row(
                     level_id,
-                    f"{completion.time_sec}s",
+                    self._format_duration(completion.time_sec),
                     str(completion.hints),
                     str(completion.attempts),
                 )
@@ -199,7 +259,7 @@ class Display:
             self.console.print(f"  Celkový čas: {self._format_duration(total_time)}")
             self.console.print(f"  Dokončené levely: {len(state.levels_complete)}")
             self.console.print(f"  Průměrně nápověd: {avg_hints:.1f}")
-            self.console.print(f"  Celkem pokusů: {total_attempts}\n")
+            self.console.print(f"  Celkem chybných pokusů: {total_attempts}\n")
         else:
             self.console.print("[dim]Zatím žádné dokončené levely.[/dim]\n")
 
@@ -215,8 +275,16 @@ class Display:
     def show_not_initialized(self) -> None:
         self.console.print("[yellow]Neinicializováno. Spusťte: shellgame init[/yellow]\n")
 
+    def show_state_error(self, message: str) -> None:
+        panel = Panel(
+            Align.center(f"[bold red]{message}[/bold red]", vertical="middle"),
+            border_style="red",
+            padding=(1, 4),
+        )
+        self.console.print(panel)
+
     def show_removed(self) -> None:
-        self.console.print("[green]Stav ShellGame a pracovní prostor odstraněny.[/green]\n")
+        self.console.print("[green]Stav ShellGame a pracovní prostor odstraněny.[/green]")
 
     def show_reset(self, level_id: str) -> None:
         self.console.print(f"[green]✓ Level {level_id} byl resetován.[/green]\n")
@@ -243,17 +311,7 @@ class Display:
         count = min(revealed_count, total)
 
         if count == 0:
-            self.show_hint(
-                hints[0],
-                0,
-                total,
-                show_repeat_tip=False,
-                show_next_help=False,
-            )
-            self.note(self._HINT_REPEAT_TIP)
-            if total > 1:
-                self.note(self._HINT_NEXT_HELP)
-            self.console.print()
+            self.show_no_hints_revealed()
             return
 
         for idx in range(count):
@@ -272,7 +330,73 @@ class Display:
         self.console.print()
 
     def show_workspace_restored(self, workspace: str | Path) -> None:
-        self.console.print(
-            "[yellow]⚠ Pracovní prostor byl smazán (např. restart systému). Obnovuji...[/yellow]"
-        )
+        self.console.print("[yellow]⚠ Pracovní prostor byl smazán (např. restart systému). Obnovuji...[/yellow]")
         self.console.print(f"[green]✓ Pracovní prostor obnoven: {workspace}[/green]\n")
+
+    def show_level_setup_error(self, level_id: str, error: str) -> None:
+        panel = Panel(
+            Align.center(
+                f"[bold red]Level {level_id} se nepodařilo připravit.[/bold red]\n\n[dim]{error}[/dim]",
+                vertical="middle",
+            ),
+            border_style="red",
+            padding=(1, 4),
+        )
+        self.console.print(panel)
+        self.note("[dim]Zkuste: [violet]shellgame reset[/violet][/dim]")
+        self.console.print()
+
+    def show_level_missing(self, stale_id: str, resolved_id: str) -> None:
+        """A saved level ID no longer exists (levels were renumbered)."""
+        panel = Panel(
+            Align.center(
+                f"[bold yellow]Level {stale_id} už v této verzi hry neexistuje.[/bold yellow]\n\n"
+                f"[dim]Pokračujeme nejbližším dostupným levelem: {resolved_id}[/dim]",
+                vertical="middle",
+            ),
+            border_style="yellow",
+            padding=(1, 4),
+        )
+        self.console.print(panel)
+        self.note("[dim]Váš dosavadní postup zůstává zachován: [violet]shellgame status[/violet][/dim]")
+        self.console.print()
+
+    def show_no_levels_available(self) -> None:
+        panel = Panel(
+            Align.center(
+                "[bold red]Nejsou registrovány žádné levely.[/bold red]",
+                vertical="middle",
+            ),
+            border_style="red",
+            padding=(1, 4),
+        )
+        self.console.print(panel)
+        self.console.print()
+
+    def show_skipped(self, level_id: str) -> None:
+        self.console.print(f"[yellow]Level {level_id} přeskočen (byl nepovinný).[/yellow]\n")
+
+    def show_not_skippable(self, level_id: str) -> None:
+        self.console.print(f"[yellow]Level {level_id} je povinný a nelze ho přeskočit.[/yellow]")
+        self.note("[dim]Zkuste nápovědu: [violet]shellgame hint[/violet][/dim]")
+        self.console.print()
+
+    def show_game_complete(self, state: Any) -> None:
+        total_time = sum(c.time_sec for c in state.levels_complete.values())
+        body = (
+            "[bold green]Dokončili jste ShellGame![/bold green]\n\n"
+            f"[dim]Dokončené levely: {len(state.levels_complete)}  |  "
+            f"Celkový čas: {self._format_duration(total_time)}[/dim]"
+        )
+        panel = Panel(
+            Align.center(body, vertical="middle"),
+            border_style="green",
+            padding=(1, 4),
+        )
+        self.console.print(panel)
+        self.note("[dim]Statistiky: [violet]shellgame status[/violet][/dim]")
+        self.note("[dim]Ukončit hru: [violet]shellgame exit[/violet][/dim]")
+        self.note(
+            "[dim]Zahrát znovu od začátku: [violet]shellgame remove[/violet] a pak [violet]shellgame[/violet][/dim]"
+        )
+        self.console.print()

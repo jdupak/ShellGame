@@ -1,4 +1,4 @@
-.PHONY: install dev build-deps test lint format build clean run run-devmode help venv lock
+.PHONY: install dev build-deps test lint format format-check check build clean run run-devmode help venv lock
 
 VENV_DIR ?= .venv
 UV ?= uv
@@ -9,8 +9,10 @@ help:
 	@echo "  make dev          - Install package with dev deps via uv"
 	@echo "  make lock         - Generate/update uv.lock"
 	@echo "  make test         - Run tests with coverage (uv run)"
-	@echo "  make lint         - Run type checking with mypy (uv run)"
-	@echo "  make format       - Format code with black (uv run)"
+	@echo "  make lint         - Run Ruff and mypy (uv run)"
+	@echo "  make format       - Format code with Ruff (uv run)"
+	@echo "  make format-check - Check formatting without changing files"
+	@echo "  make check        - Run lint, format check, and tests"
 	@echo "  make build        - Build standalone binary with PyInstaller (installs build-only deps)"
 	@echo "  make clean        - Clean build artifacts and cache"
 	@echo "  make run          - Run ShellGame (normal mode; auto-launches wrapped subshell if needed)"
@@ -42,6 +44,11 @@ lint: dev
 
 format: dev
 	$(UV) run ruff format src/shellgame/ tests/
+
+format-check: dev
+	$(UV) run ruff format --check src/shellgame/ tests/
+
+check: lint format-check test
 
 build: build-deps
 	$(UV) run pyinstaller shellgame.spec

@@ -262,7 +262,7 @@ Task:
 3. Count how many directories you just created
 4. Submit that number
 
-Submit with: shellgame submit -f <number>
+Submit with: shellgame submit <number>
 Need help? Type: shellgame hint
 ══════════════════════════════════════════════════════
 ```

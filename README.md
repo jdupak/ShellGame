@@ -37,7 +37,6 @@ This affects only the initial wrapper launch (when ShellGame is not already runn
 
 ```bash
 make dev
-shellgame init
 shellgame
 ```
 
@@ -49,10 +48,16 @@ Show current level:
 shellgame
 ```
 
-Get hints:
+Get hints (each call reveals one more hint):
 
 ```sh
 shellgame hint
+```
+
+Re-read the hints you already unlocked (does not consume a new one):
+
+```sh
+shellgame hint --repeat
 ```
 
 Submit answers:
@@ -63,13 +68,20 @@ shellgame submit <your-answer>
 
 Example: `shellgame submit level-1`
 
+Skip the current level (only possible on optional and extension levels):
+
+```sh
+shellgame skip
+```
+
 Check progress:
 
 ```sh
 shellgame status
 ```
 
-Reset current level (rebuild workspace for the level and re-show assignment):
+Reset current level (rebuild workspace for the level, re-show assignment, and
+move you back to the level's start directory):
 
 ```sh
 shellgame reset
@@ -100,22 +112,23 @@ shellgame remove
 
 ### Troubleshooting
 
-"Not initialized"
-- Run: `shellgame init`
-
 "Level not found"
-- Run: `shellgame init`
+- Restart ShellGame; if the problem persists, remove and recreate the game data.
 
 Wrong answer
 - Re-read the assignment
 - Check `pwd` to confirm where you are
 - Use `shellgame hint`
 
+Stuck: a navigation level rejects every `cd` you try
+- Some levels practise one exact command, so other moves are refused on purpose.
+- `shellgame reset` always takes you back to the level's start directory.
+- Once you have used the required command, normal movement is restored.
+
 Need to start over:
 
 ```bash
 shellgame remove
-shellgame init
 shellgame
 ```
 

@@ -2,29 +2,31 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from typing_extensions import override
-
 from shellgame.levels.base import Level
-from shellgame.levels.collector import Section
-from shellgame.protocols import GameStateProtocol
-from shellgame.validation.validators import (
-    BasenameValidator,
-    FileExistsValidator,
-    StringValidator,
-    ValidationResult,
+from shellgame.levels.cdpolicy import (
+    CdEvidence,
+    CdPolicy,
+    RequireExactCommand,
+    RequireSourceDirectory,
+    WithTarget,
 )
+from shellgame.levels.collector import Section
+from shellgame.levels.completion import (
+    AtDirectory,
+    ChoiceAnswer,
+    Completion,
+    ExactAnswer,
+    FileExists,
+)
+from shellgame.levels.fixture import FileFixture, WorkspaceFixture
+from shellgame.levels.solution import Chdir, PerformCd, RunShell, Solution
 
-section = Section()
+section = Section(2, root="level-2")
 
 
-def _setup_file_interaction_common(workspace: Path) -> None:
-    (workspace / "level-2").mkdir(parents=True, exist_ok=True)
-
-
-@section.level
+@section.level(0)
 class SectionIntroLevel(Level):
+    is_intro = True
     title = "Práce se soubory"
     instructions_file = "section2_intro.md"
     hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
@@ -32,17 +34,10 @@ class SectionIntroLevel(Level):
     start_directory = None
     success_message = "Jdeme na to!"
 
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_file_interaction_common(workspace)
 
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
-
-
-@section.level
+@section.level(1)
 class SiblingNavigationLevel(Level):
+    solution = Solution(steps=(Chdir("finish"),), answer="finish")
     title = "Navigace mezi sourozenci"
     instructions = """
         ### Cíl
@@ -68,31 +63,25 @@ class SiblingNavigationLevel(Level):
         (nebo jen `shellgame submit` pokud jste v cíli)
         """
     hints = [
-        "Použijte 'cd ../finish' pro přechod do cílového adresáře.",
-        "Odevzdejte název adresáře 'finish'.",
+        "Do sourozeneckého adresáře se dostanete přes rodičovský adresář ('..').",
+        "Můžete použít 'cd ..' a pak 'cd finish', nebo to spojit do jednoho příkazu 'cd ../finish'.",
+        "Po přesunu ověřte polohu příkazem 'pwd'. Odevzdejte poslední část cesty nebo zadejte prázdný 'shellgame submit'.",
     ]
-    start_directory = "level-2/start"
-    allow_cwd_as_answer = True
-    expected_answer = "finish"
-    validators = [BasenameValidator("finish")]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_file_interaction_common(workspace)
-        level_dir = workspace / "level-2"
-        (level_dir / "start").mkdir(exist_ok=True)
-        (level_dir / "finish").mkdir(exist_ok=True)
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        # Preserve original UX: allow empty submit when user is already in the target dir.
-        if answer is None and Path.cwd().name == "finish":
-            return True, "Správně! Jste v cíli."
-        return super().validate(answer, state)
+    start_directory = "start"
+    fixture = WorkspaceFixture(directories=("start", "finish"))
+    completion = Completion(
+        answer=ExactAnswer("finish"),
+        requirements=(AtDirectory("finish"),),
+        allow_empty=True,
+    )
 
 
-@section.level
+@section.level(2)
 class PreviousDirectoryToggleLevel(Level):
+    solution = Solution(
+        steps=(Chdir("location-B"), PerformCd("-", move_to="location-A")),
+        answer="location-A",
+    )
     title = "Rychlý návrat"
     instructions = """
         ### Cíl
@@ -110,31 +99,32 @@ class PreviousDirectoryToggleLevel(Level):
         Odevzdejte pomocí: `shellgame submit [název-adresáře]`
         """
     hints = [
-        "Přejděte do location-B, pak použijte 'cd -' pro návrat.",
-        "Odevzdejte název 'location-A'.",
+        "Příkaz 'cd -' vás vrátí do předchozího pracovního adresáře (jako tlačítko Zpět).",
+        "Nejprve přejděte do 'location-B' ('cd ../location-B') a odtud zadejte 'cd -'.",
+        "Po návratu ověřte polohu příkazem 'pwd' a odevzdejte poslední část cesty.",
     ]
-    start_directory = "level-2/location-A"
-    allow_cwd_as_answer = True
-    expected_answer = "location-A"
-    validators = [BasenameValidator("location-A")]
+    start_directory = "location-A"
+    fixture = WorkspaceFixture(directories=("location-A", "location-B"))
+    completion = Completion(
+        answer=ExactAnswer("location-A"),
+        requirements=(
+            AtDirectory("location-A"),
+            CdEvidence(
+                "Nejdřív přejděte do `location-B` a vraťte se příkazem `cd -`.",
+            ),
+        ),
+        allow_empty=True,
+    )
 
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_file_interaction_common(workspace)
-        level_dir = workspace / "level-2"
-        (level_dir / "location-A").mkdir(exist_ok=True)
-        (level_dir / "location-B").mkdir(exist_ok=True)
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        # Preserve original UX: allow empty submit when user is already back.
-        if answer is None and Path.cwd().name == "location-A":
-            return True, "Správně! Vrátili jste se zpět."
-        return super().validate(answer, state)
+    cd_policy = CdPolicy(
+        scope=(WithTarget("-"),),
+        rules=(RequireSourceDirectory("location-B", "Příkaz 'cd -' použijte až z adresáře location-B."),),
+    )
 
 
-@section.level
+@section.level(3)
 class DeepRelativeNavigationLevel(Level):
+    solution = Solution(steps=(PerformCd("../../other/target"),), answer="target")
     title = "Hluboká navigace"
     instructions = """
         ### Cíl
@@ -155,32 +145,34 @@ class DeepRelativeNavigationLevel(Level):
         Potřebujete pomoc? Napište: `shellgame hint`
         """
     hints = [
-        "Použijte 'cd ../../other/target' pro přesun.",
-        "Odevzdejte název 'target'.",
+        "Pro přechod do jiné větve stromu musíte nejprve vystoupat nahoru přes '..' a pak sestoupit dolů.",
+        "Ze 'start' vystoupejte o dvě úrovně ('../..') a zadejte 'cd ../../other/target'.",
+        "Po přesunu ověřte polohu příkazem 'pwd' a odevzdejte poslední část cesty.",
     ]
-    start_directory = "level-2/deep/structure/start"
-    allow_cwd_as_answer = True
-    expected_answer = "target"
-    validators = [BasenameValidator("target")]
+    start_directory = "deep/structure/start"
+    fixture = WorkspaceFixture(
+        directories=("deep/structure/start", "deep/other/target"),
+    )
+    completion = Completion(
+        answer=ExactAnswer("target"),
+        requirements=(
+            AtDirectory("deep/other/target"),
+            CdEvidence(
+                "Použijte ze startu jeden relativní příkaz `cd ../../other/target`.",
+            ),
+        ),
+        allow_empty=True,
+    )
 
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_file_interaction_common(workspace)
-        base = workspace / "level-2" / "deep"
-        (base / "structure" / "start").mkdir(parents=True, exist_ok=True)
-        (base / "other" / "target").mkdir(parents=True, exist_ok=True)
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        # Keep original behavior: if user submits with no arg, they must be in target.
-        if answer is None:
-            if Path.cwd().name == "target":
-                return True, "Správně! Našli jste cestu."
-            return False, f"Jste v '{Path.cwd().name}', ale měli byste být v 'target'."
-        return super().validate(answer, state)
+    cd_policy = CdPolicy(
+        rules=(
+            RequireSourceDirectory("deep/structure/start", "Použijte ze startu jeden příkaz 'cd ../../other/target'."),
+            RequireExactCommand("../../other/target", "Použijte ze startu jeden příkaz 'cd ../../other/target'."),
+        )
+    )
 
 
-@section.level
+@section.level(4)
 class ReadFirstWordLevel(Level):
     title = "Čtení souboru"
     instructions = """
@@ -199,27 +191,22 @@ class ReadFirstWordLevel(Level):
         Potřebujete pomoc? Napište: `shellgame hint`
         """
     hints = [
-        "Použijte 'cat message.txt' pro zobrazení obsahu.",
-        "První slovo je 'Secret'.",
+        "Příkaz 'cat' vypíše obsah textového souboru na obrazovku.",
+        "Spusťte 'cat message.txt' pro zobrazení obsahu souboru.",
+        "Z výstupu vezměte jen první slovo (před první mezerou) a zadejte: 'shellgame submit <slovo>'.",
     ]
-    start_directory = "level-2"
-    require_answer = True
-    validators = [StringValidator("secret", case_sensitive=False)]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_file_interaction_common(workspace)
-        (workspace / "level-2" / "message.txt").write_text("Secret is the key.\n")
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        # Avoid leaking None and keep the original friendly message.
-        if answer is None:
-            return False, "Musíte zadat první slovo ze zprávy: shellgame submit <slovo>"
-        return super().validate(answer, state)
+    start_directory = ""
+    fixture = WorkspaceFixture(files=(FileFixture("message.txt", "Secret is the key.\n"),))
+    completion = Completion(
+        answer=ExactAnswer(
+            "secret",
+            case_sensitive=False,
+            required_message="Musíte zadat první slovo ze zprávy: shellgame submit <slovo>",
+        )
+    )
 
 
-@section.level
+@section.level(5)
 class ChainedClueTraversalLevel(Level):
     title = "Sledování stop"
     instructions = """
@@ -240,29 +227,25 @@ class ChainedClueTraversalLevel(Level):
         "Přečtěte start.txt, přejděte do adresáře 'next', přečtěte clue.txt.",
     ]
     extension = True
-    start_directory = "level-2"
-    require_answer = True
-    validators = [StringValidator("sunshine", case_sensitive=False)]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_file_interaction_common(workspace)
-        level_dir = workspace / "level-2"
-        (level_dir / "start.txt").write_text("Jděte do adresáře 'next' a přečtěte si clue.txt\n")
-
-        next_dir = level_dir / "next"
-        next_dir.mkdir(exist_ok=True)
-        (next_dir / "clue.txt").write_text("Heslo je 'sunshine'\n")
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        if answer is None:
-            return False, "Musíte zadat heslo: shellgame submit <heslo>"
-        return super().validate(answer, state)
+    start_directory = ""
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("start.txt", "Jděte do adresáře 'next' a přečtěte si clue.txt\n"),
+            FileFixture("next/clue.txt", "Heslo je 'sunshine'\n"),
+        )
+    )
+    completion = Completion(
+        answer=ExactAnswer(
+            "sunshine",
+            case_sensitive=False,
+            required_message="Musíte zadat heslo: shellgame submit <heslo>",
+        )
+    )
 
 
-@section.level
+@section.level(6)
 class CreateFileWithTouchLevel(Level):
+    solution = Solution(steps=(RunShell("touch my_file.txt"),), answer=None)
     title = "Vytvoření souboru"
     instructions = """
         ### Cíl
@@ -279,22 +262,17 @@ class CreateFileWithTouchLevel(Level):
         Potřebujete pomoc? Napište: `shellgame hint`
         """
     hints = [
-        "Použijte 'touch my_file.txt' pro vytvoření souboru.",
-        "Pak spusťte 'shellgame submit'.",
+        "Příkaz 'touch' vytvoří prázdný soubor se zadaným názvem.",
+        "Spusťte 'touch my_file.txt' v aktuálním adresáři.",
+        "Ověřte vytvoření souboru příkazem 'ls' a odešlete: 'shellgame submit'.",
     ]
     optional = True
-    start_directory = "level-2"
-    validators = [FileExistsValidator("level-2/my_file.txt")]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_file_interaction_common(workspace)
-        file_path = workspace / "level-2" / "my_file.txt"
-        if file_path.exists():
-            file_path.unlink()
+    start_directory = ""
+    fixture = WorkspaceFixture(clean=("my_file.txt",))
+    completion = Completion(requirements=(FileExists("my_file.txt"),))
 
 
-@section.level
+@section.level(7)
 class SectionChallengeLevel(Level):
     title = "Souhrn Sekce 2"
     instructions = """
@@ -303,10 +281,10 @@ class SectionChallengeLevel(Level):
         Kombinujte navigaci a čtení souborů!
 
         ### Úkol
-        1. Začněte v `level-2`
-        2. Přejděte do `level-2/challenge/room1`
+        1. Začínáte v `level-2`. Přejděte do `challenge` (`cd challenge`)
+        2. Odtud vstupte do `room1` (`cd room1`)
         3. Přečtěte `hint.txt` - řekne vám kam dál
-        4. Použijte `cd -` pro návrat a pak pokračujte
+        4. Použijte `cd -` pro návrat do `challenge` a pak pokračujte podle stopy
         5. Najděte soubor `password.txt` a přečtěte ho
         6. Odevzdejte heslo
 
@@ -322,41 +300,37 @@ class SectionChallengeLevel(Level):
         `shellgame submit <heslo>`
         """
     hints = [
-        "V room1 najdete hint.txt. Co říká?",
+        "Ze startu použijte 'cd challenge', pak 'cd room1'. Přečtěte hint.txt.",
         "Hint vás pošle do room2. Použijte cd ../room2 nebo cd - a pak cd room2.",
-        "V room2 je password.txt s heslem 'navigator'.",
+        "V room2 je soubor password.txt. Přečtěte ho pomocí 'cat password.txt'.",
     ]
-    start_directory = "level-2"
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_file_interaction_common(workspace)
-        challenge = workspace / "level-2" / "challenge"
-        room1 = challenge / "room1"
-        room2 = challenge / "room2"
-
-        room1.mkdir(parents=True, exist_ok=True)
-        room2.mkdir(parents=True, exist_ok=True)
-
-        (room1 / "hint.txt").write_text("Heslo je v room2. Vraťte se zpět (cd -) a pak jděte do room2.\n")
-        (room2 / "password.txt").write_text("navigator\n")
-        (room2 / "decoy.txt").write_text("Toto není heslo.\n")
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        if answer is None:
-            return False, "Musíte zadat heslo: shellgame submit <heslo>"
-
-        cleaned = answer.strip().lower()
-
-        if cleaned == "navigator":
-            return True, "Výborně! Dokončili jste Sekci 2. Umíte navigovat a číst soubory!"
-        if cleaned in {"toto není heslo", "toto neni heslo"}:
-            return False, "To je obsah decoy.txt, ne password.txt. Přečtěte správný soubor."
-        return False, f"'{cleaned}' není správné heslo. Hledejte password.txt v room2."
+    start_directory = ""
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture(
+                "challenge/room1/hint.txt",
+                "Heslo je v room2. Vraťte se zpět (cd -) a pak jděte do room2.\n",
+            ),
+            FileFixture("challenge/room2/password.txt", "navigator\n"),
+            FileFixture("challenge/room2/decoy.txt", "Toto není heslo.\n"),
+        )
+    )
+    completion = Completion(
+        answer=ExactAnswer(
+            "navigator",
+            case_sensitive=False,
+            mistakes={
+                "toto není heslo": "To je obsah decoy.txt, ne password.txt. Přečtěte správný soubor.",
+                "toto neni heslo": "To je obsah decoy.txt, ne password.txt. Přečtěte správný soubor.",
+            },
+            error_message="Heslo není správné. Hledejte password.txt v room2.",
+            required_message="Musíte zadat heslo: shellgame submit <heslo>",
+        )
+    )
+    success_message = "Výborně! Dokončili jste Sekci 2. Umíte navigovat a číst soubory!"
 
 
-@section.level
+@section.level(8)
 class HelpDiscoveryLevel(Level):
     title = "Jak najít pomoc"
     instructions = """
@@ -392,81 +366,22 @@ class HelpDiscoveryLevel(Level):
     hints = [
         "Příkaz 'ls --help' vypíše všechny dostupné přepínače.",
         "Hledejte řádek s '-h' - říká něco o 'human readable' velikostech.",
-        "Odpověď je 'human' (human-readable = čitelné pro člověka, např. 1K, 2M, 3G).",
+        "V nápovědě vyhledejte popis přepínače -h; odevzdejte první slovo z výrazu 'human-readable'.",
     ]
     extension = True
-    start_directory = "level-2"
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        # Nothing to prepare here.
-        return
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        if answer is None:
-            return False, "Musíte zadat odpověď: shellgame submit <odpověď>"
-
-        cleaned = answer.strip().lower()
-        if cleaned in {
-            "human-readable",
-            "human",
-            "čitelné",
-            "citelne",
-            "čitelné formátování",
-        }:
-            return (
-                True,
-                "Správně! Teď víte, jak najít pomoc. Příkaz --help a man jsou vaši nejlepší přátelé!",
-            )
-        if cleaned in {"readable", "čitelné", "citelne"}:
-            return (
-                False,
-                "Blízko! Hledáme celý termín - 'human-readable'. Zkráceně stačí 'human'.",
-            )
-        return False, f"'{cleaned}' není správně. Podívejte se na 'ls --help | grep -- \"-h\"'."
-
-
-# ---------------------------------------------------------------------------
-# Backwards-compatible class names (if other code/tests import by old names)
-# ---------------------------------------------------------------------------
-
-
-class Level2_0(SectionIntroLevel):
-    pass
-
-
-class Level2_1(SiblingNavigationLevel):
-    pass
-
-
-class Level2_2(PreviousDirectoryToggleLevel):
-    pass
-
-
-class Level2_3(DeepRelativeNavigationLevel):
-    pass
-
-
-class Level2_4(ReadFirstWordLevel):
-    pass
-
-
-class Level2_5(ChainedClueTraversalLevel):
-    pass
-
-
-class Level2_6(CreateFileWithTouchLevel):
-    pass
-
-
-class Level2_7(SectionChallengeLevel):
-    pass
-
-
-class Level2_8(HelpDiscoveryLevel):
-    pass
-
-
-def get_levels() -> list[Level]:
-    return section.levels
+    start_directory = ""
+    completion = Completion(
+        answer=ChoiceAnswer(
+            (
+                "human-readable",
+                "human",
+                "čitelné",
+                "citelne",
+                "čitelné formátování",
+            ),
+            case_sensitive=False,
+            error_message="Odpověď není správně. Podívejte se na 'ls --help | grep -- \"-h\"'.",
+            required_message="Musíte zadat odpověď: shellgame submit <odpověď>",
+        )
+    )
+    success_message = "Správně! Teď víte, jak najít pomoc. Příkaz --help a man jsou vaši nejlepší přátelé!"

@@ -14,7 +14,7 @@ V Linuxu má každý soubor a adresář nastavená oprávnění, která určují
 # "Permission denied" při spuštění skriptu?
 $ ./muj_skript.sh
 bash: ./muj_skript.sh: Permission denied
-$ chmod +x muj_skript.sh   # Řešení!
+$ chmod u+x muj_skript.sh   # Přidá spuštění pro vlastníka
 $ ./muj_skript.sh
 Hello World!
 
@@ -25,9 +25,12 @@ $ chmod 644 index.html     # Ostatní mohou číst
 ## Tři typy oprávnění
 ```
 r (read)     → Číst obsah souboru / vypsat obsah adresáře
-w (write)    → Změnit/smazat soubor / vytvořit soubory v adresáři  
+w (write)    → Měnit obsah souboru / vytvářet a mazat položky v adresáři
 x (execute)  → Spustit jako program / vstoupit do adresáře
 ```
+
+Smazání souboru závisí na právech `w` a `x` nadřazeného adresáře,
+ne na právu `w` samotného souboru.
 
 ## Tři skupiny uživatelů
 ```

@@ -207,7 +207,7 @@ Task:
 
 Command: `mv data.csv ../archive/`
 
-Submit with: shellgame submit -f <count>
+Submit with: shellgame submit <count>
 Need help? Type: shellgame hint
 ══════════════════════════════════════════════════════
 ```

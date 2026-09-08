@@ -26,7 +26,7 @@ def _output(console: Console) -> str:
 
 def test_show_hint_output() -> None:
     display, console = _make_display()
-    
+
     display.show_hint("H1", 0, 3)
 
     out = _output(console)
@@ -35,20 +35,42 @@ def test_show_hint_output() -> None:
     assert "Potřebujete další pomoc? Napište: shellgame hint" in out  # next-help shown
 
 
-def test_repeat_with_no_revealed_hints_shows_first_hint() -> None:
+def test_show_hint_preserves_bracket_globs_as_literal_text() -> None:
+    display, console = _make_display()
+    hint = "V Bashi: `cp file_[ab].txt ab_files/`; `cp [a-z]*.txt lowercase/`."
+
+    display.show_hint(hint, 0, 1)
+
+    out = _output(console)
+    assert "file_[ab].txt" in out
+    assert "[a-z]*.txt" in out
+
+
+def test_repeated_hints_preserve_bracket_globs_as_literal_text() -> None:
+    display, console = _make_display()
+    hints = ["`cp file_[ab].txt ab_files/`", "`cp [a-z]*.txt lowercase/`"]
+
+    display.show_repeated_hints(hints, 2)
+
+    out = _output(console)
+    assert "file_[ab].txt" in out
+    assert "[a-z]*.txt" in out
+
+
+def test_repeat_with_no_revealed_hints_does_not_leak_a_hint() -> None:
+    """`--repeat` must never reveal an unconsumed hint (it would be a free hint
+    and would desynchronise the hint counter shown by `shellgame status`)."""
     display, console = _make_display()
     hints = ["H1", "H2"]
 
     display.show_repeated_hints(hints, 0)
 
     out = _output(console)
-    # It shows the first hint as a preview of "already revealed" (0 -> none)
-    assert "H1" in out
+    assert "H1" not in out
     assert "H2" not in out
-    # Repeat tip should appear once
-    assert out.count("shellgame hint --repeat") == 1
-    # Since more hints exist, we can show the "need more help" line once at end
-    assert out.count("Potřebujete další pomoc? Napište: shellgame hint") == 1
+    assert "Zatím jste si nezobrazili žádnou nápovědu." in out
+    # Points at the command that actually reveals a hint.
+    assert "shellgame hint" in out
 
 
 def test_repeat_reprints_only_revealed_hints() -> None:
@@ -84,7 +106,7 @@ def test_repeat_when_all_hints_revealed_does_not_show_next_help() -> None:
 
 def test_no_more_hints_panel() -> None:
     display, console = _make_display()
-    
+
     display.show_no_more_hints()
 
     out = _output(console)

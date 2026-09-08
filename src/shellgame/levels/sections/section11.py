@@ -1,32 +1,37 @@
 from __future__ import annotations
 
-import shutil
-from pathlib import Path
-
-from typing_extensions import override
-
 from shellgame.levels.base import Level
 from shellgame.levels.collector import Section
-from shellgame.protocols import GameStateProtocol
-from shellgame.validation.validators import (
-    StringValidator,
-    ValidationResult,
+from shellgame.levels.completion import (
+    Completion,
+    ExactAnswer,
+    IntegerAnswer,
+    PathsMatch,
+    SuffixAnswer,
+    TextFileContent,
+    TupleAnswer,
 )
+from shellgame.levels.fixture import FileFixture, WorkspaceFixture
+from shellgame.levels.solution import RunShell, Solution
 
-section = Section()
+section = Section(11, root="level-11")
 
 
-@section.level
+@section.level(0)
 class SectionIntro(Level):
+    is_intro = True
     title = "Sekce 11: Vyhledávání"
+    instructions_file = "section11_intro.md"
+    hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
+    success_message = "Jdeme na to!"
 
-    @override
-    def setup(self, workspace: Path) -> None:
-        pass
 
-
-@section.level
+@section.level(1)
 class GrepPasswordLineToFileLevel(Level):
+    solution = Solution(
+        steps=(RunShell("grep PASSWORD config.txt > pass.txt"),),
+        answer="pass.txt",
+    )
     title = "Hledání v souboru (grep)"
     instructions = """
         ### Cíl
@@ -42,46 +47,45 @@ class GrepPasswordLineToFileLevel(Level):
 
         ### Odevzdání
         Odevzdejte název vytvořeného souboru:
-        `shellgame submit -f pass.txt`
+        `shellgame submit pass.txt`
         """
     hints = [
-        "Příkaz `grep` hledá text v souborech.",
-        'Použijte `grep "PASSWORD" config.txt > pass.txt`.',
-        "V souboru je řádek `PASSWORD=Secret123`.",
+        "Příkaz `grep` hledá zadaný vzor v souborech.",
+        "Vyhledejte slovo 'PASSWORD' v souboru 'config.txt' a výstup přesměrujte pomocí `>` do `pass.txt`.",
+        "Spusťte `grep PASSWORD config.txt > pass.txt` a zkontrolujte výsledek pomocí `cat pass.txt`.",
     ]
-    start_directory = "level-11/searching"
-    require_answer = True
-    validators = [StringValidator("pass.txt")]
+    start_directory = "grep"
+    fixture = WorkspaceFixture(
+        clean=("grep/pass.txt", "grep/config.txt"),
+        files=(
+            FileFixture("grep/config.txt", "user=admin\nhost=localhost\nport=8080\nPASSWORD=Secret123\ndebug=true\n"),
+        ),
+    )
+    completion = Completion(
+        answer=ExactAnswer("pass.txt"),
+        requirements=(
+            TextFileContent(
+                "grep/config.txt",
+                contains=("PASSWORD=Secret123",),
+                error_message="Zdrojový soubor config.txt chybí. Obnovte level příkazem `shellgame reset`.",
+                missing_message="Zdrojový soubor config.txt chybí. Obnovte level příkazem `shellgame reset`.",
+                unreadable_message=(
+                    "Zdrojový soubor config.txt nelze přečíst. Obnovte level příkazem `shellgame reset`."
+                ),
+            ),
+            TextFileContent(
+                "grep/pass.txt",
+                exact="PASSWORD=Secret123",
+                strip=True,
+                error_message="Soubor neobsahuje přesně hledaný řádek.",
+                missing_message="Výstup pass.txt musí být soubor. Obnovte level příkazem `shellgame reset`.",
+                unreadable_message="Soubor pass.txt nelze přečíst. Obnovte level příkazem `shellgame reset`.",
+            ),
+        ),
+    )
 
-    @override
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-11" / "grep"
-        level_dir.mkdir(parents=True, exist_ok=True)
 
-        content = "user=admin\nhost=localhost\nport=8080\nPASSWORD=Secret123\ndebug=true\n"
-        (level_dir / "config.txt").write_text(content, encoding="utf-8")
-
-        target = level_dir / "pass.txt"
-        if target.exists():
-            target.unlink()
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        target = state.workspace / "level-11" / "grep" / "pass.txt"
-        if not target.exists():
-            return False, "Soubor neexistuje."
-
-        content = target.read_text(encoding="utf-8").strip()
-        if "PASSWORD=Secret123" in content:
-            return True, "Správně!"
-        return False, "Soubor neobsahuje hledaný řádek."
-
-
-@section.level
+@section.level(2)
 class RecursiveGrepFindFileLevel(Level):
     title = "Rekurzivní hledání"
     instructions = """
@@ -95,44 +99,33 @@ class RecursiveGrepFindFileLevel(Level):
         Najděte soubor obsahující `SECRET_KEY` a odevzdejte jeho relativní cestu.
 
         ### Odevzdání
-        `shellgame submit -f project/config/settings.py`
+        `shellgame submit <cesta>`
         """
     hints = [
         "Přepínač `-r` hledá rekurzivně ve všech podadresářích.",
         'Zkuste `grep -r "SECRET_KEY" project/`.',
-        "Správný soubor je `project/config/settings.py`.",
+        "grep -r vypíše cestu před dvojtečkou. Odevzdejte právě tu cestu.",
     ]
-    start_directory = "level-11/searching"
-    require_answer = True
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-11" / "recursive"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        project = level_dir / "project"
-        project.mkdir(exist_ok=True)
-        (project / "src").mkdir(exist_ok=True)
-        (project / "config").mkdir(exist_ok=True)
-
-        (project / "README.md").write_text("# Project\n", encoding="utf-8")
-        (project / "src" / "main.py").write_text("print('Hello')\n", encoding="utf-8")
-        (project / "config" / "settings.py").write_text("SECRET_KEY = 'xyz'\nDEBUG = True\n", encoding="utf-8")
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        # Keep parent checks (require_answer)
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        expected = "project/config/settings.py"
-        if answer is not None and answer.strip().endswith(expected):
-            return True, "Správně!"
-        return False, "To není správný soubor. Hledáme ten s 'SECRET_KEY'."
+    start_directory = "recursive"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("recursive/project/README.md", "# Project\n"),
+            FileFixture("recursive/project/src/main.py", "print('Hello')\n"),
+            FileFixture(
+                "recursive/project/config/settings.py",
+                "SECRET_KEY = 'xyz'\nDEBUG = True\n",
+            ),
+        )
+    )
+    completion = Completion(
+        answer=SuffixAnswer(
+            "config/settings.py",
+            error_message="To není správný soubor. Hledáme ten s 'SECRET_KEY'.",
+        )
+    )
 
 
-@section.level
+@section.level(3)
 class CaseInsensitiveWarningCountLevel(Level):
     title = "Hledání bez ohledu na velikost písmen"
     instructions = """
@@ -147,22 +140,19 @@ class CaseInsensitiveWarningCountLevel(Level):
         Spočítejte, kolik řádků v `messages.log` odpovídá `warning` (case-insensitive).
 
         ### Odevzdání
-        `shellgame submit -f <číslo>`
+        `shellgame submit <číslo>`
         """
     hints = [
         "Bez `-i` najdete jen některé varianty. S `-i` najdete `warning`, `WARNING`, `Warning`…",
-        'Použijte: `grep -i "warning" messages.log | wc -l`',
-        "Správná odpověď je 4.",
+        'Zkuste `grep -i "warning" messages.log` a spočítejte vypsané řádky.',
+        "Počítejte každý řádek, který grep -i vypíše — ne jen jednu velikost písmen.",
     ]
-    start_directory = "level-11/searching"
-    require_answer = True
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-11" / "case"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        log_content = """2024-01-01 10:00:00 INFO: Server started
+    start_directory = "case"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture(
+                "case/messages.log",
+                """2024-01-01 10:00:00 INFO: Server started
 2024-01-01 10:05:00 WARNING: Memory usage high
 2024-01-01 10:10:00 ERROR: Connection lost
 2024-01-01 10:15:00 warning: Disk space low
@@ -171,36 +161,25 @@ class CaseInsensitiveWarningCountLevel(Level):
 2024-01-01 10:30:00 DEBUG: Cache cleared
 2024-01-01 10:35:00 WARNING: Network latency detected
 2024-01-01 10:40:00 INFO: Backup completed
-"""
-        (level_dir / "messages.log").write_text(log_content, encoding="utf-8")
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        assert answer is not None
-        try:
-            count = int(answer.strip())
-        except ValueError:
-            return False, "Odpověď musí být číslo."
-
-        messages: dict[int, ValidationResult] = {
-            4: (True, "Správně! Přepínač -i je nepostradatelný pro robustní hledání."),
-            2: (
-                False,
-                "Našli jste jen 'WARNING'. Použijte -i pro nalezení všech variant (warning, Warning...).",
+""",
             ),
-            1: (False, "Našli jste jen jednu variantu. Přepínač -i ignoruje velikost písmen."),
-        }
-        if count in messages:
-            return messages[count]
+        )
+    )
+    completion = Completion(
+        answer=IntegerAnswer(
+            4,
+            mistakes={
+                2: "Našli jste jen 'WARNING'. Použijte -i pro nalezení všech variant (warning, Warning...).",
+                1: "Našli jste jen jednu variantu. Přepínač -i ignoruje velikost písmen.",
+            },
+            error_message="Počet není správně. Zkontrolujte, že hledáte bez ohledu na velikost písmen.",
+            invalid_message="Odpověď musí být číslo.",
+        )
+    )
+    success_message = "Správně! Přepínač -i je nepostradatelný pro robustní hledání."
 
-        return False, f'Počet není {count}. Zkuste: grep -i "warning" messages.log | wc -l'
 
-
-@section.level
+@section.level(4)
 class FindLostFilePathLevel(Level):
     title = "Hledání souborů (find)"
     instructions = """
@@ -214,45 +193,32 @@ class FindLostFilePathLevel(Level):
         Najděte `lost_file.txt` a odevzdejte celou relativní cestu.
 
         ### Odevzdání
-        `shellgame submit -f messy_dir/a/b/c/d/lost_file.txt`
+        `shellgame submit <cesta>`
         """
     hints = [
         "Příkaz `find` prohledá všechny podadresáře automaticky.",
         'Syntaxe je: `find kde_hledat -name "co_hledat"`',
         'Použijte: `find messy_dir -name "lost_file.txt"`.',
     ]
-    start_directory = "level-11/searching"
-    require_answer = True
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-11" / "find"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        messy = level_dir / "messy_dir"
-        messy.mkdir(exist_ok=True)
-
-        d = messy / "a" / "b" / "c" / "d"
-        d.mkdir(parents=True, exist_ok=True)
-
-        (d / "lost_file.txt").touch()
-        (messy / "other.txt").touch()
-        (messy / "a" / "junk.txt").touch()
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        expected = "messy_dir/a/b/c/d/lost_file.txt"
-        if answer is not None and answer.strip().endswith(expected):
-            return True, "Správně!"
-        return False, "To není správná cesta."
+    start_directory = "find"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("find/messy_dir/a/b/c/d/lost_file.txt"),
+            FileFixture("find/messy_dir/other.txt"),
+            FileFixture("find/messy_dir/a/junk.txt"),
+        )
+    )
+    completion = Completion(
+        answer=SuffixAnswer(
+            "messy_dir/a/b/c/d/lost_file.txt",
+            error_message="To není správná cesta.",
+        )
+    )
 
 
-@section.level
+@section.level(5)
 class FindPythonFilesToListLevel(Level):
+    solution = Solution(steps=(RunShell("ls src_code/*.py > python_files.txt"),), answer="python_files.txt")
     title = "Hledání podle přípony"
     instructions = """
         ### Cíl
@@ -268,51 +234,40 @@ class FindPythonFilesToListLevel(Level):
         Vytvořte `python_files.txt` se seznamem nalezených `.py` souborů.
 
         ### Odevzdání
-        `shellgame submit -f python_files.txt`
+        `shellgame submit python_files.txt`
         """
     hints = [
         'Nezapomeňte dát vzor do uvozovek: "*.py", ne *.py',
         "Kombinujte find s přesměrováním `>` pro uložení výsledků.",
         'Použijte: `find src_code -name "*.py" > python_files.txt`.',
     ]
-    require_answer = True
-    validators = [StringValidator("python_files.txt")]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-11" / "extension"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        src = level_dir / "src_code"
-        src.mkdir(exist_ok=True)
-
-        (src / "main.py").touch()
-        (src / "utils.py").touch()
-        (src / "README.txt").touch()
-        (src / "data.csv").touch()
-
-        target = level_dir / "python_files.txt"
-        if target.exists():
-            target.unlink()
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        target = state.workspace / "level-11" / "extension" / "python_files.txt"
-        if not target.exists():
-            return False, "Soubor neexistuje."
-
-        content = target.read_text(encoding="utf-8")
-        if "main.py" in content and "utils.py" in content and "README.txt" not in content:
-            return True, "Správně!"
-        return False, "Soubor neobsahuje správný seznam souborů."
+    start_directory = "extension"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("extension/src_code/main.py"),
+            FileFixture("extension/src_code/utils.py"),
+            FileFixture("extension/src_code/README.txt"),
+            FileFixture("extension/src_code/data.csv"),
+        ),
+        clean=("extension/python_files.txt",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("python_files.txt"),
+        requirements=(
+            TextFileContent(
+                "extension/python_files.txt",
+                contains=("main.py", "utils.py"),
+                excludes=("README.txt",),
+                error_message="Soubor neobsahuje správný seznam souborů.",
+                missing_message="Soubor neexistuje.",
+            ),
+        ),
+    )
 
 
-@section.level
+@section.level(6)
 class FinalChallengeLevel(Level):
+    solution = Solution(steps=(RunShell("cp hidden/secret.sh found/"),), answer="4,NINJA2024")
     title = "Finální výzva"
     instructions = """
         ### 🏆 Finální výzva: Terminálový ninja
@@ -336,68 +291,57 @@ class FinalChallengeLevel(Level):
     hints = [
         'Najděte skripty: `find . -name "*.sh"`. Hledejte kód: `grep -r "SECRET" .`',
         "Až najdete skript s kódem, zkopírujte ho: `cp cesta/skript.sh found/`.",
-        "Jsou 4 skripty, kód je `NINJA2024`, a skript je `hidden/secret.sh`.",
+        'Počet skriptů spočítáte pomocí `find . -name "*.sh" | wc -l`. '
+        "Kód je na řádku se slovem SECRET - odevzdejte jen samotný kód.",
     ]
-    require_answer = True
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        final_dir = workspace / "level-11" / "final"
-        if final_dir.exists():
-            shutil.rmtree(final_dir)
-
-        final_dir.mkdir(parents=True, exist_ok=True)
-        (final_dir / "found").mkdir()
-
-        (final_dir / "run.sh").write_text("#!/bin/bash\necho 'Running...'\n", encoding="utf-8")
-
-        (final_dir / "scripts").mkdir()
-        (final_dir / "scripts" / "build.sh").write_text("#!/bin/bash\nmake all\n", encoding="utf-8")
-        (final_dir / "scripts" / "test.sh").write_text("#!/bin/bash\npytest\n", encoding="utf-8")
-
-        (final_dir / "hidden").mkdir()
-        (final_dir / "hidden" / "secret.sh").write_text(
-            "#!/bin/bash\n# SECRET_CODE=NINJA2024\necho 'You found me!'\n",
-            encoding="utf-8",
-        )
-
-        (final_dir / "readme.txt").write_text("Look for shell scripts!\n", encoding="utf-8")
-        (final_dir / "data.csv").write_text("col1,col2\n", encoding="utf-8")
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:  # noqa: PLR0911
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        assert answer is not None
-        answer = answer.strip()
-        parts = answer.split(",")
-
-        if len(parts) != 2:
-            return False, "Formát: počet,kód (např. 5,SECRET123)"
-
-        try:
-            script_count = int(parts[0].strip())
-        except ValueError:
-            return False, "První hodnota musí být číslo."
-
-        secret_code = parts[1].strip().upper()
-
-        if script_count != 4:
-            return False, f"Počet .sh skriptů není {script_count}. Použijte 'find . -name \"*.sh\"'."
-
-        if secret_code != "NINJA2024":
-            return (
-                False,
-                f"Tajný kód není {secret_code}. Hledejte 'SECRET' v obsahu skriptů pomocí 'grep'.",
-            )
-
-        found_dir = state.workspace / "level-11" / "final" / "found"
-        if (found_dir / "secret.sh").exists():
-            return (
-                True,
-                """
+    start_directory = "final"
+    fixture = WorkspaceFixture(
+        directories=("final/found",),
+        files=(
+            FileFixture("final/run.sh", "#!/bin/bash\necho 'Running...'\n"),
+            FileFixture("final/scripts/build.sh", "#!/bin/bash\nmake all\n"),
+            FileFixture("final/scripts/test.sh", "#!/bin/bash\npytest\n"),
+            FileFixture(
+                "final/hidden/secret.sh",
+                "#!/bin/bash\n# SECRET_CODE=NINJA2024\necho 'You found me!'\n",
+            ),
+            FileFixture("final/readme.txt", "Look for shell scripts!\n"),
+            FileFixture("final/data.csv", "col1,col2\n"),
+        ),
+        clean=("final",),
+    )
+    completion = Completion(
+        answer=TupleAnswer(
+            (
+                IntegerAnswer(
+                    4,
+                    mistakes={
+                        5: (
+                            "Skripty spočítejte před kopírováním - kopie ve `found/` "
+                            "se do počtu původních skriptů nepočítá."
+                        )
+                    },
+                    error_message=("Počet .sh skriptů není správně. Použijte 'find . -name \"*.sh\"'."),
+                    invalid_message="První hodnota musí být číslo.",
+                ),
+                ExactAnswer(
+                    "NINJA2024",
+                    case_sensitive=False,
+                    error_message=("Tajný kód není správně. Hledejte 'SECRET' v obsahu skriptů pomocí 'grep'."),
+                ),
+            ),
+            format_message="Formát: počet,kód (např. 5,SECRET123)",
+        ),
+        requirements=(
+            PathsMatch(
+                "final/hidden/secret.sh",
+                "final/found/secret.sh",
+                error_message="Do složky found/ zkopírujte skript s tajným kódem.",
+                destination_error="Do složky found/ zkopírujte skript s tajným kódem.",
+            ),
+        ),
+    )
+    success_message = """
 🎊 GRATULUJEME! 🎊
 
 Úspěšně jste dokončili ShellGame!
@@ -410,22 +354,4 @@ Nyní ovládáte základy práce s terminálem:
 ✓ Wildcards a vyhledávání
 
 Jste připraveni na další dobrodružství v Linuxu!
-""".strip(),
-            )
-
-        return (
-            True,
-            """
-🎊 GRATULUJEME! 🎊
-
-Úspěšně jste dokončili ShellGame!
-
-(Tip: Pro plný zážitek zkopírujte secret.sh do found/ složky.)
-
-Jste připraveni na další dobrodružství v Linuxu!
-""".strip(),
-        )
-
-
-def get_levels() -> list[Level]:
-    return section.levels
+""".strip()

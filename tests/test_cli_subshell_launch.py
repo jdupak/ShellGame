@@ -39,6 +39,11 @@ class _RunCall:
     env: dict[str, str] | None
 
 
+@dataclass
+class _Completed:
+    returncode: int = 0
+
+
 class _FakeNamedTemp:
     """Minimal tempfile.NamedTemporaryFile stand-in.
 
@@ -111,11 +116,13 @@ def test_launch_subshell_bash_critical_flags(monkeypatch: Any) -> None:
     unlink = _UnlinkRecorder()
     console = _Console()
 
-    def fake_run(args: list[str], env: dict[str, str] | None = None, **kwargs: Any) -> None:
+    def fake_run(args: list[str], env: dict[str, str] | None = None, **kwargs: Any) -> _Completed:
         calls.append(_RunCall(args=args, env=env))
+        return _Completed()
 
     monkeypatch.setattr(subshell.tempfile, "NamedTemporaryFile", temp_factory)
     monkeypatch.setattr(subshell.subprocess, "run", fake_run)
+    monkeypatch.setattr(subshell.os, "chmod", lambda *_: None)
     monkeypatch.setattr(subshell.os, "unlink", unlink)
     monkeypatch.setattr(subshell.os.path, "abspath", lambda _: "/fake/shellgame")
     monkeypatch.setattr(subshell.sys, "argv", ["/fake/shellgame"])
@@ -123,9 +130,10 @@ def test_launch_subshell_bash_critical_flags(monkeypatch: Any) -> None:
 
     subshell.launch_subshell("bash", devmode=False)
 
-    # One temp file: integration script (now used directly as rcfile).
-    assert len(temp_factory.created) == 1
+    # Integration script plus child-safe fd-hook launcher.
+    assert len(temp_factory.created) == 2
     script_tmp = temp_factory.created[0]
+    fd_hook_tmp = temp_factory.created[1]
 
     # bash invocation: no special suppression flags.
     # NOTE: We do NOT use --norc (disables --rcfile) or --noprofile (breaks user PATH/env).
@@ -145,9 +153,10 @@ def test_launch_subshell_bash_critical_flags(monkeypatch: Any) -> None:
     # Ensure env is passed and wrapper flag is set.
     assert calls[0].env is not None
     assert calls[0].env.get("SHELLGAME_WRAPPER") == "1"
+    assert calls[0].env.get("SHELLGAME_FD_HOOK") == fd_hook_tmp.name
 
-    # Temp file is cleaned up.
-    assert script_tmp.name in unlink.paths
+    # Temp files are cleaned up.
+    assert unlink.paths == [script_tmp.name, fd_hook_tmp.name]
 
     # console should not be used for supported shell flow
     assert console.printed == []
@@ -161,11 +170,13 @@ def test_launch_subshell_fish_suppresses_greeting_and_sources_script(
     unlink = _UnlinkRecorder()
     console = _Console()
 
-    def fake_run(args: list[str], env: dict[str, str] | None = None, **kwargs: Any) -> None:
+    def fake_run(args: list[str], env: dict[str, str] | None = None, **kwargs: Any) -> _Completed:
         calls.append(_RunCall(args=args, env=env))
+        return _Completed()
 
     monkeypatch.setattr(subshell.tempfile, "NamedTemporaryFile", temp_factory)
     monkeypatch.setattr(subshell.subprocess, "run", fake_run)
+    monkeypatch.setattr(subshell.os, "chmod", lambda *_: None)
     monkeypatch.setattr(subshell.os, "unlink", unlink)
     monkeypatch.setattr(subshell.os.path, "abspath", lambda _: "/fake/shellgame")
     monkeypatch.setattr(subshell.sys, "argv", ["/fake/shellgame"])
@@ -173,9 +184,10 @@ def test_launch_subshell_fish_suppresses_greeting_and_sources_script(
 
     subshell.launch_subshell("fish", devmode=False)
 
-    # One temp file: integration script
-    assert len(temp_factory.created) == 1
+    # Integration script plus child-safe fd-hook launcher.
+    assert len(temp_factory.created) == 2
     script_tmp = temp_factory.created[0]
+    fd_hook_tmp = temp_factory.created[1]
 
     assert len(calls) == 1
     assert calls[0].args[0:2] == ["fish", "--init-command"]
@@ -189,9 +201,10 @@ def test_launch_subshell_fish_suppresses_greeting_and_sources_script(
     # Ensure env is passed and wrapper flag is set.
     assert calls[0].env is not None
     assert calls[0].env.get("SHELLGAME_WRAPPER") == "1"
+    assert calls[0].env.get("SHELLGAME_FD_HOOK") == fd_hook_tmp.name
 
-    # Temp file is cleaned up.
-    assert unlink.paths == [script_tmp.name]
+    # Temp files are cleaned up.
+    assert unlink.paths == [script_tmp.name, fd_hook_tmp.name]
 
     assert console.printed == []
 
@@ -206,6 +219,7 @@ def test_launch_subshell_unknown_shell_raises_and_cleans_script(monkeypatch: Any
 
     monkeypatch.setattr(subshell.tempfile, "NamedTemporaryFile", temp_factory)
     monkeypatch.setattr(subshell.subprocess, "run", fake_run)
+    monkeypatch.setattr(subshell.os, "chmod", lambda *_: None)
     monkeypatch.setattr(subshell.os, "unlink", unlink)
     monkeypatch.setattr(subshell.os.path, "abspath", lambda _: "/fake/shellgame")
     monkeypatch.setattr(subshell.sys, "argv", ["/fake/shellgame"])
@@ -220,7 +234,8 @@ def test_launch_subshell_unknown_shell_raises_and_cleans_script(monkeypatch: Any
     # No subprocess call for unsupported shell.
     assert calls == []
 
-    # Script tempfile is still created and cleaned up.
-    assert len(temp_factory.created) == 1
+    # Both tempfiles are still created and cleaned up.
+    assert len(temp_factory.created) == 2
     script_tmp = temp_factory.created[0]
-    assert unlink.paths == [script_tmp.name]
+    fd_hook_tmp = temp_factory.created[1]
+    assert unlink.paths == [script_tmp.name, fd_hook_tmp.name]

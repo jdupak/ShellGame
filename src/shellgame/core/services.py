@@ -4,12 +4,13 @@ Service container and factories for ShellGame.
 This module centralizes the creation of core services and dependencies.
 """
 
-from typing import Callable
+from collections.abc import Callable
+from pathlib import Path
 
 from rich.console import Console
 
 from shellgame.levels.loader import initialize_levels
-from shellgame.levels.registry import LevelRegistry, get_registry
+from shellgame.levels.registry import get_registry
 from shellgame.shell.client import ShellClient
 from shellgame.state.manager import StateManager
 from shellgame.ui.display import Display
@@ -26,6 +27,5 @@ class GameServices:
 
         initialize_levels()
 
-    def get_workspace_manager_factory(self) -> Callable[[str], WorkspaceManager]:
+    def get_workspace_manager_factory(self) -> Callable[[Path], WorkspaceManager]:
         return WorkspaceManager
-

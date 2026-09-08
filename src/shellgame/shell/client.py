@@ -1,37 +1,37 @@
 """Shell client for communicating with the shell wrapper."""
 
-import shlex
+import base64
+import re
 import sys
 from pathlib import Path
-from typing import TextIO, Union
+from typing import TextIO
+
+PROTOCOL_PREFIX = "__SHELLGAME_EXEC__"
+PROTOCOL_VERSION = "v1"
+_SUPPORTED_COMMANDS = frozenset({"cd", "export", "echo", "pwd", "exit"})
+_ENV_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class ShellClient:
     def __init__(self, stream: TextIO = sys.stderr):
         self._stream = stream
 
-    def _emit(self, command: str, *args: Union[str, Path]) -> None:
-        str_args = [str(arg) for arg in args]
+    def _emit(self, command: str, *args: str | Path) -> None:
+        if command not in _SUPPORTED_COMMANDS:
+            raise ValueError(f"Unsupported shell protocol command: {command}")
 
-        if str_args:
-            escaped_args = " ".join(shlex.quote(arg) for arg in str_args)
-            safe_command = f"{command} {escaped_args}"
-        else:
-            safe_command = command
+        encoded_args = [base64.b64encode(str(arg).encode("utf-8")).decode("ascii") for arg in args]
+        payload = " ".join((PROTOCOL_VERSION, command, *encoded_args))
 
-        print(f"__SHELLGAME_EXEC__{safe_command}", file=self._stream, flush=True)
+        print(f"{PROTOCOL_PREFIX}{payload}", file=self._stream, flush=True)
 
-    def cd(self, path: Union[str, Path]) -> None:
+    def cd(self, path: str | Path) -> None:
         self._emit("cd", path)
 
     def export(self, var_name: str, value: str) -> None:
-        self._emit("export", f"{var_name}={value}")
-
-    def echo(self, message: str) -> None:
-        self._emit("echo", message)
-
-    def pwd(self) -> None:
-        self._emit("pwd")
+        if not _ENV_NAME_PATTERN.fullmatch(var_name):
+            raise ValueError(f"Invalid environment variable name: {var_name!r}")
+        self._emit("export", var_name, value)
 
     def exit(self) -> None:
         self._emit("exit")

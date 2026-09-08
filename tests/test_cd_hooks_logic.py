@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from shellgame.core.session import GameSession
+from shellgame.levels.cdpolicy import cd_marker
 from shellgame.levels.sections.section1 import AbsoluteCdLevel, HomeWalkLevel
 from shellgame.markers import MarkerManager
 from shellgame.state.manager import GameState
@@ -60,7 +61,7 @@ class TestLevel18HookLogic:
             mock_session.handle_cd_hook(target="/tmp", pwd="/home", post_move=False)
 
             # Assert: Marker created
-            mock_create.assert_called_with(MarkerManager.LEVEL1_8_ABSOLUTE_CD)
+            mock_create.assert_called_with(cd_marker("1.8"))
 
     def test_rejects_relative_path_from_hook(self, mock_session: GameSession, mock_state: GameState) -> None:
         mock_state.current_level = "1.8"
@@ -124,14 +125,14 @@ class TestLevel19HookLogic:
     def test_pre_move_accepts_root(self, mock_session: GameSession, mock_state: GameState) -> None:
         mock_state.current_level = "1.9"
         mock_session._state_manager.load.return_value = mock_state
-        
+
         # Should not raise
         mock_session.handle_cd_hook(target="/", pwd="/home", post_move=False)
 
     def test_pre_move_accepts_single_segment(self, mock_session: GameSession, mock_state: GameState) -> None:
         mock_state.current_level = "1.9"
         mock_session._state_manager.load.return_value = mock_state
-        
+
         # Should not raise
         mock_session.handle_cd_hook(target="home", pwd="/", post_move=False)
         mock_session.handle_cd_hook(target="home/", pwd="/", post_move=False)
@@ -151,9 +152,10 @@ class TestLevel19HookLogic:
         mock_state.current_level = "1.9"
         mock_session._state_manager.load.return_value = mock_state
 
-        with patch("shellgame.markers.MarkerManager.read") as mock_read, \
-             patch("shellgame.markers.MarkerManager.create") as mock_create:
-            
+        with (
+            patch("shellgame.markers.MarkerManager.read") as mock_read,
+            patch("shellgame.markers.MarkerManager.create") as mock_create,
+        ):
             # Setup: Previously at /
             mock_read.return_value = "/"
 
@@ -166,14 +168,15 @@ class TestLevel19HookLogic:
     def test_completes_at_home(self, mock_session: GameSession, mock_state: GameState) -> None:
         mock_state.current_level = "1.9"
         mock_session._state_manager.load.return_value = mock_state
-        
+
         # Mock Path.home() to match our destination
         fake_home = Path("/home/tester")
 
-        with patch("shellgame.markers.MarkerManager.read") as mock_read, \
-             patch("shellgame.markers.MarkerManager.create") as mock_create, \
-             patch("pathlib.Path.home", return_value=fake_home):
-            
+        with (
+            patch("shellgame.markers.MarkerManager.read") as mock_read,
+            patch("shellgame.markers.MarkerManager.create") as mock_create,
+            patch("pathlib.Path.home", return_value=fake_home),
+        ):
             # Setup: Previously at /home
             mock_read.return_value = "/\n/home"
 
@@ -190,9 +193,10 @@ class TestLevel19HookLogic:
         mock_state.current_level = "1.9"
         mock_session._state_manager.load.return_value = mock_state
 
-        with patch("shellgame.markers.MarkerManager.read") as mock_read, \
-             patch("shellgame.markers.MarkerManager.remove") as mock_remove:
-            
+        with (
+            patch("shellgame.markers.MarkerManager.read") as mock_read,
+            patch("shellgame.markers.MarkerManager.remove") as mock_remove,
+        ):
             # Setup: Previously at /
             mock_read.return_value = "/"
 

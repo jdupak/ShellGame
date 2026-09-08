@@ -7,7 +7,7 @@ name = "shellgame"
 version = "0.1.0"
 description = "Interactive terminal learning experience for filesystem navigation"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     {name = "Jakub Dupak", email = "dev@jakubdupak.com"}
 ]
@@ -16,10 +16,11 @@ classifiers = [
     "Intended Audience :: Education",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 license = {text = "GPL-3.0-only"}
@@ -54,14 +55,14 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "PL"]
 ignore = ["PLR2004"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -98,3 +99,4 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
 ]
 ignore_errors = true
+fail_under = 60

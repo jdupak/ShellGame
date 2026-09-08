@@ -1,28 +1,21 @@
 from __future__ import annotations
 
-import shutil
-from pathlib import Path
-
-from typing_extensions import override
-
 from shellgame.levels.base import Level
 from shellgame.levels.collector import Section
-from shellgame.protocols import GameStateProtocol
-from shellgame.validation.validators import (
-    CommonMistakeValidator,
-    IntegerValidator,
-    StringValidator,
-    ValidationResult,
+from shellgame.levels.completion import (
+    Completion,
+    ExactAnswer,
+    IntegerAnswer,
+    TextFileContent,
+    TupleAnswer,
 )
+from shellgame.levels.fixture import FileFixture, WorkspaceFixture
+from shellgame.levels.solution import RunShell, Solution
 
-section = Section()
+section = Section(8, root="level-8")
 
 
-def _setup_access_log(workspace: Path) -> None:
-    level_dir = workspace / "level-8" / "pipes"
-    level_dir.mkdir(parents=True, exist_ok=True)
-
-    log_content = """2024-01-01 10:00:00 INFO Server started
+_ACCESS_LOG = """2024-01-01 10:00:00 INFO Server started
 2024-01-01 10:05:23 ERROR Connection refused
 2024-01-01 10:10:45 INFO User logged in
 2024-01-01 10:15:00 WARNING Low memory
@@ -38,38 +31,21 @@ def _setup_access_log(workspace: Path) -> None:
 2024-01-01 11:05:00 INFO Server shutdown
 2024-01-01 11:10:42 ERROR Service unavailable
 """
-    (level_dir / "access.log").write_text(log_content)
-
-
-def _setup_long_file(workspace: Path) -> None:
-    level_dir = workspace / "level-8" / "headtail"
-    level_dir.mkdir(parents=True, exist_ok=True)
-
-    lines = ["START of the file - this is line 1"]
-    for i in range(2, 50):
-        lines.append(f"Line number {i} with some content")
-    lines.append("END of the file - this is line 50")
-    (level_dir / "long_file.txt").write_text("\n".join(lines) + "\n")
-
-
-def _setup_article_file(workspace: Path) -> None:
-    level_dir = workspace / "level-8" / "wc"
-    level_dir.mkdir(parents=True, exist_ok=True)
-
-    article = """Linux je svobodný operační systém.
+_LONG_FILE = "\n".join(
+    [
+        "START of the file - this is line 1",
+        *(f"Line number {index} with some content" for index in range(2, 50)),
+        "END of the file - this is line 50",
+        "",
+    ]
+)
+_ARTICLE = """Linux je svobodný operační systém.
 Byl vytvořen Linusem Torvaldsem v roce 1991.
 Dnes pohání většinu serverů na internetu.
 Je základem systému Android a mnoha dalších.
 Open source komunita ho neustále vylepšuje.
 """
-    (level_dir / "article.txt").write_text(article)
-
-
-def _setup_visitors_file(workspace: Path) -> None:
-    level_dir = workspace / "level-8" / "sort"
-    level_dir.mkdir(parents=True, exist_ok=True)
-
-    visitors = """Alice
+_VISITORS = """Alice
 Bob
 Charlie
 Alice
@@ -78,39 +54,20 @@ Bob
 Eve
 Alice
 """
-    (level_dir / "visitors.txt").write_text(visitors)
 
 
-def _setup_section8_challenge(workspace: Path) -> None:
-    challenge_dir = workspace / "level-8" / "challenge"
-
-    if challenge_dir.exists():
-        shutil.rmtree(challenge_dir)
-
-    challenge_dir.mkdir(parents=True, exist_ok=True)
-
-    (challenge_dir / "sample1.txt").write_text("sample")
-    (challenge_dir / "sample2.txt").write_text("sample")
-
-
-@section.level
+@section.level(0)
 class SectionIntro(Level):
+    is_intro = True
     title = "Sekce 8: Přesměrování výstupu"
     instructions_file = "section8_intro.md"
     hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
     success_message = "Jdeme na to!"
 
-    @override
-    def setup(self, workspace: Path) -> None:
-        return
 
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
-
-
-@section.level
+@section.level(1)
 class RedirectLsToFileLevel(Level):
+    solution = Solution(steps=(RunShell("ls > seznam.txt"),), answer="seznam.txt")
     title = "Uložení výstupu"
     instructions = """\
         # Uložení výstupu
@@ -126,47 +83,37 @@ class RedirectLsToFileLevel(Level):
 
         ## Odevzdání
         Odevzdejte název vytvořeného souboru.
-        `shellgame submit -f seznam.txt`
+        `shellgame submit seznam.txt`
         """
     hints = [
         "Použijte operátor '>' pro přesměrování výstupu.",
         "Příkaz 'ls' vypíše obsah adresáře.",
         "Zkuste: 'ls > seznam.txt'.",
     ]
-    start_directory = "level-8/redirect"
-    require_answer = True
-    validators = [StringValidator("seznam.txt")]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-8" / "redirection"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        (level_dir / "file1").touch()
-        (level_dir / "file2").touch()
-
-        target = level_dir / "seznam.txt"
-        if target.exists():
-            target.unlink()
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        target = state.workspace / "level-8" / "redirection" / "seznam.txt"
-        if not target.exists():
-            return False, "Soubor neexistuje."
-
-        content = target.read_text()
-        if "file1" in content and "file2" in content:
-            return True, "Správně!"
-        return False, "Soubor neobsahuje očekávaný výstup příkazu ls."
+    start_directory = "redirection"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("redirection/file1"),
+            FileFixture("redirection/file2"),
+        ),
+        clean=("redirection/seznam.txt",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("seznam.txt"),
+        requirements=(
+            TextFileContent(
+                "redirection/seznam.txt",
+                contains=("file1", "file2"),
+                error_message="Soubor neobsahuje očekávaný výstup příkazu ls.",
+                missing_message="Soubor neexistuje.",
+            ),
+        ),
+    )
 
 
-@section.level
+@section.level(2)
 class AppendWithRedirectLevel(Level):
+    solution = Solution(steps=(RunShell("echo 'Konec logu' >> log.txt"),), answer="log.txt")
     title = "Přidání na konec"
     instructions = """\
         # Přidání na konec
@@ -182,42 +129,35 @@ class AppendWithRedirectLevel(Level):
 
         ## Odevzdání
         Odevzdejte název souboru.
-        `shellgame submit -f log.txt`
+        `shellgame submit log.txt`
         """
     hints = [
-        "Použijte 'echo \"Konec logu\" >> log.txt'.",
-        "Dvě šipky >> znamenají append.",
+        "Dvě šipky '>>' znamenají append (připojení na konec souboru bez přepsání obsahu).",
+        "Spusťte 'echo \"Konec logu\" >> log.txt'.",
     ]
-    start_directory = "level-8/redirect"
-    require_answer = True
-    validators = [StringValidator("log.txt")]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-8" / "redirection"
-        level_dir.mkdir(parents=True, exist_ok=True)
-        (level_dir / "log.txt").write_text("Start logu\nZaznam 1\n")
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        target = state.workspace / "level-8" / "redirection" / "log.txt"
-        if not target.exists():
-            return False, "Soubor neexistuje."
-
-        content = target.read_text()
-        if "Start logu" in content and "Konec logu" in content:
-            return True, "Správně!"
-        if "Konec logu" in content:
-            return False, "Zdá se, že jste přepsali původní obsah (použili jste > místo >>?)."
-        return False, "Soubor neobsahuje nový text."
+    start_directory = "redirection"
+    fixture = WorkspaceFixture(files=(FileFixture("redirection/log.txt", "Start logu\nZaznam 1\n"),))
+    completion = Completion(
+        answer=ExactAnswer("log.txt"),
+        requirements=(
+            TextFileContent(
+                "redirection/log.txt",
+                contains=("Start logu",),
+                error_message="Zdá se, že jste přepsali původní obsah (použili jste > místo >>?).",
+                missing_message="Soubor neexistuje.",
+            ),
+            TextFileContent(
+                "redirection/log.txt",
+                contains=("Konec logu",),
+                error_message="Soubor neobsahuje nový text.",
+            ),
+        ),
+    )
 
 
-@section.level
+@section.level(3)
 class ConcatenatePartsLevel(Level):
+    solution = Solution(steps=(RunShell("cat part1.txt part2.txt > full.txt"),), answer="full.txt")
     title = "Spojování souborů"
     instructions = """\
         # Spojování souborů
@@ -233,46 +173,37 @@ class ConcatenatePartsLevel(Level):
 
         ## Odevzdání
         Odevzdejte název nového souboru.
-        `shellgame submit -f full.txt`
+        `shellgame submit full.txt`
         """
     hints = [
-        "Použijte 'cat part1.txt part2.txt > full.txt'.",
-        "Pořadí argumentů určuje pořadí v cílovém souboru.",
+        "Příkaz 'cat' umí přijmout více souborů najednou a vypsat jejich obsahy za sebou.",
+        "Výstup více souborů z 'cat' můžete přesměrovat pomocí '>' do cílového souboru.",
+        "Spusťte 'cat part1.txt part2.txt > full.txt'. Pořadí argumentů určuje pořadí v souboru.",
     ]
-    start_directory = "level-8/redirect"
-    require_answer = True
-    validators = [StringValidator("full.txt")]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-8" / "concat"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        (level_dir / "part1.txt").write_text("First part.\n")
-        (level_dir / "part2.txt").write_text("Second part.\n")
-
-        target = level_dir / "full.txt"
-        if target.exists():
-            target.unlink()
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        target = state.workspace / "level-8" / "concat" / "full.txt"
-        if not target.exists():
-            return False, "Soubor neexistuje."
-
-        content = target.read_text()
-        if "First part." in content and "Second part." in content:
-            return True, "Správně!"
-        return False, "Soubor neobsahuje text z obou částí."
+    start_directory = "concat"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("concat/part1.txt", "First part.\n"),
+            FileFixture("concat/part2.txt", "Second part.\n"),
+        ),
+        clean=("concat/full.txt",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("full.txt"),
+        requirements=(
+            TextFileContent(
+                "concat/full.txt",
+                contains=("First part.", "Second part."),
+                error_message="Soubor neobsahuje text z obou částí.",
+                missing_message="Soubor neexistuje.",
+            ),
+        ),
+    )
 
 
-@section.level
+@section.level(4)
 class EchoCreateFileLevel(Level):
+    solution = Solution(steps=(RunShell("echo 'Ahoj svete' > pozdrav.txt"),), answer="pozdrav.txt")
     title = "Vytvoření souboru s obsahem"
     instructions = """\
         # Vytvoření souboru s obsahem
@@ -287,42 +218,30 @@ class EchoCreateFileLevel(Level):
 
         ## Odevzdání
         Odevzdejte název souboru.
-        `shellgame submit -f pozdrav.txt`
+        `shellgame submit pozdrav.txt`
         """
     hints = [
-        "Použijte 'echo \"Ahoj svete\" > pozdrav.txt'.",
-        "Uvozovky jsou důležité, pokud text obsahuje mezery.",
+        "Příkaz 'echo' vypisuje zadaný text. Pomocí operátoru '>' můžete výstup přesměrovat do souboru.",
+        "Text obsahující mezery uzavřete do uvozovek, aby se předal jako jeden argument.",
+        "Spusťte 'echo \"Ahoj svete\" > pozdrav.txt' a odevzdejte 'pozdrav.txt'.",
     ]
-    start_directory = "level-8/redirect"
-    require_answer = True
-    validators = [StringValidator("pozdrav.txt")]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-8" / "echo"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        target = level_dir / "pozdrav.txt"
-        if target.exists():
-            target.unlink()
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        target = state.workspace / "level-8" / "echo" / "pozdrav.txt"
-        if not target.exists():
-            return False, "Soubor neexistuje."
-
-        content = target.read_text().strip()
-        if content == "Ahoj svete":
-            return True, "Správně!"
-        return False, f"Očekáváno 'Ahoj svete', nalezeno '{content}'."
+    start_directory = "echo"
+    fixture = WorkspaceFixture(clean=("echo/pozdrav.txt",), directories=("echo",))
+    completion = Completion(
+        answer=ExactAnswer("pozdrav.txt"),
+        requirements=(
+            TextFileContent(
+                "echo/pozdrav.txt",
+                exact="Ahoj svete",
+                strip=True,
+                error_message="Soubor neobsahuje přesně text 'Ahoj svete'.",
+                missing_message="Soubor neexistuje.",
+            ),
+        ),
+    )
 
 
-@section.level
+@section.level(5)
 class PipeGrepAndCountLevel(Level):
     title = "Propojení příkazů (Pipes)"
     instructions = """\
@@ -338,34 +257,26 @@ class PipeGrepAndCountLevel(Level):
 
         ## Odevzdání
         Odevzdejte nalezený počet (číslo).
-        `shellgame submit -f <číslo>`
+        `shellgame submit <číslo>`
         """
     hints = [
         "Pipe (|) propojuje výstup prvního příkazu se vstupem druhého.",
         "grep najde řádky s 'ERROR', wc -l je spočítá. Spojte je pomocí |.",
         'Použijte: grep "ERROR" access.log | wc -l',
     ]
-    require_answer = True
-    validators = [
-        IntegerValidator(7),
-        CommonMistakeValidator(
-            {
-                "15": "Spočítali jste všechny řádky. Potřebujete jen ty s 'ERROR'. Použijte grep před wc.",
-            }
-        ),
-    ]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_access_log(workspace)
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        # Parent validation handles IntegerValidator + common mistakes.
-        return super().validate(answer, state)
+    start_directory = "pipes"
+    fixture = WorkspaceFixture(files=(FileFixture("pipes/access.log", _ACCESS_LOG),))
+    completion = Completion(
+        answer=IntegerAnswer(
+            7,
+            mistakes={
+                15: "Spočítali jste všechny řádky. Potřebujete jen ty s 'ERROR'. Použijte grep před wc.",
+            },
+        )
+    )
 
 
-@section.level
+@section.level(6)
 class HeadTailFirstAndLastWordLevel(Level):
     title = "Začátek a konec souboru"
     instructions = """\
@@ -378,53 +289,35 @@ class HeadTailFirstAndLastWordLevel(Level):
 
         ## Odevzdání
         Odevzdejte obě slova oddělená čárkou: `první,poslední`
-        `shellgame submit -f START,END`
+        `shellgame submit <první>,<poslední>`
         """
     hints = [
         "head -n 1 zobrazí první řádek, tail -n 1 zobrazí poslední.",
-        "První řádek začíná slovem 'START', poslední slovem 'END'.",
-        "Odpověď je: START,END",
+        "Odevzdejte první slovo z každého z těchto dvou řádků.",
+        "Formát odpovědi je `prvni,posledni` - dvě slova oddělená čárkou, bez mezery.",
     ]
-    require_answer = True
-    expected_answer = "START,END"
+    start_directory = "headtail"
     success_message = "Správně! Head a tail jsou skvělé pro rychlý náhled do souborů."
-    validators = [
-        CommonMistakeValidator(
-            {
-                "START END": "Použijte čárku: START,END",
-                "START;END": "Použijte čárku: START,END",
-                "START|END": "Použijte čárku: START,END",
-            }
+    fixture = WorkspaceFixture(files=(FileFixture("headtail/long_file.txt", _LONG_FILE),))
+    completion = Completion(
+        answer=TupleAnswer(
+            (
+                ExactAnswer(
+                    "START",
+                    error_message="První slovo není správně. Použijte 'head -n 1 long_file.txt'.",
+                ),
+                ExactAnswer(
+                    "END",
+                    error_message="Poslední slovo není správně. Použijte 'tail -n 1 long_file.txt'.",
+                ),
+            ),
+            format_message="Formát: první_slovo,poslední_slovo (např. AHOJ,SVET)",
+            required_message="Zadejte odpověď ve formátu: první_slovo,poslední_slovo",
         )
-    ]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_long_file(workspace)
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if success:
-            return True, msg
-
-        if answer is None:
-            return False, "Zadejte odpověď ve formátu: první_slovo,poslední_slovo"
-
-        normalized = answer.strip().upper()
-        if "," not in normalized:
-            return False, "Formát: první_slovo,poslední_slovo (např. AHOJ,SVET)"
-
-        parts = normalized.split(",")
-        first = parts[0].strip()
-        last = parts[1].strip() if len(parts) > 1 else ""
-
-        if first != "START":
-            return False, f"První slovo není '{first}'. Použijte 'head -n 1 long_file.txt'."
-        return False, f"Poslední slovo není '{last}'. Použijte 'tail -n 1 long_file.txt'."
+    )
 
 
-@section.level
+@section.level(7)
 class WordAndLineCountLevel(Level):
     title = "Počítání (wc)"
     instructions = """\
@@ -437,54 +330,37 @@ class WordAndLineCountLevel(Level):
 
         ## Odevzdání
         Odevzdejte: `řádky,slova` (např. `10,50`)
-        `shellgame submit -f <řádky>,<slova>`
+        `shellgame submit <řádky>,<slova>`
         """
     hints = [
         "wc -l počítá řádky, wc -w počítá slova.",
-        "Článek má 5 řádků a 25 slov.",
-        "Odpověď je: 5,25",
+        "Spusťte oba příkazy na `article.txt` a zapište si obě čísla.",
+        "Odevzdejte je v pořadí řádky,slova — bez mezery za čárkou.",
     ]
-    require_answer = True
-    expected_answer = "5,25"
+    start_directory = "wc"
     success_message = "Správně! Příkaz wc je nepostradatelný pro rychlou analýzu souborů."
-    validators = [
-        CommonMistakeValidator(
-            {
-                "5 25": "Použijte čárku: 5,25",
-                "5;25": "Použijte čárku: 5,25",
-            }
+    fixture = WorkspaceFixture(files=(FileFixture("wc/article.txt", _ARTICLE),))
+    completion = Completion(
+        answer=TupleAnswer(
+            (
+                IntegerAnswer(
+                    5,
+                    error_message="Počet řádků není správně. Použijte 'wc -l article.txt'.",
+                    invalid_message="Obě hodnoty musí být čísla.",
+                ),
+                IntegerAnswer(
+                    31,
+                    error_message="Počet slov není správně. Použijte 'wc -w article.txt'.",
+                    invalid_message="Obě hodnoty musí být čísla.",
+                ),
+            ),
+            format_message="Formát: řádky,slova (např. 10,50)",
+            required_message="Zadejte odpověď ve formátu: řádky,slova",
         )
-    ]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_article_file(workspace)
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if success:
-            return True, msg
-
-        if answer is None:
-            return False, "Zadejte odpověď ve formátu: řádky,slova"
-
-        if "," not in answer:
-            return False, "Formát: řádky,slova (např. 10,50)"
-
-        parts = answer.split(",")
-        try:
-            lines = int(parts[0].strip())
-            words = int(parts[1].strip())
-        except ValueError:
-            return False, "Obě hodnoty musí být čísla."
-
-        if lines != 5:
-            return False, f"Počet řádků není {lines}. Použijte 'wc -l article.txt'."
-        return False, f"Počet slov není {words}. Použijte 'wc -w article.txt'."
+    )
 
 
-@section.level
+@section.level(8)
 class SortUniqCountUniqueLevel(Level):
     title = "Řazení a odstranění duplicit"
     instructions = """\
@@ -500,37 +376,31 @@ class SortUniqCountUniqueLevel(Level):
 
         ## Odevzdání
         Odevzdejte počet unikátních návštěvníků.
-        `shellgame submit -f <číslo>`
+        `shellgame submit <číslo>`
         """
     hints = [
         "Příkaz uniq odstraní duplikáty, ale jen sousedící! Proto nejdřív sort.",
         "Řetězec: sort → uniq → wc -l spočítá unikátní řádky.",
-        "V souboru je 5 unikátních jmen.",
+        "Spusťte 'sort visitors.txt | uniq | wc -l' a odevzdejte číslo z výstupu.",
     ]
     extension = True
-    require_answer = True
-    validators = [
-        IntegerValidator(5),
-        CommonMistakeValidator(
-            {
-                "8": "Spočítali jste všechny řádky, ne unikátní. Zkuste: sort visitors.txt | uniq | wc -l",
-                "3": "Možná jste spočítali jen duplikáty. Hledáme počet unikátních jmen.",
-            }
-        ),
-    ]
+    start_directory = "sort"
     success_message = "Správně! Sort | uniq je klasická kombinace pro práci s daty."
+    fixture = WorkspaceFixture(files=(FileFixture("sort/visitors.txt", _VISITORS),))
+    completion = Completion(
+        answer=IntegerAnswer(
+            5,
+            mistakes={
+                8: "Spočítali jste všechny řádky, ne unikátní. Zkuste: sort visitors.txt | uniq | wc -l",
+                3: "Možná jste spočítali jen duplikáty. Hledáme počet unikátních jmen.",
+            },
+        )
+    )
 
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_visitors_file(workspace)
 
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
-
-
-@section.level
+@section.level(9)
 class SectionSummaryChallengeLevel(Level):
+    solution = Solution(steps=(RunShell("printf 'Hello World\\nGoodbye\\n' > message.txt"),), answer="3")
     title = "Souhrn Sekce 8"
     instructions = """\
         ### Výzva: Mistr přesměrování a pipes
@@ -552,51 +422,31 @@ class SectionSummaryChallengeLevel(Level):
     hints = [
         "První řádek: 'echo \"Hello World\" > message.txt'. Druhý: 'echo \"Goodbye\" >> message.txt' (dva >>).",
         "Pro počítání: 'ls *.txt | wc -l'. Nezapomeňte vytvořit message.txt!",
-        "Po vytvoření message.txt budou v adresáři 3 .txt soubory (sample1.txt, sample2.txt, message.txt).",
+        "V adresáři už nějaké .txt soubory jsou. Až přidáte message.txt, spočítejte je všechny.",
     ]
-    require_answer = True
-    validators = [
-        IntegerValidator(3),
-        CommonMistakeValidator(
-            {
-                "2": "Spočítali jste jen sample1.txt a sample2.txt. Vytvořili jste message.txt?",
-            }
+    start_directory = "challenge"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("challenge/sample1.txt", "sample"),
+            FileFixture("challenge/sample2.txt", "sample"),
         ),
-    ]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_section8_challenge(workspace)
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        # First, run declarative checks (require_answer + integer validator and common mistakes).
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        challenge_dir = state.workspace / "level-8" / "challenge"
-        message_file = challenge_dir / "message.txt"
-        if not message_file.exists():
-            return False, "Chybí message.txt. Vytvořte pomocí 'echo \"Hello World\" > message.txt'."
-
-        content = message_file.read_text()
-        lines = content.strip().split("\n")
-
-        if len(lines) < 2:
-            return (
-                False,
-                "message.txt má jen jeden řádek. Přidejte druhý pomocí 'echo \"Goodbye\" >> message.txt' (dva >>).",
-            )
-
-        if "Hello World" not in lines[0]:
-            return False, "První řádek message.txt nemá 'Hello World'."
-
-        if "Goodbye" not in lines[1]:
-            return False, "Druhý řádek message.txt nemá 'Goodbye'."
-
-        return True, "Skvělé! Dokončili jste Sekci 8. Přesměrování i pipes máte v malíku!"
-
-
-def get_levels() -> list[Level]:
-    return section.levels
+        clean=("challenge",),
+    )
+    completion = Completion(
+        answer=IntegerAnswer(
+            3,
+            mistakes={
+                2: "Spočítali jste jen sample1.txt a sample2.txt. Vytvořili jste message.txt?",
+            },
+        ),
+        requirements=(
+            TextFileContent(
+                "challenge/message.txt",
+                exact="Hello World\nGoodbye",
+                strip=True,
+                error_message=("message.txt musí obsahovat řádky 'Hello World' a 'Goodbye' v tomto pořadí."),
+                missing_message=("Chybí message.txt. Vytvořte pomocí 'echo \"Hello World\" > message.txt'."),
+            ),
+        ),
+    )
+    success_message = "Skvělé! Dokončili jste Sekci 8. Přesměrování i pipes máte v malíku!"

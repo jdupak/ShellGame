@@ -173,7 +173,7 @@ Task:
 3. Use `ls -l` again to see the change.
 4. Submit the owner's new permission string (e.g., `rwx`).
 
-Submit with: shellgame submit -f <permission-string>
+Submit with: shellgame submit <permission-string>
 Need help? Type: shellgame hint
 ══════════════════════════════════════════════════════
 ```

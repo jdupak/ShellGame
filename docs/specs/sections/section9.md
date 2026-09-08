@@ -297,7 +297,7 @@ Task:
 
 Alternative syntax: ./noisy_process.sh > combined.log 2>&1
 
-Submit with: shellgame submit -f <count>
+Submit with: shellgame submit <count>
 Need help? Type: shellgame hint
 ══════════════════════════════════════════════════════
 ```

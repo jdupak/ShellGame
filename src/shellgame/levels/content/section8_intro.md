@@ -17,11 +17,15 @@ uptime >> server_stats.txt
 ### Analýza dat
 ```bash
 # Kolik unikátních IP adres přistoupilo na web?
-cat access.log | cut -d' ' -f1 | sort | uniq | wc -l
+cut -d' ' -f1 access.log | sort -u | wc -l
 
 # Najdi 10 největších souborů
 du -ah /home | sort -rh | head -10
 ```
+
+> 💡 **Tip:** Nepoužívejte `cat soubor | prikaz`, když `prikaz` umí číst soubor
+> přímo (`prikaz soubor`). Zbytečný `cat` navíc spouští další proces.
+> Také `sort | uniq` lze zkrátit na `sort -u`.
 
 ### Filtrování výstupu
 ```bash

@@ -2,72 +2,66 @@
 
 from __future__ import annotations
 
-import sys
-from collections.abc import Callable
+import re
 from pathlib import Path
-from typing import cast
 
 from typing_extensions import override
 
-from shellgame.levels.base import Level
+from shellgame.levels.base import Level, block_cd
+from shellgame.levels.cdpolicy import (
+    CdEvidence,
+    CdPolicy,
+    FromDirectory,
+    RequireAbsolutePath,
+    RequireEvidence,
+    RequireExactCommand,
+)
 from shellgame.levels.collector import Section
-from shellgame.markers import GameStateProtocol as MarkersGameStateProtocol
+from shellgame.levels.completion import (
+    AtDirectory,
+    AtHome,
+    Completion,
+    Evidence,
+    ExactAnswer,
+    OrderedListAnswer,
+)
+from shellgame.levels.fixture import FileFixture, WorkspaceFixture
+from shellgame.levels.solution import Chdir, GoHome, PerformCd, RecordEvidence, Solution, WalkHome
 from shellgame.markers import MarkerManager
 from shellgame.messages import Messages
-from shellgame.protocols import GameStateProtocol
-from shellgame.validation.validators import (
-    CommonMistakeValidator,
-    HomeDirectoryValidator,
-    OrderedListValidator,
-    ValidationResult,
+from shellgame.paths import WORKSPACE_ROOT
+from shellgame.protocols import CdHookCallback, GameStateProtocol, ValidationResult
+
+section = Section(
+    1,
+    root="level-1",
+    fixture=WorkspaceFixture(
+        directories=("alpha", "delta", "gamma", "patterns", "patterns/omega"),
+        files=(
+            FileFixture("alpha/inside.txt", "first step", overwrite=False),
+            FileFixture("delta/single.dat", "momentum gained", overwrite=False),
+            FileFixture("patterns/data.txt", overwrite=False),
+            FileFixture("patterns/dog.md", overwrite=False),
+            FileFixture("patterns/drama.log", overwrite=False),
+            FileFixture("patterns/zebra.txt", overwrite=False),
+        ),
+    ),
 )
 
-section = Section()
 
-
-def _setup_navigation_common(workspace: Path) -> None:
-    level_dir = workspace / "level-1"
-    level_dir.mkdir(exist_ok=True)
-
-    # Create basic structure for future levels
-    (level_dir / "alpha").mkdir(exist_ok=True)
-    if not (level_dir / "alpha" / "inside.txt").exists():
-        (level_dir / "alpha" / "inside.txt").write_text("first step")
-
-    (level_dir / "delta").mkdir(exist_ok=True)
-    if not (level_dir / "delta" / "single.dat").exists():
-        (level_dir / "delta" / "single.dat").write_text("momentum gained")
-
-    (level_dir / "gamma").mkdir(exist_ok=True)
-
-    # Patterns directory for the listing/patterns task
-    patterns_dir = level_dir / "patterns"
-    patterns_dir.mkdir(exist_ok=True)
-    for filename in ["data.txt", "dog.md", "drama.log", "zebra.txt"]:
-        if not (patterns_dir / filename).exists():
-            (patterns_dir / filename).write_text("")
-    (patterns_dir / "omega").mkdir(exist_ok=True)
-
-
-@section.level
+@section.level(0)
 class Section1Intro(Level):
+    is_intro = True
     title = "Navigace"
     instructions_file = "section1_intro.md"
-    hints = ["Přečtěte si úvod a pokračujte příkazem 'shellgame submit'."]
-    start_directory = ""
+    hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
+    start_directory = WORKSPACE_ROOT
     success_message = "Jdeme na to!"
 
-    @override
-    def setup(self, workspace: Path) -> None:
-        return
 
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
-
-
-@section.level
+@section.level(1)
 class PwdLevel(Level):
+    solution = Solution(steps=(RecordEvidence(MarkerManager.PWD_USED),), answer="level-1")
     title = "Aktuální umístění"
     instructions = """
         ### Cíl
@@ -82,24 +76,25 @@ class PwdLevel(Level):
 
         ### Příklad
         Cesta: `/home/student/dokumenty` -> Odpověď: `dokumenty`
+
+        ### Odevzdání
+        `shellgame submit <název>`
         """
     hints = [
         "Příkaz 'pwd' (Print Working Directory) vám ukáže, kde jste. Zkuste ho!",
-        "Výstup pwd bude něco jako /tmp/shellgame-.../level-1. Co je za posledním lomítkem?",
-        "Basename je poslední část cesty. Pokud pwd vypíše '/tmp/.../level-1', odpověď je 'level-1'.",
+        "Podívejte se na výstup 'pwd'. Co je za posledním lomítkem?",
+        "Basename je poslední část cesty. Z cesty '/home/student/dokumenty' byste odevzdali 'dokumenty'.",
     ]
-    start_directory = "level-1"
-    marker_name = MarkerManager.PWD_USED
-    marker_error = Messages.L1_1_USE_PWD_FIRST
-    require_answer = True
-    expected_answer = "level-1"
-
-    def setup(self, workspace: Path) -> None:
-        _setup_navigation_common(workspace)
+    start_directory = ""
+    completion = Completion(
+        answer=ExactAnswer("level-1"),
+        requirements=(Evidence(MarkerManager.PWD_USED, Messages.L1_1_USE_PWD_FIRST),),
+    )
 
 
-@section.level
+@section.level(2)
 class LsLevel(Level):
+    solution = Solution(answer="delta")
     title = "Výpis a rozpoznávání vzorů"
     instructions = """
         ### Cíl
@@ -119,72 +114,47 @@ class LsLevel(Level):
         "Ujistěte se, že odevzdáváte název adresáře, ne souboru.",
         "Adresáře jsou ve výpisu často barevně odlišeny (např. modře).",
     ]
-    start_directory = "level-1"
-    expected_answer = "delta"
-    allow_cwd_as_answer = True
+    start_directory = ""
     success_message = "Správně! Našli jste adresář odpovídající vzoru."
-    validators = [
-        CommonMistakeValidator(
-            {
-                (
-                    "data.txt",
-                    "dog.md",
-                    "drama.log",
-                ): "To je soubor, ne adresář. Hledejte adresář začínající na 'd' a končící na 'a'.",
+    completion = Completion(
+        answer=ExactAnswer(
+            "delta",
+            mistakes={
+                "data.txt": "To je soubor, ne adresář. Hledejte adresář začínající na 'd' a končící na 'a'.",
+                "dog.md": "To je soubor, ne adresář. Hledejte adresář začínající na 'd' a končící na 'a'.",
+                "drama.log": "To je soubor, ne adresář. Hledejte adresář začínající na 'd' a končící na 'a'.",
                 "data": "'data' končí na 'a', ale není to adresář. Zkuste 'ls -F' pro rozlišení adresářů.",
-            }
-        )
-    ]
+            },
+            required_message="Musíte zadat odpověď. Odevzdejte název adresáře: shellgame submit <název>",
+        ),
+        allow_empty_when=AtDirectory("delta"),
+    )
 
     @override
-    def setup(self, workspace: Path) -> None:
-        """Structure already created in 1.1."""
-        _setup_navigation_common(workspace)
+    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
+        normalized = answer.strip().rstrip("/") if answer is not None else None
+        success, msg = super().validate(normalized, state)
+        if success or normalized is None:
+            return success, msg
 
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:  # noqa: PLR0911
-        # Use parent validation first (checks expected_answer, allow_cwd_as_answer)
-        success, msg = super().validate(answer, state)
-        if success:
-            return True, msg
-
-        if answer is None:
+        # Pattern-shape diagnostics that cannot be expressed as a fixed mistake map.
+        if normalized.startswith("d") and not normalized.endswith("a"):
             return (
                 False,
-                "Musíte zadat odpověď. Odevzdejte název adresáře: shellgame submit <název>",
+                f"'{normalized}' začíná na 'd', ale nekončí na 'a'. Hledáme vzor d...a.",
             )
-
-        answer = answer.strip()
-        if answer in ["data.txt", "dog.md", "drama.log"]:
+        if normalized.endswith("a") and not normalized.startswith("d"):
             return (
                 False,
-                f"'{answer}' je soubor, ne adresář. Hledejte adresář začínající na 'd' a končící na 'a'.",
-            )
-        if answer == "data":
-            return (
-                False,
-                "'data' končí na 'a', ale není to adresář. Zkuste 'ls -F' pro rozlišení adresářů.",
+                f"'{normalized}' končí na 'a', ale nezačíná na 'd'. Hledáme vzor d...a.",
             )
 
-        if answer.startswith("d") and not answer.endswith("a"):
-            return (
-                False,
-                f"'{answer}' začíná na 'd', ale nekončí na 'a'. Hledáme vzor d...a.",
-            )
-        if answer.endswith("a") and not answer.startswith("d"):
-            return (
-                False,
-                f"'{answer}' končí na 'a', ale nezačíná na 'd'. Hledáme vzor d...a.",
-            )
-
-        return (
-            False,
-            f"'{answer}' neodpovídá vzoru. Hledejte adresář začínající na 'd' a končící na 'a'.",
-        )
+        return False, msg
 
 
-@section.level
+@section.level(3)
 class ExtensionLevel(Level):
+    solution = Solution(steps=(Chdir("alpha"),), answer="inside")
     title = "Vstup a hlášení (Koncept přípony)"
     instructions = """
         ### Cíl
@@ -196,7 +166,7 @@ class ExtensionLevel(Level):
         ### Úkol
         1. Jděte do `alpha` (`cd alpha`)
         2. Najděte soubor uvnitř (`ls`)
-        3. Odevzdejte název souboru **BEZ** přípony (část za tečkou)
+        3. Odevzdejte název souboru **BEZ** přípony (vynechte poslední tečku a část za ní)
         """
     hints = [
         "Použijte 'cd alpha' pro vstup do adresáře alpha.",
@@ -204,27 +174,21 @@ class ExtensionLevel(Level):
         "Odevzdejte název tohoto souboru, ale vynechejte část '.txt'.",
         "Příklad: Pokud je soubor 'data.csv', odevzdejte 'data'.",
     ]
-    start_directory = "level-1"
-    required_cwd = "alpha"
-    require_answer = True
-    expected_answer = "inside"
+    start_directory = ""
     success_message = "Správně! Správně jste odstranili příponu."
-    validators = [
-        CommonMistakeValidator(
-            {
+    completion = Completion(
+        answer=ExactAnswer(
+            "inside",
+            mistakes={
                 "inside.txt": Messages.L1_3_INCLUDED_EXTENSION,
                 "alpha": (
                     "'alpha' je název adresáře, ne souboru uvnitř. "
                     "Nejdřív vstupte do alpha a podívejte se, co je uvnitř."
                 ),
-            }
-        )
-    ]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        """Structure already created in 1.1."""
-        _setup_navigation_common(workspace)
+            },
+        ),
+        requirements=(AtDirectory("alpha"),),
+    )
 
     @override
     def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
@@ -232,18 +196,15 @@ class ExtensionLevel(Level):
         if success:
             return True, msg
 
-        # Additional custom check
-        if answer and "." in answer:
-            return (
-                False,
-                f"'{answer}' stále obsahuje příponu (část za tečkou). Odevzdejte pouze název bez přípony.",
-            )
+        if answer and "." in answer and msg == Messages.INCORRECT:
+            return False, Messages.L1_3_INCLUDED_EXTENSION
 
         return False, msg
 
 
-@section.level
+@section.level(4)
 class CdUpLevel(Level):
+    solution = Solution(steps=(PerformCd(".."),), answer="level-1")
     title = "Návrat na základnu"
     instructions = """
         ### Cíl
@@ -257,29 +218,31 @@ class CdUpLevel(Level):
         2. Odevzdejte název tohoto adresáře
         """
     hints = [
-        "Použijte 'cd ..' pro přesun o jednu úroveň adresáře výše.",
-        "Po přesunu spusťte 'pwd' pro potvrzení, že jste v nadřazeném adresáři.",
-        "Odevzdejte název adresáře, do kterého jste se právě přesunuli.",
-        "Dvě tečky '..' vždy reprezentují nadřazený adresář.",
+        "Dvě tečky '..' označují nadřazený (rodičovský) adresář.",
+        "Použijte příkaz 'cd ..' pro přesun o jednu úroveň výše.",
+        "Spusťte 'pwd' a odevzdejte jen název posledního adresáře (část za posledním '/').",
     ]
-    start_directory = "level-1/alpha"
-    require_answer = True
-    expected_answer = "level-1"
+    start_directory = "alpha"
+    completion = Completion(
+        answer=ExactAnswer("level-1"),
+        requirements=(
+            AtDirectory(""),
+            CdEvidence("Použijte pro návrat přesně příkaz `cd ..`."),
+        ),
+    )
+    cd_policy = CdPolicy(rules=(RequireExactCommand("..", "Použijte přesně příkaz 'cd ..'."),))
 
-    def setup(self, workspace: Path) -> None:
-        _setup_navigation_common(workspace)
 
-
-@section.level
+@section.level(5)
 class DeepDiveLevel(Level):
+    solution = Solution(steps=(Chdir("gamma/deep/a/b/c"),), answer="c")
     title = "Hluboký ponor"
     instructions = """
         ### Cíl
         Sestupte hluboko do adresářové struktury.
 
         ### Úkol
-        1. ShellGame vás na začátku umístí do správné části workspace
-           (nemusíte spoléhat na to, kde jste skončili minule).
+        1. Začínáte v adresáři `level-1`
         2. Jděte do `gamma/deep/a/b/c/` (v adresáři `level-1`)
         3. Odevzdejte název aktuálního adresáře
         """
@@ -287,20 +250,19 @@ class DeepDiveLevel(Level):
         "Použijte 'cd' pro vstup do adresářů.",
         "Můžete jít postupně: cd gamma, cd deep, cd a...",
         "Nebo najednou: cd gamma/deep/a/b/c",
-        "Pokud nejste v 'level-1', nejprve se do něj přesuňte (ověřte si to příkazem 'pwd').",
+        "Po přesunu ověřte polohu příkazem 'pwd' a odevzdejte poslední část cesty.",
     ]
-    start_directory = "level-1"
-    require_answer = True
-    expected_answer = "c"
-
-    def setup(self, workspace: Path) -> None:
-        _setup_navigation_common(workspace)
-        deep_path = workspace / "level-1" / "gamma" / "deep" / "a" / "b" / "c"
-        deep_path.mkdir(parents=True, exist_ok=True)
+    start_directory = ""
+    completion = Completion(
+        answer=ExactAnswer("c"),
+        requirements=(AtDirectory("gamma/deep/a/b/c"),),
+    )
+    fixture = WorkspaceFixture(directories=("gamma/deep/a/b/c",))
 
 
-@section.level
+@section.level(6)
 class MultiLevelAscentLevel(Level):
+    solution = Solution(steps=(PerformCd("../../.."),), answer="deep")
     title = "Víceúrovňový výstup"
     instructions = """
         ### Cíl
@@ -315,21 +277,148 @@ class MultiLevelAscentLevel(Level):
         3. Odevzdejte název adresáře, kde jste skončili
         """
     hints = [
-        "Použijte 'cd ../../..' pro přesun o 3 úrovně výše najednou.",
-        "Odevzdejte název adresáře, ve kterém jste skončili (měl by to být 'deep').",
+        "Cesty lze řetězit: každé '..' představuje posun o jednu úroveň nahoru.",
+        "Pro posun o tři úrovně najednou spojte tři segmenty: 'cd ../../..'.",
+        "Odevzdejte název adresáře, ve kterém jste skončili. Ověřte si ho příkazem 'pwd'.",
     ]
-    start_directory = "level-1/gamma/deep/a/b/c"
-    expected_answer = "deep"
-    allow_cwd_as_answer = True
+    start_directory = "gamma/deep/a/b/c"
     success_message = "Správně! Úspěšně jste vystoupali o 3 úrovně."
+    completion = Completion(
+        answer=ExactAnswer("deep"),
+        requirements=(
+            AtDirectory("gamma/deep"),
+            CdEvidence("Vraťte se o tři úrovně jedním příkazem `cd ../../..`."),
+        ),
+        allow_empty=True,
+    )
+    fixture = WorkspaceFixture(directories=("gamma/deep/a/b/c",))
+    cd_policy = CdPolicy(rules=(RequireExactCommand("../../..", "Použijte jeden příkaz 'cd ../../..'."),))
 
-    def setup(self, workspace: Path) -> None:
-        _setup_navigation_common(workspace)
-        (workspace / "level-1" / "gamma" / "deep" / "a" / "b" / "c").mkdir(parents=True, exist_ok=True)
+
+_GO_TO_DIR = re.compile(r"^GO_TO_DIR_(.+)$")
+_GO_UP_THEN = re.compile(r"^GO_UP_(\d+)_THEN_GO_TO_(.+)$")
+_GO_UP_ONLY = re.compile(r"^GO_UP_(\d+)$")
 
 
-@section.level
+def resolve_maze_instruction(name: str, cwd: Path) -> Path | None:
+    """Where a `GO_*` filename would take the player from ``cwd``."""
+    if match := _GO_TO_DIR.fullmatch(name):
+        return cwd / match.group(1)
+    if match := _GO_UP_THEN.fullmatch(name):
+        target = cwd
+        for _ in range(int(match.group(1))):
+            target = target.parent
+        return target / match.group(2)
+    if match := _GO_UP_ONLY.fullmatch(name):
+        target = cwd
+        for _ in range(int(match.group(1))):
+            target = target.parent
+        return target
+    return None
+
+
+def maze_marker_text(name: str) -> str:
+    """Short note so `cat` is not a blank page. The filename remains the instruction."""
+    if _GO_TO_DIR.fullmatch(name) or _GO_UP_THEN.fullmatch(name) or _GO_UP_ONLY.fullmatch(name):
+        return "Instrukce je v názvu tohoto souboru. Řiďte se jménem, ne obsahem.\n"
+    if name == "YOU_ARE_NOT_SUPPOSED_TO_BE_HERE":
+        return "Tady nemáte být. Vraťte se a sledujte soubory začínající na GO_.\n"
+    if name == "VICTORY.marker":
+        return "Cíl! Odevzdejte název tohoto adresáře: shellgame submit final\n"
+    return ""
+
+
+_MAZE_TRAP = "YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"
+# 01/02/03/04 are *siblings* of 00/, so hops between them must go up first.
+_MAZE_STRUCTURE: dict[str, tuple[str, ...]] = {
+    "00": ("GO_UP_1_THEN_GO_TO_01", "side", "trap"),
+    "00/side": ("GO_TO_DIR_loop",),
+    "00/side/loop": ("GO_UP_2",),
+    "00/trap": (_MAZE_TRAP,),
+    "01": ("GO_TO_DIR_deep", "shallow", "surface", "deep"),
+    "01/deep": ("GO_TO_DIR_a", "c", "d", "a", "offtrack"),
+    "01/deep/offtrack": ("GO_UP_1_THEN_GO_TO_a",),
+    "01/deep/a": ("GO_TO_DIR_b", "x", "z", "b", "alt"),
+    "01/deep/a/alt": ("GO_UP_1",),
+    "01/shallow": (_MAZE_TRAP,),
+    "01/surface": (_MAZE_TRAP,),
+    "01/deep/c": (_MAZE_TRAP,),
+    "01/deep/d": (_MAZE_TRAP,),
+    "01/deep/a/x": (_MAZE_TRAP,),
+    "01/deep/a/z": (_MAZE_TRAP,),
+    "01/deep/a/b": ("GO_UP_4_THEN_GO_TO_02", "decoy.txt", "note.md", "wrong"),
+    "01/deep/a/b/wrong": ("GO_UP_1",),
+    "02": ("GO_UP_1_THEN_GO_TO_03", "stray.txt", "readme.md"),
+    "02/side": ("GO_UP_1",),
+    "03": ("GO_TO_DIR_x", "w", "z", "x"),
+    "03/x": ("GO_TO_DIR_y", "q", "r", "y"),
+    "03/x/y": ("GO_UP_3_THEN_GO_TO_04", "marker.txt"),
+    "03/w": (_MAZE_TRAP,),
+    "03/z": (_MAZE_TRAP,),
+    "03/x/q": (_MAZE_TRAP,),
+    "03/x/r": (_MAZE_TRAP,),
+    "04": ("GO_TO_DIR_final", "finish", "end", "done"),
+    "04/finish": (_MAZE_TRAP,),
+    "04/end": (_MAZE_TRAP,),
+    "04/done": (_MAZE_TRAP,),
+    "04/final": ("VICTORY.marker",),
+}
+
+
+def _is_maze_file(item: str) -> bool:
+    return item.startswith("GO_") or item == _MAZE_TRAP or item.endswith((".txt", ".md", ".marker"))
+
+
+def _maze_fixture() -> WorkspaceFixture:
+    directories: list[str] = []
+    files: list[FileFixture] = []
+    seen_files: set[str] = set()
+
+    def add_file(relative: str, name: str) -> None:
+        if relative in seen_files:
+            return
+        seen_files.add(relative)
+        files.append(FileFixture(relative, maze_marker_text(name)))
+
+    for dir_path, contents in _MAZE_STRUCTURE.items():
+        directories.append(f"maze/{dir_path}")
+        has_go = any(item.startswith("GO_") for item in contents)
+        for item in contents:
+            relative = f"maze/{dir_path}/{item}"
+            if _is_maze_file(item):
+                add_file(relative, item)
+            else:
+                directories.append(relative)
+        if not has_go:
+            add_file(f"maze/{dir_path}/{_MAZE_TRAP}", _MAZE_TRAP)
+
+    return WorkspaceFixture(
+        directories=tuple(dict.fromkeys(directories)),
+        files=tuple(files),
+        clean=("maze",),
+    )
+
+
+@section.level(7)
 class MazeLevel(Level):
+    solution = Solution(
+        steps=tuple(
+            Chdir(step)
+            for step in (
+                "maze/00",
+                "maze/01",
+                "maze/01/deep",
+                "maze/01/deep/a",
+                "maze/01/deep/a/b",
+                "maze/02",
+                "maze/03",
+                "maze/03/x",
+                "maze/03/x/y",
+                "maze/04",
+                "maze/04/final",
+            )
+        ),
+    )
     title = "Navigace v bludišti"
     instructions = """
         ### Cíl
@@ -337,14 +426,16 @@ class MazeLevel(Level):
 
         ### Pravidla
         - Start: `level-1/maze/00/`
-        - Sledujte soubory začínající na `GO_`
-        - `GO_TO_DIR_x` -> `cd x`
-        - `GO_UP_N_...` -> `cd ..` (N-krát)
+        - Instrukce je v **názvu** souboru `GO_…` (příkaz `ls`)
+        - `GO_TO_DIR_x` → `cd x`
+        - `GO_UP_N` → `cd ..` (N-krát)
+        - `GO_UP_N_THEN_GO_TO_x` → `cd ..` (N-krát), potom `cd x`
 
         ### Úkol
         1. Jděte do startu
         2. Sledujte instrukce až do cíle
         3. Odevzdejte název cílového adresáře
+           `shellgame submit <název>`
         """
     hints = [
         "Sledujte pouze názvy souborů začínající na 'GO_'. Vypište je pomocí 'ls'.",
@@ -353,93 +444,15 @@ class MazeLevel(Level):
         "Ignorujte soubory, které nezačínají na 'GO_', jsou to pasti.",
     ]
     extension = True
-    start_directory = "level-1/maze/00"
-    required_cwd = "final"
+    start_directory = "maze/00"
+    fixture = _maze_fixture()
     success_message = "Správně! Prošli jste bludištěm."
-
-    def setup(self, workspace: Path) -> None:
-        _setup_navigation_common(workspace)
-        maze_base = workspace / "level-1" / "maze"
-
-        # The specification defines 00/ as the start, and 01/02/03/04 as *siblings*
-        # of 00/ (i.e., all are direct children of maze/).
-        maze_structure = {
-            "00": ["GO_TO_DIR_01", "side", "trap"],
-            # decoy branches from the start
-            "00/side": ["GO_TO_DIR_loop"],
-            "00/side/loop": ["GO_UP_2_THEN_GO_TO_00"],
-            "00/trap": ["YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"],
-            "01": ["GO_TO_DIR_deep", "shallow", "surface", "deep"],
-            "01/deep": ["GO_TO_DIR_a", "c", "d", "a", "offtrack"],
-            "01/deep/offtrack": ["GO_TO_DIR_a"],
-            "01/deep/a": ["GO_TO_DIR_b", "x", "z", "b", "alt"],
-            "01/deep/a/alt": ["GO_UP_1_THEN_GO_TO_a"],
-            "01/shallow": ["YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"],
-            "01/surface": ["YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"],
-            "01/deep/c": ["YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"],
-            "01/deep/d": ["YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"],
-            "01/deep/a/x": ["YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"],
-            "01/deep/a/z": ["YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"],
-            # From .../01/deep/a/b, to reach 02 (a sibling of 01 under maze/), we must go up:
-            # b -> a -> deep -> 01 -> maze  ==> 4 levels, then enter 02.
-            "01/deep/a/b": ["GO_UP_4_THEN_GO_TO_02", "decoy.txt", "note.md", "wrong"],
-            "01/deep/a/b/wrong": ["GO_UP_1_THEN_GO_TO_b"],
-            "02": ["GO_UP_1_THEN_GO_TO_03", "stray.txt", "readme.md"],
-            "02/side": ["GO_UP_1_THEN_GO_TO_02"],
-            "03": ["GO_TO_DIR_x", "w", "z", "x"],
-            "03/x": ["GO_TO_DIR_y", "q", "r", "y"],
-            "03/x/y": ["GO_UP_1_THEN_GO_TO_04", "marker.txt"],
-            "03/w": ["YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"],
-            "03/z": ["YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"],
-            "03/x/q": ["YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"],
-            "03/x/r": ["YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"],
-            "04": ["GO_TO_DIR_final", "finish", "end", "done"],
-            "04/finish": ["YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"],
-            "04/end": ["YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"],
-            "04/done": ["YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"],
-            "04/final": ["VICTORY.marker"],
-        }
-
-        for dir_path, contents in maze_structure.items():
-            full_path = maze_base / dir_path
-            full_path.mkdir(parents=True, exist_ok=True)
-
-            # In every directory, we want either:
-            # - an instruction marker (a file starting with `GO_`), OR
-            # - a warning marker (`YOU_ARE_NOT_SUPPOSED_TO_BE_HERE`),
-            # but never both.
-            has_go_file = any(item.startswith("GO_") for item in contents)
-
-            for item in contents:
-                item_path = full_path / item
-                if (
-                    item.startswith("GO_")
-                    or item == "YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"
-                    or item.endswith((".txt", ".md", ".marker"))
-                ):
-                    # Create as file
-                    item_path.write_text("")
-                else:
-                    # Create as directory (decoy branch)
-                    item_path.mkdir(exist_ok=True)
-
-                    # Decoy directories should be clearly marked.
-                    # (And because they never contain a `_GO_` instruction, this
-                    # also satisfies the "GO xor WARNING" invariant.)
-                    (item_path / "YOU_ARE_NOT_SUPPOSED_TO_BE_HERE").write_text("")
-
-            if not has_go_file:
-                # Only directories without navigation instructions get the warning marker.
-                (full_path / "YOU_ARE_NOT_SUPPOSED_TO_BE_HERE").write_text("")
-            else:
-                # Enforce XOR: if a directory provides navigation instructions,
-                # it must not also have the warning marker (could be left over
-                # from an older version or a partial rebuild).
-                (full_path / "YOU_ARE_NOT_SUPPOSED_TO_BE_HERE").unlink(missing_ok=True)
+    completion = Completion(requirements=(AtDirectory("maze/04/final"),))
 
 
-@section.level
+@section.level(8)
 class AbsoluteCdLevel(Level):
+    solution = Solution(steps=(PerformCd("absolute-target", absolute=True),))
     title = "Skok absolutní cestou"
     instructions = """
         ### Cíl
@@ -449,53 +462,38 @@ class AbsoluteCdLevel(Level):
         - `cd /cesta` - absolutní cesta (od kořene)
 
         ### Úkol
-        1. Zjistěte svou aktuální polohu (`pwd`)
-        2. Použijte **JEDEN** příkaz `cd` s absolutní cestou do:
-           `level-1/absolute-target/`
+        1. Začínáte v `level-1`. Zjistěte celou cestu příkazem `pwd`
+        2. Použijte **JEDEN** příkaz `cd` s absolutní cestou do podadresáře `absolute-target`
         3. Odevzdejte název cílového adresáře
         """
     hints = [
         "Absolutní cesty začínají na /. Použijte 'pwd' pro zobrazení vaší plné cesty.",
-        "Sestavte plnou cestu kombinací výstupu pwd a cílového adresáře.",
+        "K celé cestě vypsané příkazem 'pwd' na startu připojte '/absolute-target'.",
         "Odevzdejte název cílového adresáře.",
-        "Příklad: cd /tmp/shellgame-user/level-1/absolute-target",
+        "Za 'cd' napište celou sestavenou cestu od /. Pokud obsahuje mezery, uzavřete ji do uvozovek.",
     ]
-    start_directory = "level-1"
-    required_cwd = "absolute-target"
-    marker_name = MarkerManager.LEVEL1_8_ABSOLUTE_CD
-    marker_error = Messages.ABSOLUTE_CD_NOT_USED
+    start_directory = ""
     success_message = "Správně! Dostali jste se sem absolutní cestou."
-
-    def setup(self, workspace: Path) -> None:
-        _setup_navigation_common(workspace)
-        target_dir = workspace / "level-1" / "absolute-target"
-        target_dir.mkdir(parents=True, exist_ok=True)
-        (target_dir / "PLACEHOLDER.answer").write_text("")
-
-    @property
-    @override
-    def hooks(self) -> dict[str, Callable[..., object]]:
-        return {"cd": self._handle_cd}
-
-    def _handle_cd(self, *, target: str | None, pwd: str | None, post_move: bool, state: GameStateProtocol) -> None:
-        if post_move:
-            return
-
-        # Level 1.8: Enforce absolute path
-        if not target:
-            sys.stderr.write("ShellGame (1.8): Musíte zadat cestu.\n")
-            sys.exit(1)
-
-        if not target.startswith("/"):
-            sys.stderr.write("ShellGame (1.8): Musíte použít absolutní cestu (začínající na /).\n")
-            sys.exit(1)
-
-        # Valid absolute path used
-        MarkerManager.from_state(cast(MarkersGameStateProtocol, state)).create(MarkerManager.LEVEL1_8_ABSOLUTE_CD)
+    completion = Completion(
+        requirements=(
+            AtDirectory("absolute-target"),
+            CdEvidence(Messages.ABSOLUTE_CD_NOT_USED),
+        )
+    )
+    fixture = WorkspaceFixture(files=(FileFixture("absolute-target/PLACEHOLDER.answer"),))
+    cd_policy = CdPolicy(
+        rules=(
+            RequireAbsolutePath(
+                "Musíte použít absolutní cestu (začínající na /).",
+                missing_message="Musíte zadat cestu.",
+            ),
+        )
+    )
 
 
-@section.level
+@section.level(9)
 class HomeWalkLevel(Level):
+    solution = Solution(steps=(WalkHome(),))
     title = "Cesta z kořene domů"
     instructions = """
         ### Cíl
@@ -518,35 +516,36 @@ class HomeWalkLevel(Level):
         "V tomhle levelu neodevzdáváte textovou odpověď – důležitá je správná sekvence `cd`.",
     ]
     extension = True
-    marker_name = MarkerManager.LEVEL1_9_CD_WALK_COMPLETED
-    marker_error = Messages.CD_WALK_NOT_COMPLETED
+    start_directory = WORKSPACE_ROOT
+    reset_markers = (MarkerManager.LEVEL1_9_CD_WALK_PROGRESS,)
     success_message = "Správně! Došli jste domů krok za krokem."
-    validators = [HomeDirectoryValidator(check_basename=False)]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        return
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
+    completion = Completion(
+        requirements=(
+            AtHome(),
+            Evidence(MarkerManager.LEVEL1_9_CD_WALK_COMPLETED, Messages.CD_WALK_NOT_COMPLETED),
+        )
+    )
 
     @property
     @override
-    def hooks(self) -> dict[str, Callable[..., object]]:
+    def hooks(self) -> dict[str, CdHookCallback]:
         return {"cd": self._handle_cd}
 
     def _handle_cd(  # noqa: PLR0912
         self, *, target: str | None, pwd: str | None, post_move: bool, state: GameStateProtocol
     ) -> None:
-        markers = MarkerManager.from_state(cast(MarkersGameStateProtocol, state))
+        markers = MarkerManager.from_state(state)
 
         if not post_move:
             # Level 1.9 Pre-move: Enforce step-by-step (no jumps)
+            if self.cd_enforcement_lifted(
+                MarkerManager.LEVEL1_9_CD_WALK_COMPLETED, target=target, pwd=pwd, state=state
+            ):
+                return
+
             if not target:
                 # cd without args -> jump home -> forbidden
-                sys.stderr.write("ShellGame (1.9): Skoky nejsou povoleny. Jděte krok za krokem.\n")
-                sys.exit(1)
+                block_cd(self.id, "Skoky nejsou povoleny. Jděte krok za krokem.")
 
             if target == "/":
                 return  # Allowed to start
@@ -556,12 +555,10 @@ class HomeWalkLevel(Level):
             cleaned = target.rstrip("/")
 
             if target.startswith("/"):
-                sys.stderr.write("ShellGame (1.9): Absolutní skoky nejsou povoleny (kromě cd /).\n")
-                sys.exit(1)
+                block_cd(self.id, "Absolutní skoky nejsou povoleny (kromě cd /).")
 
             if "/" in cleaned:
-                sys.stderr.write("ShellGame (1.9): Cestujte po jednom segmentu (adresáři).\n")
-                sys.exit(1)
+                block_cd(self.id, "Cestujte po jednom segmentu (adresáři).")
 
         else:
             # Level 1.9 Post-move: Track step-by-step walk from root to home
@@ -604,8 +601,9 @@ class HomeWalkLevel(Level):
                 markers.remove(MarkerManager.LEVEL1_9_CD_WALK_PROGRESS)
 
 
-@section.level
+@section.level(10)
 class HomeCheckLevel(Level):
+    solution = Solution(steps=(GoHome(),), answer=Path.home().name)
     title = "Potvrzení domova"
     instructions = """
         ### Cíl
@@ -625,20 +623,14 @@ class HomeCheckLevel(Level):
         "Vlnovka '~' je zkratka pro domovský adresář aktuálního uživatele.",
     ]
     extension = True
-    allow_cwd_as_answer = True
-    success_message = "Správně! Jste doma."
-    validators = [HomeDirectoryValidator(check_basename=True)]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        return
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
+    start_directory = WORKSPACE_ROOT
+    completion = Completion(
+        answer=ExactAnswer(Path.home().name),
+        requirements=(AtHome(),),
+    )
 
 
-@section.level
+@section.level(11)
 class StructureLevel(Level):
     title = "Vizualizace struktury"
     instructions = """
@@ -649,35 +641,34 @@ class StructureLevel(Level):
         - `ls -F` - výpis s typy
 
         ### Úkol
-        1. Jděte do `level-1`
-        2. Vypište adresáře
-        3. Odevzdejte seznam adresářů (abecedně, oddělené čárkami)
+        1. Začínáte v `level-1`. Vypište jeho obsah příkazem `ls -F`
+        2. Vyberte pouze adresáře (mají na konci lomítko)
+        3. Odevzdejte jejich názvy bez lomítek, abecedně a oddělené čárkami
         """
     hints = [
-        "Jděte do level-1 a spusťte 'ls'.",
+        "Začínáte v level-1; spusťte 'ls -F'.",
         "Vypište názvy adresářů abecedně, oddělené čárkami.",
         "Ujistěte se, že uvádíte pouze adresáře, ne soubory.",
-        "Přepínač -F přidá za názvy adresářů lomítko /, což pomáhá v orientaci.",
+        "Lomítko / ve výpisu označuje adresář. Do odpovědi ho nepište.",
     ]
     optional = True
-    start_directory = "level-1"
-    require_answer = True
-    validators = [OrderedListValidator(["absolute-target", "alpha", "delta", "gamma", "maze", "patterns"])]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_navigation_common(workspace)
-        # Ensure all directories for this level exist
-        (workspace / "level-1" / "absolute-target").mkdir(parents=True, exist_ok=True)
-        (workspace / "level-1" / "maze").mkdir(parents=True, exist_ok=True)
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
+    start_directory = ""
+    fixture = WorkspaceFixture(directories=("absolute-target", "maze"))
+    completion = Completion(
+        answer=OrderedListAnswer(("absolute-target", "alpha", "delta", "gamma", "maze", "patterns"))
+    )
 
 
-@section.level
+@section.level(12)
 class SummaryLevel(Level):
+    solution = Solution(
+        steps=(
+            RecordEvidence(MarkerManager.PWD_USED),
+            Chdir("gamma/deep/a/b/c"),
+            PerformCd("../../../.."),
+        ),
+        answer="gamma",
+    )
     title = "Souhrn"
     instructions = """
         ### Výzva: Otestujte své dovednosti!
@@ -685,8 +676,8 @@ class SummaryLevel(Level):
         Ukažte, co jste se naučili v této sekci. Proveďte následující kroky:
 
         ### Úkol
-        1. Zjistěte svou aktuální polohu (`pwd`)
-        2. Přejděte do adresáře `level-1/gamma/deep/a/b/c`
+        1. Začínáte v `level-1`. Zjistěte svou aktuální polohu (`pwd`)
+        2. Přejděte do adresáře `gamma/deep/a/b/c`
         3. Vraťte se o 4 úrovně výše jedním příkazem
         4. Odevzdejte název adresáře, kde jste skončili
 
@@ -705,49 +696,37 @@ class SummaryLevel(Level):
         `shellgame submit <název_adresáře>`
         """
     hints = [
-        "Nejdřív se dostaňte do c: cd level-1/gamma/deep/a/b/c",
+        "Ze startu přejděte do c: `cd gamma/deep/a/b/c`.",
         "Z 'c' o 4 úrovně výše: cd ../../../..",
-        "Spočítejte: c → b → a → deep → gamma. Odpověď je 'gamma'.",
+        "Spočítejte úrovně: c → b → a → deep → ? Kde jste skončili, ověří 'pwd'.",
     ]
-    start_directory = "level-1"
-    expected_answer = "gamma"
-    allow_cwd_as_answer = True
+    start_directory = ""
+    reset_markers = (MarkerManager.PWD_USED,)
     success_message = "Výborně! Ovládáte základy navigace!"
-    validators = [
-        CommonMistakeValidator(
-            {
+    completion = Completion(
+        answer=ExactAnswer(
+            "gamma",
+            mistakes={
                 "deep": "Téměř! 'deep' je o 3 úrovně nad 'c'. Potřebujete jít o 4 úrovně.",
-                (
-                    "a",
-                    "b",
-                    "c",
-                ): "To není dost vysoko. Spočítejte: c→b→a→deep→gamma = 4 kroky.",
-            }
-        )
-    ]
+                "a": "To není dost vysoko. Vraťte se od startovního 'c' o čtyři úrovně a ověřte polohu pomocí 'pwd'.",
+                "b": "To není dost vysoko. Vraťte se od startovního 'c' o čtyři úrovně a ověřte polohu pomocí 'pwd'.",
+                "c": "To není dost vysoko. Vraťte se od startovního 'c' o čtyři úrovně a ověřte polohu pomocí 'pwd'.",
+            },
+        ),
+        requirements=(
+            AtDirectory("gamma"),
+            CdEvidence(
+                "Nejdřív použijte `pwd`, přejděte do `c` a vraťte se jedním příkazem o čtyři úrovně.",
+            ),
+        ),
+        allow_empty=True,
+    )
+    fixture = WorkspaceFixture(directories=("gamma/deep/a/b/c",))
 
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_navigation_common(workspace)
-        # Ensure deep structure exists
-        (workspace / "level-1" / "gamma" / "deep" / "a" / "b" / "c").mkdir(parents=True, exist_ok=True)
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if success:
-            return True, msg
-
-        # If parent validation failed, it might be because of expected_answer mismatch or CommonMistakeValidator match.
-        # If it was a CommonMistakeValidator match, msg is already the specific feedback.
-        # If it was expected_answer mismatch, msg is generic.
-
-        # We can just return the result from parent, as it covers most cases.
-        # The only thing lost is the very specific "X není správně. Začněte v 'c'..." message for unknown wrong answers.
-        # But the generic "Expected gamma, got X" is probably fine.
-
-        return False, msg
-
-
-def get_levels() -> list[Level]:
-    return section.levels
+    cd_policy = CdPolicy(
+        scope=(FromDirectory("gamma/deep/a/b/c"),),
+        rules=(
+            RequireEvidence(MarkerManager.PWD_USED, "Nejdřív použijte příkaz 'pwd'."),
+            RequireExactCommand("../../../..", "Z adresáře 'c' použijte jeden příkaz 'cd ../../../..'."),
+        ),
+    )

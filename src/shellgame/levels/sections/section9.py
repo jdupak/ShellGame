@@ -1,30 +1,47 @@
 from __future__ import annotations
 
-import shutil
-from pathlib import Path
-
 from typing_extensions import override
 
 from shellgame.levels.base import Level
 from shellgame.levels.collector import Section
+from shellgame.levels.completion import (
+    Completion,
+    Evidence,
+    ExactAnswer,
+    FileLineCount,
+    IntegerAnswer,
+    TextFileContent,
+    TupleAnswer,
+)
+from shellgame.levels.fixture import FileFixture, WorkspaceFixture
+from shellgame.levels.solution import RecordFdEvidence, RunShell, Solution
+from shellgame.markers import MarkerManager
 from shellgame.protocols import GameStateProtocol
-from shellgame.validation.validators import StringValidator, ValidationResult
+
+section = Section(9, root="level-9")
+
+_BUGGY_SCRIPT = "#!/bin/bash\necho 'This is normal output'\necho 'This is an error message' >&2\n"
+_MIXED_SCRIPT = """#!/bin/bash
+echo "Line 1 - normal output"
+echo "ERROR: Something went wrong" >&2
+echo "Line 2 - more output"
+echo "ERROR: Another problem" >&2
+echo "Line 3 - final output"
+"""
 
 
-section = Section()
-
-
-@section.level
+@section.level(0)
 class SectionIntro(Level):
+    is_intro = True
     title = "Sekce 9: Chybové výstupy"
+    instructions_file = "section9_intro.md"
+    hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
+    success_message = "Jdeme na to!"
 
-    @override
-    def setup(self, workspace: Path) -> None:
-        pass
 
-
-@section.level
+@section.level(1)
 class StderrToFileLevel(Level):
+    solution = Solution(steps=(RunShell("./buggy.sh 2> errors.log"),), answer="errors.log")
     title = "Přesměrování chyb"
     instructions = """
         Standardní chybový výstup (stderr) používá deskriptor souboru 2.
@@ -44,50 +61,40 @@ class StderrToFileLevel(Level):
 
         ### Odevzdání
         Odevzdejte název vytvořeného souboru.
-        `shellgame submit -f errors.log`
+        `shellgame submit errors.log`
         """
     hints = [
         "Běžný výstup jde na stdout (1), chyby na stderr (2). Jak přesměrujete jen dvojku?",
         "Syntaxe je: příkaz 2> soubor. Zkuste to se skriptem buggy.sh.",
         "Použijte './buggy.sh 2> errors.log'.",
     ]
-    start_directory = "level-9/errors"
-    require_answer = True
-    validators = [StringValidator("errors.log")]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-9"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        script_path = level_dir / "buggy.sh"
-        script_path.write_text("#!/bin/bash\necho 'This is normal output'\necho 'This is an error message' >&2\n")
-        script_path.chmod(0o755)
-
-        target = level_dir / "errors.log"
-        if target.exists():
-            target.unlink()
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        target = state.workspace / "level-9/errors.log"
-        if not target.exists():
-            return False, "Soubor neexistuje."
-
-        content = target.read_text()
-        if "This is an error message" in content and "This is normal output" not in content:
-            return True, "Správně! Soubor obsahuje pouze chyby."
-        if "This is normal output" in content:
-            return False, "Soubor obsahuje i normální výstup (použili jste &> nebo chybí 2?)."
-        return False, "Soubor neobsahuje očekávanou chybu."
+    start_directory = ""
+    fixture = WorkspaceFixture(
+        files=(FileFixture("buggy.sh", _BUGGY_SCRIPT, mode=0o755),),
+        clean=("errors.log",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("errors.log"),
+        requirements=(
+            TextFileContent(
+                "errors.log",
+                excludes=("This is normal output",),
+                error_message="Soubor obsahuje i normální výstup (použili jste &> nebo chybí 2?).",
+                missing_message="Soubor neexistuje.",
+            ),
+            TextFileContent(
+                "errors.log",
+                contains=("This is an error message",),
+                error_message="Soubor neobsahuje očekávanou chybu.",
+            ),
+        ),
+    )
+    success_message = "Správně! Soubor obsahuje pouze chyby."
 
 
-@section.level
+@section.level(2)
 class AppendStderrToFileLevel(Level):
+    solution = Solution(steps=(RunShell("./buggy.sh 2>> errors.log"),), answer="errors.log")
     title = "Přidávání chyb"
     instructions = """
         Stejně jako u normálního výstupu můžete chyby přidávat na konec souboru pomocí `2>>`.
@@ -101,49 +108,41 @@ class AppendStderrToFileLevel(Level):
 
         ### Odevzdání
         Odevzdejte název souboru.
-        `shellgame submit -f errors.log`
+        `shellgame submit errors.log`
         """
     hints = [
         "Jaký je rozdíl mezi > a >>? Jeden přepisuje, druhý přidává.",
         "Pro přidání chyb na konec použijte dvě šipky: 2>>",
         "Použijte './buggy.sh 2>> errors.log'.",
     ]
-    start_directory = "level-9/errors"
-    require_answer = True
-    validators = [StringValidator("errors.log")]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-9"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        script_path = level_dir / "buggy.sh"
-        if not script_path.exists():
-            script_path.write_text("#!/bin/bash\necho 'This is normal output'\necho 'This is an error message' >&2\n")
-            script_path.chmod(0o755)
-
-        (level_dir / "errors.log").write_text("Old error 1\n")
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        target = state.workspace / "level-9/errors.log"
-        if not target.exists():
-            return False, "Soubor neexistuje."
-
-        content = target.read_text()
-        if "Old error 1" in content and "This is an error message" in content:
-            return True, "Správně!"
-        if "Old error 1" not in content:
-            return False, "Původní obsah zmizel (použili jste 2> místo 2>>?)."
-        return False, "Soubor neobsahuje novou chybu."
+    start_directory = ""
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("buggy.sh", _BUGGY_SCRIPT, mode=0o755),
+            FileFixture("errors.log", "Old error 1\n"),
+        )
+    )
+    completion = Completion(
+        answer=ExactAnswer("errors.log"),
+        requirements=(
+            TextFileContent(
+                "errors.log",
+                contains=("Old error 1",),
+                error_message="Původní obsah zmizel (použili jste 2> místo 2>>?).",
+                missing_message="Soubor neexistuje.",
+            ),
+            TextFileContent(
+                "errors.log",
+                contains=("This is an error message",),
+                error_message="Soubor neobsahuje novou chybu.",
+            ),
+        ),
+    )
 
 
-@section.level
+@section.level(3)
 class AllOutputToFileLevel(Level):
+    solution = Solution(steps=(RunShell("./buggy.sh > all_output.log 2>&1"),), answer="all_output.log")
     title = "Všechny výstupy"
     instructions = """
         Někdy chcete zachytit VŠECHNO - normální výstup i chyby do jednoho souboru.
@@ -161,44 +160,35 @@ class AllOutputToFileLevel(Level):
 
         ### Odevzdání
         Odevzdejte název souboru.
-        `shellgame submit -f all_output.log`
+        `shellgame submit all_output.log`
         """
     hints = [
         "Ampersand (&) v tomto kontextu znamená 'obojí' - stdout i stderr.",
         "Kombinace &> je zkratka pro přesměrování obou výstupů.",
         "Použijte './buggy.sh &> all_output.log'.",
     ]
-    start_directory = "level-9/errors"
-    require_answer = True
-    validators = [StringValidator("all_output.log")]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-9"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        target = level_dir / "all_output.log"
-        if target.exists():
-            target.unlink()
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        target = state.workspace / "level-9/all_output.log"
-        if not target.exists():
-            return False, "Soubor neexistuje."
-
-        content = target.read_text()
-        if "This is normal output" in content and "This is an error message" in content:
-            return True, "Správně! Máme všechno."
-        return False, "Soubor neobsahuje oba typy výstupů."
+    start_directory = ""
+    fixture = WorkspaceFixture(
+        files=(FileFixture("buggy.sh", _BUGGY_SCRIPT, mode=0o755),),
+        clean=("all_output.log",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("all_output.log"),
+        requirements=(
+            TextFileContent(
+                "all_output.log",
+                contains=("This is normal output", "This is an error message"),
+                error_message="Soubor neobsahuje oba typy výstupů.",
+                missing_message="Soubor neexistuje.",
+            ),
+        ),
+    )
+    success_message = "Správně! Máme všechno."
 
 
-@section.level
+@section.level(4)
 class DevNullLevel(Level):
+    solution = Solution(steps=(RecordFdEvidence(),), answer="/dev/null")
     title = "Černá díra"
     instructions = """
         `/dev/null` je speciální soubor, který zahodí všechno, co do něj pošlete.
@@ -216,28 +206,48 @@ class DevNullLevel(Level):
 
         ### Odevzdání
         Odevzdejte název speciálního souboru, který jste použili.
-        `shellgame submit -f /dev/null`
+        `shellgame submit /dev/null`
         """
     hints = [
         "Kam v Linuxu 'vyhodíte' data, která nechcete? Existuje speciální soubor...",
         "Soubor /dev/null je jako černá díra - vše pohltí a nic nevrátí.",
         "Použijte './buggy.sh &> /dev/null'.",
     ]
-    start_directory = "level-9/errors"
-    require_answer = True
-    validators = [StringValidator("/dev/null")]
+    start_directory = ""
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture(
+                "buggy.sh",
+                _BUGGY_SCRIPT + '"$SHELLGAME_FD_HOOK"\n',
+                mode=0o755,
+            ),
+        )
+    )
+    completion = Completion(
+        answer=ExactAnswer("/dev/null"),
+        requirements=(
+            Evidence(
+                MarkerManager.LEVEL9_4_DEV_NULL,
+                "Spusťte `./buggy.sh` a přesměrujte stdout i stderr do `/dev/null`.",
+            ),
+        ),
+    )
 
     @override
-    def setup(self, workspace: Path) -> None:
-        return
+    def record_fd_evidence(
+        self,
+        *,
+        stdout_target: str,
+        stderr_target: str,
+        state: GameStateProtocol,
+    ) -> None:
+        if stdout_target == "/dev/null" and stderr_target == "/dev/null":
+            MarkerManager.from_state(state).create(MarkerManager.LEVEL9_4_DEV_NULL)
 
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
 
-
-@section.level
+@section.level(5)
 class StreamsChallengeLevel(Level):
+    solution = Solution(steps=(RunShell("./mixed.sh > output.log 2> errors.log"),), answer="2,3")
     title = "Souhrn Sekce 9"
     instructions = """
         ### Výzva: Mistr streamů
@@ -270,67 +280,45 @@ class StreamsChallengeLevel(Level):
     hints = [
         "Pro zachycení chyb: './mixed.sh 2> errors.log'. Pro normální výstup: './mixed.sh > output.log'.",
         "Počet řádků zjistíte pomocí 'wc -l errors.log output.log' nebo 'cat errors.log | wc -l'.",
-        "errors.log má 2 řádky, output.log má 3 řádky. Odpověď je '2,3'.",
+        "Každý běh skriptu zapisuje do jiného souboru. Spočítejte řádky v každém z nich zvlášť.",
     ]
-    require_answer = True
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        challenge_dir = workspace / "level-9" / "challenge"
-        if challenge_dir.exists():
-            shutil.rmtree(challenge_dir)
-
-        challenge_dir.mkdir(parents=True, exist_ok=True)
-
-        script = challenge_dir / "mixed.sh"
-        script.write_text(
-            """#!/bin/bash
-echo "Line 1 - normal output"
-echo "ERROR: Something went wrong" >&2
-echo "Line 2 - more output"
-echo "ERROR: Another problem" >&2
-echo "Line 3 - final output"
-"""
-        )
-        script.chmod(0o755)
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if not success:
-            return False, msg
-
-        assert answer is not None
-        text = answer.strip()
-
-        ok = False
-        error_msg = "Formát odpovědi: chyby,výstup (např. 3,5)"
-
-        if "," in text:
-            parts = text.split(",")
-            if len(parts) == 2:
-                try:
-                    errors = int(parts[0].strip())
-                    output = int(parts[1].strip())
-                except ValueError:
-                    error_msg = "Obě hodnoty musí být čísla."
-                else:
-                    if errors != 2:
-                        error_msg = (
-                            f"Počet chyb není {errors}. Spusťte './mixed.sh 2> errors.log' a pak 'wc -l errors.log'."
-                        )
-                    elif output != 3:
-                        error_msg = (
-                            f"Počet normálních řádků není {output}. "
-                            "Spusťte './mixed.sh > output.log' a pak 'wc -l output.log'."
-                        )
-                    else:
-                        ok = True
-
-        if ok:
-            return True, "Perfektní! Dokončili jste Sekci 9. Stdout a stderr jsou pro vás jako otevřená kniha!"
-        return False, error_msg
-
-
-def get_levels() -> list[Level]:
-    return section.levels
+    start_directory = "challenge"
+    fixture = WorkspaceFixture(
+        files=(FileFixture("challenge/mixed.sh", _MIXED_SCRIPT, mode=0o755),),
+        clean=("challenge",),
+    )
+    completion = Completion(
+        answer=TupleAnswer(
+            (
+                IntegerAnswer(
+                    2,
+                    error_message=(
+                        "Počet chyb není správně. Spusťte './mixed.sh 2> errors.log' a pak 'wc -l errors.log'."
+                    ),
+                    invalid_message="Obě hodnoty musí být čísla.",
+                ),
+                IntegerAnswer(
+                    3,
+                    error_message=(
+                        "Počet normálních řádků není správně. "
+                        "Spusťte './mixed.sh > output.log' a pak 'wc -l output.log'."
+                    ),
+                    invalid_message="Obě hodnoty musí být čísla.",
+                ),
+            ),
+            format_message="Formát odpovědi: chyby,výstup (např. 3,5)",
+        ),
+        requirements=(
+            FileLineCount(
+                "challenge/errors.log",
+                2,
+                "errors.log nemá přesně dva řádky chyb.",
+            ),
+            FileLineCount(
+                "challenge/output.log",
+                3,
+                "output.log nemá přesně tři řádky normálního výstupu.",
+            ),
+        ),
+    )
+    success_message = "Perfektní! Dokončili jste Sekci 9. Stdout a stderr jsou pro vás jako otevřená kniha!"

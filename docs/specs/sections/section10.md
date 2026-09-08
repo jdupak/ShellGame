@@ -18,6 +18,13 @@ Deliberate exclusions:
 - No find command (deferred to Section 11)
 
 Allowed commands: All previous commands plus wildcard patterns: `*`, `?`, `[abc]`, `[!abc]`, `[a-z]`
+
+**Shell requirement:** Exercises using `?`, bracket sets, or ranges require
+Bash (currently 10.2–10.4). Display this requirement before those commands.
+Fish players run the provided quoted `bash -c 'command'` example, then submit
+from their existing wrapped shell. Do not switch them into an unwrapped
+interactive shell. Exercises using only `*` remain portable.
+
 Estimated Time: 10–12 minutes (core Levels 10.1–10.6) + optional Level 10.7 (~2 minutes)
 <!-- REVISED: -->
 > Time Calibration: Target 7 minutes average; slow path 5–6 minutes (Levels 10.1–10.4). 10.5–10.6 become Extension (operations), 10.7 Optional.
@@ -321,7 +328,7 @@ Task:
 
 Remember: [set] matches ONE character from the set.
 
-Submit with: shellgame submit -f <count>
+Submit with: shellgame submit <count>
 Need help? Type: shellgame hint
 ══════════════════════════════════════════════════════
 ```

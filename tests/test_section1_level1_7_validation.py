@@ -1,13 +1,15 @@
 """Tests for Level 1.7 validation behavior."""
 
 from pathlib import Path
-from typing import Any
+
+import pytest
 
 from shellgame.levels.sections.section1 import MazeLevel
 
 
-def test_level1_7_submit_without_answer_depends_on_cwd(tmp_path: Path, monkeypatch: Any) -> None:
+def test_level1_7_submit_without_answer_depends_on_exact_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     level = MazeLevel()
+    level.prepare(tmp_path)
 
     # Minimal state stub; Level1_7.validate doesn't use it.
     class _State:
@@ -23,16 +25,23 @@ def test_level1_7_submit_without_answer_depends_on_cwd(tmp_path: Path, monkeypat
     ok, _ = level.validate(None, state)
     assert ok is False
 
-    # In final -> pass
-    final_dir = tmp_path / "final"
-    final_dir.mkdir()
-    monkeypatch.chdir(final_dir)
+    # A same-named directory outside the maze must not pass.
+    decoy = tmp_path / "final"
+    decoy.mkdir()
+    monkeypatch.chdir(decoy)
     ok2, _ = level.validate(None, state)
-    assert ok2 is True
+    assert ok2 is False
+
+    # Only the actual maze destination passes.
+    final_dir = tmp_path / "level-1" / "maze" / "04" / "final"
+    monkeypatch.chdir(final_dir)
+    ok3, _ = level.validate(None, state)
+    assert ok3 is True
 
 
-def test_level1_7_answer_is_ignored_when_in_final(tmp_path: Path, monkeypatch: Any) -> None:
+def test_level1_7_answer_is_ignored_when_in_final(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     level = MazeLevel()
+    level.prepare(tmp_path)
 
     class _State:
         def __init__(self, workspace: Path) -> None:
@@ -42,8 +51,7 @@ def test_level1_7_answer_is_ignored_when_in_final(tmp_path: Path, monkeypatch: A
 
     state = _State(tmp_path)
 
-    final_dir = tmp_path / "final"
-    final_dir.mkdir()
+    final_dir = tmp_path / "level-1" / "maze" / "04" / "final"
     monkeypatch.chdir(final_dir)
 
     ok, _ = level.validate("anything", state)

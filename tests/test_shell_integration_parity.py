@@ -10,6 +10,7 @@ These tests verify that both shell integrations:
 Tests are skipped if the respective shell is not installed.
 """
 
+import base64
 import os
 import shlex
 import shutil
@@ -28,6 +29,11 @@ from shellgame.cli.hooks import (
 from shellgame.cli.subshell import get_bash_integration, get_fish_integration
 
 
+def _protocol_line(command: str, *args: str) -> str:
+    encoded = [base64.b64encode(arg.encode()).decode() for arg in args]
+    return "__SHELLGAME_EXEC__" + " ".join(("v1", command, *encoded))
+
+
 def _create_mock_game(tmp_path: Path, code: str) -> str:
     """Create a mock Python script and return a shell-escaped command to run it."""
     game_script = tmp_path / "mock_game.py"
@@ -35,23 +41,29 @@ def _create_mock_game(tmp_path: Path, code: str) -> str:
     return " ".join(shlex.quote(p) for p in [sys.executable, str(game_script)])
 
 
-def _run_bash(integration_path: Path, command: str) -> subprocess.CompletedProcess[str]:
+def _run_bash(
+    integration_path: Path, command: str, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
     """Run a command in bash with the integration loaded."""
     return subprocess.run(
         ["bash", "--noprofile", "--norc", "-c", f"source {integration_path}; {command}"],
         check=False,
         capture_output=True,
         text=True,
+        env={**os.environ, **env} if env else None,
     )
 
 
-def _run_fish(integration_path: Path, command: str) -> subprocess.CompletedProcess[str]:
+def _run_fish(
+    integration_path: Path, command: str, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
     """Run a command in fish with the integration loaded."""
     return subprocess.run(
         ["fish", "--no-config", "-c", f"source {integration_path}; {command}"],
         check=False,
         capture_output=True,
         text=True,
+        env={**os.environ, **env} if env else None,
     )
 
 
@@ -187,10 +199,12 @@ print("text before __SHELLGAME_EXEC__echo SHOULD_NOT_RUN", file=sys.stderr)
 
     @pytest.mark.skipif(not shutil.which("bash"), reason="bash not installed")
     def test_bash_handles_multiple_protocol_commands(self, tmp_path: Path) -> None:
-        mock_code = """
+        first = _protocol_line("echo", "FIRST")
+        second = _protocol_line("echo", "SECOND")
+        mock_code = f"""
 import sys
-print("__SHELLGAME_EXEC__echo FIRST", file=sys.stderr)
-print("__SHELLGAME_EXEC__echo SECOND", file=sys.stderr)
+print({first!r}, file=sys.stderr)
+print({second!r}, file=sys.stderr)
 """
         binary_cmd = _create_mock_game(tmp_path, mock_code)
         integration = get_bash_integration(binary_cmd, devmode=False)
@@ -203,10 +217,12 @@ print("__SHELLGAME_EXEC__echo SECOND", file=sys.stderr)
 
     @pytest.mark.skipif(not shutil.which("fish"), reason="fish not installed")
     def test_fish_handles_multiple_protocol_commands(self, tmp_path: Path) -> None:
-        mock_code = """
+        first = _protocol_line("echo", "FIRST")
+        second = _protocol_line("echo", "SECOND")
+        mock_code = f"""
 import sys
-print("__SHELLGAME_EXEC__echo FIRST", file=sys.stderr)
-print("__SHELLGAME_EXEC__echo SECOND", file=sys.stderr)
+print({first!r}, file=sys.stderr)
+print({second!r}, file=sys.stderr)
 """
         binary_cmd = _create_mock_game(tmp_path, mock_code)
         integration = get_fish_integration(binary_cmd, devmode=False)
@@ -270,16 +286,10 @@ class TestPwdWrapper:
         int_file = tmp_path / "integration.bash"
         int_file.write_text(integration)
 
-        # Override /tmp with our tmp_path for the marker file location
-        os.environ.copy()
         marker_file = user_dir / ".pwd_used"
         assert not marker_file.exists()
 
-        # Inject custom user_dir path into the script
-        modified_integration = integration.replace("/tmp/shellgame-$USER", str(user_dir))
-        int_file.write_text(modified_integration)
-
-        result = _run_bash(int_file, "pwd")
+        result = _run_bash(int_file, "pwd", env={"SHELLGAME_WORKSPACE": str(user_dir)})
         assert result.returncode == 0
         assert marker_file.exists()
 
@@ -287,18 +297,51 @@ class TestPwdWrapper:
     def test_fish_pwd_records_usage(self, tmp_path: Path, user_dir: Path) -> None:
         mock_code = "print('done')"
         binary_cmd = _create_mock_game(tmp_path, mock_code)
-        integration = get_fish_integration(binary_cmd, devmode=False)
         int_file = tmp_path / "integration.fish"
+        int_file.write_text(get_fish_integration(binary_cmd, devmode=False))
 
         marker_file = user_dir / ".pwd_used"
         assert not marker_file.exists()
 
-        modified_integration = integration.replace("/tmp/shellgame-$USER", str(user_dir))
-        int_file.write_text(modified_integration)
-
-        result = _run_fish(int_file, "pwd")
+        result = _run_fish(int_file, "pwd", env={"SHELLGAME_WORKSPACE": str(user_dir)})
         assert result.returncode == 0
         assert marker_file.exists()
+
+    def test_templates_never_guess_the_workspace_path(self) -> None:
+        """The workspace must come from SHELLGAME_WORKSPACE only.
+
+        A `$USER`-derived fallback would let a stale or foreign directory
+        collect evidence markers, so it must not exist in either template.
+        """
+        binary_cmd = "shellgame"
+        for integration in (
+            get_bash_integration(binary_cmd, devmode=False),
+            get_fish_integration(binary_cmd, devmode=False),
+        ):
+            assert "$USER" not in integration
+            assert "/tmp/shellgame-" not in integration
+
+    @pytest.mark.skipif(not shutil.which("bash"), reason="bash not installed")
+    def test_bash_pwd_is_safe_without_workspace(self, tmp_path: Path) -> None:
+        """`pwd` must still work (and create nothing) when no workspace is set."""
+        binary_cmd = _create_mock_game(tmp_path, "print('done')")
+        int_file = tmp_path / "integration.bash"
+        int_file.write_text(get_bash_integration(binary_cmd, devmode=False))
+
+        result = _run_bash(int_file, "pwd", env={"SHELLGAME_WORKSPACE": ""})
+        assert result.returncode == 0
+        assert not list(tmp_path.glob("**/.pwd_used"))
+
+    @pytest.mark.skipif(not shutil.which("fish"), reason="fish not installed")
+    def test_fish_pwd_is_safe_without_workspace(self, tmp_path: Path) -> None:
+        """`pwd` must still work (and create nothing) when no workspace is set."""
+        binary_cmd = _create_mock_game(tmp_path, "print('done')")
+        int_file = tmp_path / "integration.fish"
+        int_file.write_text(get_fish_integration(binary_cmd, devmode=False))
+
+        result = _run_fish(int_file, "pwd", env={"SHELLGAME_WORKSPACE": ""})
+        assert result.returncode == 0
+        assert not list(tmp_path.glob("**/.pwd_used"))
 
 
 class TestCdHookConsistency:
@@ -310,11 +353,14 @@ class TestCdHookConsistency:
         bash_hooks = generate_bash_cd_hooks()
         fish_hooks = generate_fish_cd_hooks()
 
+        bash_patterns = next(
+            line for line in bash_hooks.splitlines() if line.strip().startswith('"') and line.strip().endswith(")")
+        )
+        fish_patterns = next(line for line in fish_hooks.splitlines() if line.strip().startswith('case "'))
+
         for level_id in hooked_levels:
-            # Bash uses case "1.8")
-            assert f'"{level_id}")' in bash_hooks, f"Missing bash hook for {level_id}"
-            # Fish uses case "1.8"
-            assert f'case "{level_id}"' in fish_hooks, f"Missing fish hook for {level_id}"
+            assert f'"{level_id}"' in bash_patterns, f"Missing bash hook for {level_id}"
+            assert f'"{level_id}"' in fish_patterns, f"Missing fish hook for {level_id}"
 
     def test_hooks_dispatch_by_shellgame_level_env(self) -> None:
         """Both shells should dispatch cd based on SHELLGAME_LEVEL environment variable."""
@@ -346,24 +392,19 @@ class TestProtocolCdBypassesHooks:
 
         # Mock game that sets SHELLGAME_LEVEL=1.9 (which rejects absolute paths)
         # and then tries to cd to an absolute path via protocol
+        export_level = _protocol_line("export", "SHELLGAME_LEVEL", "1.9")
+        change_directory = _protocol_line("cd", str(target_dir))
         mock_code = f"""
 import sys
-print("__SHELLGAME_EXEC__export SHELLGAME_LEVEL=1.9", file=sys.stderr)
-print("__SHELLGAME_EXEC__cd {target_dir}", file=sys.stderr)
+print({export_level!r}, file=sys.stderr)
+print({change_directory!r}, file=sys.stderr)
 """
         binary_cmd = _create_mock_game(tmp_path, mock_code)
         integration = get_bash_integration(binary_cmd, devmode=False)
         int_file = tmp_path / "integration.bash"
         int_file.write_text(integration)
 
-        # Set up user_dir so the hook is active
-        user = os.environ.get("USER", "test")
-        user_dir = tmp_path / f"shellgame-{user}"
-        user_dir.mkdir()
-
-        # Modify integration to use our test user_dir
-        modified = integration.replace("/tmp/shellgame-$USER", str(user_dir))
-        int_file.write_text(modified)
+        int_file.write_text(integration)
 
         result = _run_bash(int_file, "shellgame; pwd")
         # The protocol cd should have succeeded, putting us in target_dir
@@ -375,21 +416,18 @@ print("__SHELLGAME_EXEC__cd {target_dir}", file=sys.stderr)
         target_dir = tmp_path / "target"
         target_dir.mkdir()
 
+        export_level = _protocol_line("export", "SHELLGAME_LEVEL", "1.9")
+        change_directory = _protocol_line("cd", str(target_dir))
         mock_code = f"""
 import sys
-print("__SHELLGAME_EXEC__export SHELLGAME_LEVEL=1.9", file=sys.stderr)
-print("__SHELLGAME_EXEC__cd {target_dir}", file=sys.stderr)
+print({export_level!r}, file=sys.stderr)
+print({change_directory!r}, file=sys.stderr)
 """
         binary_cmd = _create_mock_game(tmp_path, mock_code)
         integration = get_fish_integration(binary_cmd, devmode=False)
         int_file = tmp_path / "integration.fish"
 
-        user = os.environ.get("USER", "test")
-        user_dir = tmp_path / f"shellgame-{user}"
-        user_dir.mkdir()
-
-        modified = integration.replace("/tmp/shellgame-$USER", str(user_dir))
-        int_file.write_text(modified)
+        int_file.write_text(integration)
 
         result = _run_fish(int_file, "shellgame; pwd")
         assert str(target_dir) in result.stdout
@@ -401,20 +439,16 @@ print("__SHELLGAME_EXEC__cd {target_dir}", file=sys.stderr)
         target_dir.mkdir()
 
         # Mock game that just sets the level
-        mock_code = """
+        export_level = _protocol_line("export", "SHELLGAME_LEVEL", "1.9")
+        mock_code = f"""
 import sys
-print("__SHELLGAME_EXEC__export SHELLGAME_LEVEL=1.9", file=sys.stderr)
+print({export_level!r}, file=sys.stderr)
 """
         binary_cmd = _create_mock_game(tmp_path, mock_code)
         integration = get_bash_integration(binary_cmd, devmode=False)
 
-        user = os.environ.get("USER", "test")
-        user_dir = tmp_path / f"shellgame-{user}"
-        user_dir.mkdir()
-
-        modified = integration.replace("/tmp/shellgame-$USER", str(user_dir))
         int_file = tmp_path / "integration.bash"
-        int_file.write_text(modified)
+        int_file.write_text(integration)
 
         # After shellgame sets SHELLGAME_LEVEL=1.9, a direct user cd to absolute path should fail
         result = _run_bash(int_file, f"shellgame; cd {target_dir} 2>&1; echo exit:$?")
@@ -429,20 +463,16 @@ print("__SHELLGAME_EXEC__export SHELLGAME_LEVEL=1.9", file=sys.stderr)
         target_dir = tmp_path / "target"
         target_dir.mkdir()
 
-        mock_code = """
+        export_level = _protocol_line("export", "SHELLGAME_LEVEL", "1.9")
+        mock_code = f"""
 import sys
-print("__SHELLGAME_EXEC__export SHELLGAME_LEVEL=1.9", file=sys.stderr)
+print({export_level!r}, file=sys.stderr)
 """
         binary_cmd = _create_mock_game(tmp_path, mock_code)
         integration = get_fish_integration(binary_cmd, devmode=False)
 
-        user = os.environ.get("USER", "test")
-        user_dir = tmp_path / f"shellgame-{user}"
-        user_dir.mkdir()
-
-        modified = integration.replace("/tmp/shellgame-$USER", str(user_dir))
         int_file = tmp_path / "integration.fish"
-        int_file.write_text(modified)
+        int_file.write_text(integration)
 
         result = _run_fish(int_file, f"shellgame; cd {target_dir} 2>&1; echo exit:$status")
         assert "exit:1" in result.stdout

@@ -227,7 +227,7 @@ Submit the count as a single integer.
 
 Commands: ls -a, pwd
 
-Submit with: shellgame submit -f <number>
+Submit with: shellgame submit <number>
 Need help? Type: shellgame hint
 ══════════════════════════════════════════════════════
 ```

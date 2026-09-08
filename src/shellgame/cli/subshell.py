@@ -67,30 +67,24 @@ def _read_proc_comm(pid: int) -> str | None:
     try:
         with open(f"/proc/{pid}/comm") as f:
             return f.read().strip().lower()
-    except Exception:
+    except OSError:
         return None
 
 
 def detect_interactive_shell() -> str:
-    try:
-        zero = (os.environ.get("0") or "").lower()
-        for shell in ("fish", "bash", "zsh"):
-            if shell in zero:
-                return shell
-    except Exception:
-        pass
+    zero = (os.environ.get("0") or "").lower()
+    for shell in ("fish", "bash", "zsh"):
+        if shell in zero:
+            return shell
 
     parent = get_parent_shell()
     if parent in ("fish", "bash", "zsh"):
         return parent
 
-    try:
-        shell_env = (os.environ.get("SHELL") or "").lower()
-        for shell in ("fish", "bash", "zsh"):
-            if shell_env.endswith(f"/{shell}") or shell_env == shell:
-                return shell
-    except Exception:
-        pass
+    shell_env = (os.environ.get("SHELL") or "").lower()
+    for shell in ("fish", "bash", "zsh"):
+        if shell_env.endswith(f"/{shell}") or shell_env == shell:
+            return shell
 
     return "unknown"
 
@@ -111,28 +105,25 @@ def _read_proc_stat_ppid(pid: int) -> int | None:
             return None
 
         return int(fields[1])
-    except Exception:
+    except (OSError, ValueError):
         return None
 
 
 def get_parent_shell() -> str:
-    try:
-        pid = os.getppid()
-        for _ in range(25):
-            comm = _read_proc_comm(pid) or ""
-            if "fish" in comm:
-                return "fish"
-            if "bash" in comm:
-                return "bash"
-            if "zsh" in comm:
-                return "zsh"
+    pid = os.getppid()
+    for _ in range(25):
+        comm = _read_proc_comm(pid) or ""
+        if "fish" in comm:
+            return "fish"
+        if "bash" in comm:
+            return "bash"
+        if "zsh" in comm:
+            return "zsh"
 
-            ppid = _read_proc_stat_ppid(pid)
-            if not ppid or ppid <= 1 or ppid == pid:
-                break
-            pid = ppid
-    except Exception:
-        pass
+        ppid = _read_proc_stat_ppid(pid)
+        if not ppid or ppid <= 1 or ppid == pid:
+            break
+        pid = ppid
 
     return "unknown"
 
@@ -199,6 +190,15 @@ def _create_integration_script(shell_name: str, binary_path: str, devmode: bool)
         return f.name
 
 
+def _create_fd_hook_script(launcher_argv: list[str]) -> str:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".sh") as file:
+        command = shlex.join([*launcher_argv, "fd-hook"])
+        file.write(f"#!/bin/sh\nexec {command}\n")
+        path = file.name
+    os.chmod(path, 0o700)
+    return path
+
+
 def _print_debug_info(shell_name: str, devmode: bool, script_path: str) -> None:
     print(f"[shellgame][debug] launch_subshell(shell_name={shell_name!r}, devmode={devmode})")
     print(f"[shellgame][debug] integration_script_path={script_path}")
@@ -208,30 +208,16 @@ def _print_debug_info(shell_name: str, devmode: bool, script_path: str) -> None:
         head = "\n".join(preview_lines[:40])
         print("[shellgame][debug] integration_script_preview (first 40 lines):")
         print(head)
-    except Exception as e:
+    except OSError as e:
         print(f"[shellgame][debug] integration_script_preview_error={e!r}")
 
 
-def _run_fish_subshell(script_path: str, env: dict[str, str], debug: bool) -> None:
-    argv = [
-        "fish",
-        "--init-command",
-        _generate_fish_init_command(script_path),
-    ]
+def _run_subshell(argv: list[str], env: dict[str, str], debug: bool, label: str) -> None:
     if debug:
-        print(f"[shellgame][debug] fish_argv={argv!r}")
+        print(f"[shellgame][debug] {label}_argv={argv!r}")
     proc = subprocess.run(argv, check=False, env=env)
-    if proc is not None and getattr(proc, "returncode", 0) != 0:
-        raise RuntimeError(f"Fish subshell exited with code {getattr(proc, 'returncode', 'unknown')}")
-
-
-def _run_bash_subshell(script_path: str, env: dict[str, str], debug: bool) -> None:
-    argv = ["bash", "--rcfile", script_path, "-i"]
-    if debug:
-        print(f"[shellgame][debug] bash_argv={argv!r}")
-    proc = subprocess.run(argv, check=False, env=env)
-    if proc is not None and getattr(proc, "returncode", 0) != 0:
-        raise RuntimeError(f"Bash subshell exited with code {getattr(proc, 'returncode', 'unknown')}")
+    if proc.returncode != 0:
+        raise RuntimeError(f"{label.capitalize()} subshell exited with code {proc.returncode}")
 
 
 def launch_subshell(shell_name: str, devmode: bool = False) -> None:
@@ -242,19 +228,29 @@ def launch_subshell(shell_name: str, devmode: bool = False) -> None:
     debug = (os.environ.get("SHELLGAME_SUBSHELL_DEBUG") or "").strip() == "1"
 
     script_path = _create_integration_script(shell_name, binary_path, devmode)
-
-    if debug:
-        _print_debug_info(shell_name, devmode, script_path)
+    fd_hook_path: str | None = None
 
     try:
+        fd_hook_path = _create_fd_hook_script(launcher_argv)
+        if debug:
+            _print_debug_info(shell_name, devmode, script_path)
+
         env = os.environ.copy()
         env["SHELLGAME_WRAPPER"] = "1"
+        env["SHELLGAME_FD_HOOK"] = fd_hook_path
 
         if shell_name == "fish":
-            _run_fish_subshell(script_path, env, debug)
+            _run_subshell(
+                ["fish", "--init-command", _generate_fish_init_command(script_path)],
+                env,
+                debug,
+                "fish",
+            )
         elif shell_name == "bash":
-            _run_bash_subshell(script_path, env, debug)
+            _run_subshell(["bash", "--rcfile", script_path, "-i"], env, debug, "bash")
         else:
             raise ValueError(f"Nepodporovaný shell: {shell_name}")
     finally:
         os.unlink(script_path)
+        if fd_hook_path is not None:
+            os.unlink(fd_hook_path)

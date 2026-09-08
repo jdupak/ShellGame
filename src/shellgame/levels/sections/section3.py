@@ -2,42 +2,29 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from typing_extensions import override
 
 from shellgame.levels.base import Level
 from shellgame.levels.collector import Section
-from shellgame.protocols import GameStateProtocol
-from shellgame.validation.validators import (
-    IntegerValidator,
-    StringValidator,
-    ValidationResult,
-)
+from shellgame.levels.completion import Completion, ExactAnswer, IntegerAnswer, IntegerRangeAnswer, TupleAnswer
+from shellgame.levels.fixture import FileFixture, WorkspaceFixture
+from shellgame.levels.solution import Solution
+from shellgame.paths import WORKSPACE_ROOT
+from shellgame.protocols import GameStateProtocol, ValidationResult
 
-section = Section()
-
-
-def _setup_level3_common(workspace: Path) -> None:
-    level_dir = workspace / "level-3"
-    level_dir.mkdir(parents=True, exist_ok=True)
+section = Section(3, root="level-3")
 
 
+@section.level(0)
 class SectionIntroLevel(Level):
+    is_intro = True
     title = "Sekce 3: Skryté soubory"
     instructions_file = "section3_intro.md"
     hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
     success_message = "Jdeme na to!"
 
-    @override
-    def setup(self, workspace: Path) -> None:
-        return
 
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
-
-
+@section.level(1)
 class HiddenDirCountLevel(Level):
     title = "Počítání skrytých adresářů"
     instructions = """
@@ -46,11 +33,12 @@ class HiddenDirCountLevel(Level):
 
         ### Příkazy k naučení
         - `ls -a` (zobrazí všechny soubory včetně skrytých)
+        - `ls -aF` (navíc označí adresáře lomítkem `/` na konci)
 
         ### Úkol
         Nacházíte se v adresáři `level-3/hub`.
-        1. Použijte `ls -a` pro zobrazení všech položek.
-        2. Spočítejte, kolik je zde **skrytých adresářů** (začínají tečkou).
+        1. Použijte `ls -aF` pro zobrazení všech položek i jejich typů.
+        2. Spočítejte **skryté adresáře**: začínají tečkou a ve výpisu končí lomítkem.
         3. **Důležité:** Do počtu NEZAHRNUJTE speciální adresáře `.` (aktuální) a `..` (nadřazený).
 
         Odevzdejte počet nalezených skrytých adresářů (číslo).
@@ -59,32 +47,20 @@ class HiddenDirCountLevel(Level):
         Potřebujete pomoc? Napište: `shellgame hint`
         """
     hints = [
-        "Použijte 'ls -a' pro zobrazení skrytých položek.",
-        "Hledejte adresáře začínající tečkou (např. .beta).",
-        "Nepočítejte '.' a '..'.",
+        "Použijte 'ls -aF': -a zobrazí skryté položky, -F označí adresáře lomítkem.",
+        "Počítejte jen názvy začínající tečkou a končící lomítkem.",
+        "Nepočítejte './' ani '../'. Skryté soubory bez lomítka také vynechte.",
     ]
-    start_directory = "level-3/hub"
-    require_answer = True
-    validators = [IntegerValidator(2)]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_level3_common(workspace)
-        hub = workspace / "level-3" / "hub"
-        hub.mkdir(parents=True, exist_ok=True)
-
-        # Hidden directories
-        (hub / ".beta").mkdir(exist_ok=True)
-        (hub / ".gamma").mkdir(exist_ok=True)
-
-        # Hidden files (distraction)
-        (hub / ".config").write_text("")
-
-        # Visible items
-        (hub / "visible_dir").mkdir(exist_ok=True)
-        (hub / "visible_file.txt").write_text("")
+    start_directory = "hub"
+    fixture = WorkspaceFixture(
+        clean=("hub",),
+        directories=("hub/.beta", "hub/.gamma", "hub/visible_dir"),
+        files=(FileFixture("hub/.config"), FileFixture("hub/visible_file.txt")),
+    )
+    completion = Completion(answer=IntegerAnswer(2))
 
 
+@section.level(2)
 class HiddenFileReadLevel(Level):
     title = "Čtení skrytého souboru"
     instructions = """
@@ -105,21 +81,12 @@ class HiddenFileReadLevel(Level):
         "Příkaz 'cat' funguje i na skryté soubory - stačí zadat správný název včetně tečky.",
         "Zkuste: cat .secret_config",
     ]
-    start_directory = "level-3"
-    require_answer = True
-    expected_answer = "mode=stealth"
-    validators = [
-        # Keep strict match (no case folding) like before.
-        StringValidator("mode=stealth", case_sensitive=True),
-    ]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_level3_common(workspace)
-        level_dir = workspace / "level-3"
-        (level_dir / ".secret_config").write_text("mode=stealth\n")
+    start_directory = ""
+    fixture = WorkspaceFixture(files=(FileFixture(".secret_config", "mode=stealth\n"),))
+    completion = Completion(answer=ExactAnswer("mode=stealth"))
 
 
+@section.level(3)
 class HiddenVaultKeyLevel(Level):
     title = "Uvnitř skrytého adresáře"
     instructions = """
@@ -141,21 +108,12 @@ class HiddenVaultKeyLevel(Level):
         "Jděte do .vault pomocí 'cd .vault', pak přečtěte key.txt.",
     ]
     extension = True
-    start_directory = "level-3/hub"
-    require_answer = True
-    validators = [
-        # Previously: case_sensitive=False.
-        StringValidator("platinum", case_sensitive=False),
-    ]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_level3_common(workspace)
-        vault = workspace / "level-3" / "hub" / ".vault"
-        vault.mkdir(parents=True, exist_ok=True)
-        (vault / "key.txt").write_text("platinum\n")
+    start_directory = "hub"
+    fixture = WorkspaceFixture(files=(FileFixture("hub/.vault/key.txt", "platinum\n"),))
+    completion = Completion(answer=ExactAnswer("platinum", case_sensitive=False))
 
 
+@section.level(4)
 class HiddenBackupSuffixLevel(Level):
     title = "Skrytá záloha"
     instructions = """
@@ -176,21 +134,18 @@ class HiddenBackupSuffixLevel(Level):
         "Odevzdejte celý název včetně tečky na začátku.",
     ]
     optional = True
-    start_directory = "level-3/backup"
-    require_answer = True
-    validators = [StringValidator(".data.bak", case_sensitive=True)]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_level3_common(workspace)
-        backup = workspace / "level-3" / "backup"
-        backup.mkdir(parents=True, exist_ok=True)
-
-        (backup / ".config").write_text("")
-        (backup / ".data.bak").write_text("")
-        (backup / "normal.txt").write_text("")
+    start_directory = "backup"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("backup/.config"),
+            FileFixture("backup/.data.bak"),
+            FileFixture("backup/normal.txt"),
+        )
+    )
+    completion = Completion(answer=ExactAnswer(".data.bak"))
 
 
+@section.level(5)
 class HiddenFilesSummaryChallengeLevel(Level):
     title = "Souhrn Sekce 3"
     instructions = """
@@ -201,7 +156,7 @@ class HiddenFilesSummaryChallengeLevel(Level):
         ### Úkol
         V adresáři `level-3/final_test` jsou normální i skryté položky.
 
-        1. Spočítejte celkový počet **skrytých adresářů** (bez . a ..)
+        1. Pomocí `ls -aF` spočítejte **skryté adresáře** (tečka na začátku, lomítko na konci; bez ./ a ../)
         2. Najděte skrytý soubor `.secret_code`
         3. Přečtěte jeho obsah
         4. Odevzdejte: `<počet>,<obsah>` (např. `3,tajne123`)
@@ -209,6 +164,7 @@ class HiddenFilesSummaryChallengeLevel(Level):
         ### Shrnutí příkazů Sekce 3
         ```
         ls -a         → Zobrazí vše včetně skrytých
+        ls -aF        → Navíc označí adresáře lomítkem
         ls -la        → Detailní výpis všeho
         cat .soubor   → Přečíst skrytý soubor
         cd .adresar   → Vstoupit do skrytého adresáře
@@ -220,67 +176,46 @@ class HiddenFilesSummaryChallengeLevel(Level):
     hints = [
         "Skryté položky začínají tečkou. Použijte 'ls -la' pro zobrazení všeho včetně typů.",
         "Adresáře poznáte podle 'd' na začátku řádku v ls -l, nebo podle / na konci v ls -F.",
-        "Jsou tam 2 skryté adresáře. Kód v .secret_code je 'hidden_master'.",
+        "Řádky pro '.' a '..' nepočítejte. Obsah souboru zobrazíte pomocí 'cat .secret_code'.",
     ]
-    require_answer = True
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_level3_common(workspace)
-        test_dir = workspace / "level-3" / "final_test"
-        test_dir.mkdir(parents=True, exist_ok=True)
-
-        # Hidden directories (2)
-        (test_dir / ".hidden_dir1").mkdir(exist_ok=True)
-        (test_dir / ".hidden_dir2").mkdir(exist_ok=True)
-
-        # Hidden files
-        (test_dir / ".secret_code").write_text("hidden_master\n")
-        (test_dir / ".config").write_text("not this one\n")
-
-        # Normal items (distractions)
-        (test_dir / "visible_dir").mkdir(exist_ok=True)
-        (test_dir / "readme.txt").write_text("Look for hidden items!\n")
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:  # noqa: PLR0911
-        base_ok, base_msg = super().validate(answer, state)
-        if not base_ok:
-            return base_ok, base_msg
-
-        assert answer is not None  # ensured by require_answer + super().validate()
-        answer = answer.strip()
-
-        if "," not in answer:
-            return False, "Formát odpovědi je: počet,kód (např. 3,tajne123)"
-
-        parts = answer.split(",", 1)
-        try:
-            count = int(parts[0].strip())
-            code = parts[1].strip().lower()
-        except ValueError:
-            return False, "První část musí být číslo (počet skrytých adresářů)."
-
-        if count != 2:
-            if count == 4:
-                return False, "Počítáte i . a .. - ty nepočítejte, jsou speciální."
-            return (
-                False,
-                f"Počet skrytých adresářů není {count}. Zkontrolujte pomocí 'ls -la'.",
-            )
-
-        if code == "not this one":
-            return False, "To je obsah .config, ne .secret_code."
-        if code != "hidden_master":
-            return False, f"Kód '{code}' není správný. Přečtěte .secret_code."
-
-        return (
-            True,
-            "Výborně! Dokončili jste Sekci 3. Skryté soubory před vámi nic neskryjí!",
+    start_directory = "final_test"
+    fixture = WorkspaceFixture(
+        clean=("final_test",),
+        directories=("final_test/.hidden_dir1", "final_test/.hidden_dir2", "final_test/visible_dir"),
+        files=(
+            FileFixture("final_test/.secret_code", "hidden_master\n"),
+            FileFixture("final_test/.config", "not this one\n"),
+            FileFixture("final_test/.notes", "Poznámky nejsou adresář.\n"),
+            FileFixture("final_test/readme.txt", "Look for hidden items!\n"),
+        ),
+    )
+    completion = Completion(
+        answer=TupleAnswer(
+            (
+                IntegerAnswer(
+                    2,
+                    mistakes={4: "Možná počítáte i ./ a ../. Ty vynechte; počítejte jen skryté adresáře."},
+                    error_message=(
+                        "Počet skrytých adresářů není správně. Použijte 'ls -aF' a rozlište soubory a adresáře."
+                    ),
+                    invalid_message="První část musí být číslo (počet skrytých adresářů).",
+                ),
+                ExactAnswer(
+                    "hidden_master",
+                    case_sensitive=False,
+                    mistakes={"not this one": "To je obsah .config, ne .secret_code."},
+                    error_message="Kód není správný. Přečtěte .secret_code.",
+                ),
+            ),
+            format_message="Formát odpovědi je: počet,kód (např. 3,tajne123)",
         )
+    )
+    success_message = "Výborně! Dokončili jste Sekci 3. Skryté soubory před vámi nic neskryjí!"
 
 
+@section.level(6)
 class SelfReflectionCheckpointLevel(Level):
+    solution = Solution(answer="4")
     title = "Kontrolní bod: Sebehodnocení"
     instructions = """
         ### Čas na zamyšlení!
@@ -305,7 +240,7 @@ class SelfReflectionCheckpointLevel(Level):
 
         ### Odevzdání
         Odevzdejte číslo 1-5 podle vaší jistoty.
-        - Pokud je vaše hodnocení **1-2**, doporučujeme vrátit se k předchozím sekcím (`shellgame jump 1.0`)
+        - Pokud je vaše hodnocení **1-2**, projděte si znovu úvod předchozí sekce
         - Pokud je **3-5**, pokračujte dál!
 
         `shellgame submit <1-5>`
@@ -316,33 +251,29 @@ class SelfReflectionCheckpointLevel(Level):
         "Odevzdejte jakékoliv číslo od 1 do 5.",
     ]
     optional = True
-    require_answer = True
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        return
+    start_directory = WORKSPACE_ROOT
+    completion = Completion(
+        answer=IntegerRangeAnswer(
+            1,
+            5,
+            error_message="Hodnocení musí být od 1 do 5.",
+            invalid_message="Odevzdejte číslo od 1 do 5.",
+            required_message="Odevzdejte číslo od 1 do 5.",
+        ),
+    )
 
     @override
     def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        base_ok, base_msg = super().validate(answer, state)
-        if not base_ok:
-            return base_ok, base_msg
+        success, msg = super().validate(answer, state)
+        if not success or answer is None:
+            return success, msg
 
-        assert answer is not None  # ensured by require_answer + super().validate()
-
-        try:
-            rating = int(answer.strip())
-        except ValueError:
-            return False, "Odevzdejte číslo od 1 do 5."
-
-        if rating < 1 or rating > 5:
-            return False, "Hodnocení musí být od 1 do 5."
-
+        rating = int(answer.strip())
         if rating <= 2:
             return True, (
                 "Děkujeme za upřímnost! Doporučujeme vrátit se k "
-                "předchozím sekcím pomocí 'shellgame jump 1.0' nebo "
-                "'shellgame jump 2.0'. Opakování je matka moudrosti!"
+                "předchozím materiálům. Úvod sekce si zobrazíte například "
+                "příkazem 'shellgame repeat --section 1'."
             )
         if rating == 3:
             return True, (
@@ -352,15 +283,3 @@ class SelfReflectionCheckpointLevel(Level):
         return True, (
             "Skvělé! Máte solidní základy. Pokračujte na Sekci 4, kde se naučíte vytvářet a organizovat soubory!"
         )
-
-
-def get_levels() -> list[Level]:
-    return [
-        SectionIntroLevel(),
-        HiddenDirCountLevel(),
-        HiddenFileReadLevel(),
-        HiddenVaultKeyLevel(),
-        HiddenBackupSuffixLevel(),
-        HiddenFilesSummaryChallengeLevel(),
-        SelfReflectionCheckpointLevel(),
-    ]

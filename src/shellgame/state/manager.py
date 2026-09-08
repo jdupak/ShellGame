@@ -5,9 +5,22 @@ import os
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, Field, ValidationError
+
+CURRENT_STATE_VERSION = "2.0"
+
+
+class StatePersistenceError(RuntimeError):
+    """Base error for state loading and saving failures."""
+
+
+class StateLoadError(StatePersistenceError):
+    """Raised when an existing state file cannot be loaded safely."""
+
+
+class StateSaveError(StatePersistenceError):
+    """Raised when state cannot be written atomically."""
 
 
 class LevelCompletion(BaseModel):
@@ -18,7 +31,7 @@ class LevelCompletion(BaseModel):
 
 
 class GameState(BaseModel):
-    version: str = "1.0"
+    version: str = CURRENT_STATE_VERSION
     username: str
     workspace: Path
     current_level: str
@@ -30,25 +43,7 @@ class GameState(BaseModel):
     level_hints_used: dict[str, int] = Field(default_factory=dict)
     level_started_at: dict[str, datetime] = Field(default_factory=dict)
 
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-    )
-
-    @field_serializer("workspace")
-    def _serialize_workspace(self, v: Path) -> str:
-        return str(v)
-
-    @field_serializer("start_time")
-    def _serialize_start_time(self, v: datetime) -> str:
-        return v.isoformat()
-
-    @field_serializer("level_started_at")
-    def _serialize_level_started_at(self, v: dict[str, datetime]) -> dict[str, str]:
-        return {k: dt.isoformat() for k, dt in v.items()}
-
-    def model_dump_json(self, **kwargs) -> str:  # type: ignore
-        data = self.model_dump(mode="json")
-        return json.dumps(data, indent=2)
+    completed_at: datetime | None = None
 
 
 class StateManager:
@@ -60,39 +55,43 @@ class StateManager:
             self.state_dir = Path.home() / ".config" / "shellgame"
         self.state_file = self.state_dir / "state.json"
 
-    def load(self) -> Optional[GameState]:
+    def load(self) -> GameState | None:
         if not self.state_file.exists():
             return None
 
         try:
-            with open(self.state_file) as f:
+            with self.state_file.open(encoding="utf-8") as f:
                 data = json.load(f)
-
-            data["workspace"] = Path(data["workspace"])
-            data["start_time"] = datetime.fromisoformat(data["start_time"])
-
-            for level_data in data.get("levels_complete", {}).values():
-                level_data["completed_at"] = datetime.fromisoformat(level_data["completed_at"])
-
-            if "level_started_at" in data and isinstance(data["level_started_at"], dict):
-                data["level_started_at"] = {k: datetime.fromisoformat(v) for k, v in data["level_started_at"].items()}
-
-            return GameState(**data)
-        except (json.JSONDecodeError, KeyError, ValueError, TypeError) as e:
-            print(f"Varování: Poškozený soubor stavu. Chyba: {e}")
-            return None
+            return GameState.model_validate(self._migrate(data))
+        except (OSError, json.JSONDecodeError, ValidationError, TypeError, ValueError) as exc:
+            raise StateLoadError(f"Stav ShellGame nelze načíst z {self.state_file}: {exc}") from exc
 
     def save(self, state: GameState) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
+        tmp_path: Path | None = None
 
-        with tempfile.NamedTemporaryFile(mode="w", dir=self.state_dir, delete=False, suffix=".json") as tmp:
-            tmp.write(state.model_dump_json())
-            tmp_path = tmp.name
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.state_dir,
+                delete=False,
+                suffix=".json",
+            ) as tmp:
+                tmp_path = Path(tmp.name)
+                tmp.write(state.model_dump_json(indent=2))
+                tmp.flush()
+                os.fsync(tmp.fileno())
 
-        Path(tmp_path).rename(self.state_file)
+            os.replace(tmp_path, self.state_file)
+        except OSError as exc:
+            raise StateSaveError(f"Stav ShellGame nelze uložit do {self.state_file}: {exc}") from exc
+        finally:
+            if tmp_path is not None:
+                tmp_path.unlink(missing_ok=True)
 
-    def init(self, username: str, workspace_path: Optional[Path] = None) -> GameState:
-        workspace = workspace_path if workspace_path else Path(f"/tmp/shellgame-{username}")
+    def create(self, username: str, workspace_path: Path | None = None) -> GameState:
+        workspace = workspace_path if workspace_path else self.default_workspace(username)
         state = GameState(
             username=username,
             workspace=workspace,
@@ -100,15 +99,34 @@ class StateManager:
             start_time=datetime.now(),
         )
         state.level_started_at[state.current_level] = datetime.now()
+        return state
+
+    @staticmethod
+    def default_workspace(username: str) -> Path:
+        """The only place that derives a workspace path from a username."""
+        return Path(f"/tmp/shellgame-{username}")
+
+    def init(self, username: str, workspace_path: Path | None = None) -> GameState:
+        state = self.create(username, workspace_path)
         self.save(state)
         return state
 
     def exists(self) -> bool:
         return self.state_file.exists()
 
-    def delete(self) -> None:
-        if self.state_file.exists():
-            self.state_file.unlink()
-
     def remove(self) -> None:
-        self.delete()
+        self.state_file.unlink(missing_ok=True)
+
+    def _migrate(self, data: object) -> dict[str, object]:
+        if not isinstance(data, dict):
+            raise ValueError("Kořen souboru stavu musí být objekt.")
+
+        migrated = dict(data)
+        version = str(migrated.get("version", "1.0"))
+
+        if version == "1.0":
+            migrated["version"] = CURRENT_STATE_VERSION
+        elif version != CURRENT_STATE_VERSION:
+            raise ValueError(f"Nepodporovaná verze stavu: {version}")
+
+        return migrated

@@ -1,41 +1,28 @@
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
+
+from typing_extensions import override
 
 from shellgame.levels.base import Level
 from shellgame.levels.collector import Section
-from shellgame.protocols import GameStateProtocol
-from shellgame.validation.validators import (
-    IntegerValidator,
-    StringValidator,
-    ValidationResult,
-)
+from shellgame.levels.completion import Completion, ExactAnswer, IntegerAnswer, TupleAnswer
+from shellgame.levels.fixture import FileFixture, WorkspaceFixture
+from shellgame.levels.solution import Solution
 
-section = Section()
+section = Section(5, root="level-5")
 
 
-def _ensure_section_dir(workspace: Path) -> Path:
-    section_dir = workspace / "level-5"
-    section_dir.mkdir(parents=True, exist_ok=True)
-    return section_dir
-
-
-@section.level
+@section.level(0)
 class SectionIntroLevel(Level):
+    is_intro = True
     title = "Sekce 5: Zkoumání souborů"
     instructions_file = "section5_intro.md"
     hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
     success_message = "Jdeme na to!"
 
-    def setup(self, workspace: Path) -> None:
-        pass
 
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
-
-
-@section.level
+@section.level(1)
 class FileSizeInBytesLevel(Level):
     title = "Velikost souboru"
     instructions = """
@@ -50,27 +37,19 @@ class FileSizeInBytesLevel(Level):
 
         ## Odevzdání:
         Odevzdejte velikost souboru jako číslo.
-        `shellgame submit 12345`
+        `shellgame submit <bajty>`
         """
     hints = [
         "Příkaz 'ls -l' zobrazí podrobnosti o souborech. Který sloupec obsahuje velikost?",
         "Ve výstupu ls -l je velikost v bajtech - hledejte číslo před datem.",
         "Použijte 'ls -l database.db' a podívejte se na pátý sloupec.",
     ]
-    start_directory = "level-5/sizes"
-    require_answer = True
-    validators = [IntegerValidator(12345)]
-
-    def setup(self, workspace: Path) -> None:
-        _ensure_section_dir(workspace)
-        level_dir = workspace / "level-5" / "sizes"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        # Recreate deterministically
-        (level_dir / "database.db").write_bytes(b"x" * 12345)
+    start_directory = "sizes"
+    fixture = WorkspaceFixture(files=(FileFixture("sizes/database.db", b"x" * 12345),))
+    completion = Completion(answer=IntegerAnswer(12345))
 
 
-@section.level
+@section.level(2)
 class FindFileByExactSizeLevel(Level):
     title = "Hledání podle velikosti"
     instructions = """
@@ -87,28 +66,23 @@ class FindFileByExactSizeLevel(Level):
         `shellgame submit nazev_souboru`
         """
     hints = [
-        "Použijte 'ls -l' a hledejte číslo 1337.",
-        ("Ve výpisu hledejte řádek, kde je velikost přesně 1337 (pátý sloupec). Název souboru je na konci řádku."),
+        "Příkaz 'ls -l' zobrazuje podrobný výpis souborů včetně velikosti v bajtech v pátém sloupci.",
+        "Spusťte 'ls -l' a hledejte řádek, kde je velikost přesně 1337.",
+        "Název souboru je na konci příslušného řádku. Odevzdejte ho příkazem 'shellgame submit <soubor>'.",
     ]
-    start_directory = "level-5/search"
-    require_answer = True
-    validators = [StringValidator("target_file")]
-
-    def setup(self, workspace: Path) -> None:
-        _ensure_section_dir(workspace)
-        level_dir = workspace / "level-5" / "search"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        # Distractions
-        (level_dir / "file_a").write_bytes(b"x" * 1000)
-        (level_dir / "file_b").write_bytes(b"x" * 2000)
-        (level_dir / "file_c").write_bytes(b"x" * 1338)
-
-        # Target
-        (level_dir / "target_file").write_bytes(b"x" * 1337)
+    start_directory = "search"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("search/file_a", b"x" * 1000),
+            FileFixture("search/file_b", b"x" * 2000),
+            FileFixture("search/file_c", b"x" * 1338),
+            FileFixture("search/target_file", b"x" * 1337),
+        )
+    )
+    completion = Completion(answer=ExactAnswer("target_file"))
 
 
-@section.level
+@section.level(3)
 class IdentifyJpegAmongFilesLevel(Level):
     title = "Typ souboru"
     instructions = """
@@ -132,23 +106,20 @@ class IdentifyJpegAmongFilesLevel(Level):
         "Zkuste 'file *' nebo 'file file1 file2 file3'. Hledejte 'JPEG' ve výstupu.",
         "Použijte 'file *' a najděte soubor označený jako 'JPEG image data'.",
     ]
-    start_directory = "level-5/types"
-    require_answer = True
-    validators = [StringValidator("file3")]
-
-    def setup(self, workspace: Path) -> None:
-        _ensure_section_dir(workspace)
-        level_dir = workspace / "level-5" / "types"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        (level_dir / "file1").write_text("This is a text file.")
-        (level_dir / "file2").write_bytes(b"\x00\x01\x02\x03")
-        # Minimal JPEG header
-        (level_dir / "file3").write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIF")
+    start_directory = "types"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("types/file1", "This is a text file."),
+            FileFixture("types/file2", b"\x00\x01\x02\x03"),
+            FileFixture("types/file3", b"\xff\xd8\xff\xe0\x00\x10JFIF"),
+        )
+    )
+    completion = Completion(answer=ExactAnswer("file3"))
 
 
-@section.level
+@section.level(4)
 class FindCriticalCodeInLogLevel(Level):
+    solution = Solution(answer="42")
     title = "Prohlížení velkých souborů (less)"
     instructions = """
         Příkaz `cat` vypíše celý soubor najednou. U velkých souborů to není praktické!
@@ -182,15 +153,19 @@ class FindCriticalCodeInLogLevel(Level):
         "Nalezený řádek obsahuje číslo na konci. Přečtěte ho.",
         "Pozor: neodevzdáváte číslo řádku (v závorkách na začátku), ale kód na konci věty.",
     ]
-    start_directory = "level-5/logs"
-    require_answer = True
-    # We need custom feedback (not just IntegerValidator) due to common mistake "137".
+    start_directory = "logs"
+    completion = Completion(
+        answer=IntegerAnswer(
+            42,
+            mistakes={137: "137 je číslo řádku, ne kód na konci. Přečtěte celý CRITICAL řádek."},
+            error_message="Tohle není správný kód. Najděte řádek s 'CRITICAL' a přečtěte číslo na konci.",
+            invalid_message="Odpověď musí být číslo.",
+        )
+    )
+    success_message = "Správně! Less je nezbytný pro práci s velkými soubory."
 
+    @override
     def setup(self, workspace: Path) -> None:
-        _ensure_section_dir(workspace)
-        level_dir = workspace / "level-5" / "logs"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
         lines: list[str] = []
         for i in range(1, 201):
             if i == 137:
@@ -202,27 +177,10 @@ class FindCriticalCodeInLogLevel(Level):
             else:
                 lines.append(f"[{i:03d}] INFO: Normal operation")
 
-        (level_dir / "server.log").write_text("\n".join(lines) + "\n")
-
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        ok, msg = super().validate(answer, state)
-        if not ok:
-            return ok, msg
-
-        assert answer is not None
-        try:
-            num = int(answer.strip())
-        except ValueError:
-            return False, "Odpověď musí být číslo."
-
-        if num == 42:
-            return True, "Správně! Less je nezbytný pro práci s velkými soubory."
-        if num == 137:
-            return False, "137 je číslo řádku, ne kód na konci. Přečtěte celý CRITICAL řádek."
-        return False, "Tohle není správný kód. Najděte řádek s 'CRITICAL' a přečtěte číslo na konci."
+        FileFixture("logs/server.log", "\n".join(lines) + "\n").apply(self.section_path(workspace))
 
 
-@section.level
+@section.level(5)
 class FindFakeJpgLevel(Level):
     title = "Zamaskovaný soubor"
     instructions = """
@@ -239,23 +197,24 @@ class FindFakeJpgLevel(Level):
         Odevzdejte název falešného obrázku.
         `shellgame submit fake.jpg`
         """
-    hints = ["Použijte 'file *.jpg'.", "Hledejte ten, který je 'ASCII text'."]
+    hints = [
+        "Příkaz 'file' určí skutečný typ souboru bez ohledu na jeho příponu.",
+        "Spusťte 'file *.jpg' a prozkoumejte typy jednotlivých souborů.",
+        "Hledejte soubor, u kterého je uvedeno 'ASCII text'. Jeho název odevzdejte.",
+    ]
     extension = True
-    start_directory = "level-5/downloads"
-    require_answer = True
-    validators = [StringValidator("secret.jpg")]
-
-    def setup(self, workspace: Path) -> None:
-        _ensure_section_dir(workspace)
-        level_dir = workspace / "level-5" / "downloads"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        (level_dir / "photo1.jpg").write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIF")
-        (level_dir / "photo2.jpg").write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIF")
-        (level_dir / "secret.jpg").write_text("This is actually a text file.")
+    start_directory = "downloads"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("downloads/photo1.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF"),
+            FileFixture("downloads/photo2.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF"),
+            FileFixture("downloads/secret.jpg", "This is actually a text file."),
+        )
+    )
+    completion = Completion(answer=ExactAnswer("secret.jpg"))
 
 
-@section.level
+@section.level(6)
 class IdentifyPythonScriptLevel(Level):
     title = "Spustitelný skript"
     instructions = """
@@ -269,24 +228,25 @@ class IdentifyPythonScriptLevel(Level):
         Odevzdejte název skriptu.
         `shellgame submit script.py`
         """
-    hints = ["Použijte 'file *' v adresáři bin.", "Hledejte 'Python script'."]
+    hints = [
+        "Příkaz 'file *' vypíše typ pro všechny soubory v aktuálním adresáři.",
+        "Spusťte 'file *' a hledejte soubor, u kterého výstup uvádí 'Python script'.",
+        "Vypište si nalezený název Python skriptu a zadejte ho do 'shellgame submit <skript>'.",
+    ]
     optional = True
-    start_directory = "level-5/bin"
-    require_answer = True
-    validators = [StringValidator("calc.py")]
-
-    def setup(self, workspace: Path) -> None:
-        _ensure_section_dir(workspace)
-        level_dir = workspace / "level-5" / "bin"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        (level_dir / "readme.txt").write_text("Just text.")
-        (level_dir / "run.sh").write_text("#!/bin/bash\necho hello")
-        (level_dir / "calc.py").write_text("#!/usr/bin/env python3\nprint(1+1)\n")
-        (level_dir / "program").write_bytes(b"\x7fELF")
+    start_directory = "bin"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("bin/readme.txt", "Just text."),
+            FileFixture("bin/run.sh", "#!/bin/bash\necho hello"),
+            FileFixture("bin/calc.py", "#!/usr/bin/env python3\nprint(1+1)\n"),
+            FileFixture("bin/program", b"\x7fELF"),
+        )
+    )
+    completion = Completion(answer=ExactAnswer("calc.py"))
 
 
-@section.level
+@section.level(7)
 class FileDetectiveChallengeLevel(Level):
     title = "Souhrn Sekce 5"
     instructions = """
@@ -298,14 +258,14 @@ class FileDetectiveChallengeLevel(Level):
         V `level-5/mystery` je 5 souborů s podivnými názvy.
         Zjistěte typ každého a odpovězte na otázky:
 
-        1. Kolik je tam **textových** souborů (ASCII text)?
+        1. Kolik je tam **prostých textových** souborů (popis začíná `ASCII text`, bez skriptů)?
         2. Kolik je tam **obrázků** (image)?
         3. Jaký je název jediného **Python** skriptu (bez cesty)?
 
         ### Formát odpovědi
         `<text_count>,<image_count>,<script_name>`
 
-        Příklad: `2,1,mujskript.py`
+        Skript počítejte samostatně, i když jeho popis také obsahuje `ASCII text`.
 
         ### Shrnutí příkazů Sekce 5
         ```
@@ -319,66 +279,52 @@ class FileDetectiveChallengeLevel(Level):
         """
     hints = [
         "Použijte 'file *' k zobrazení typů všech souborů najednou.",
-        "Hledejte: 'ASCII text' pro textové, 'image' pro obrázky, 'Python' pro skripty.",
-        (
-            "Když si nejste jistí, počítejte jen podle klíčových slov ve výstupu 'file'. "
-            "Např. 'PNG image data' berte jako obrázek."
-        ),
+        "Pro prostý text hledejte popis začínající 'ASCII text'. Skripty do tohoto počtu nepatří.",
+        ("Popis s 'image' znamená obrázek. Popis s 'Python script' znamená Python skript, ne prostý text."),
     ]
-    require_answer = True
-
-    def setup(self, workspace: Path) -> None:
-        _ensure_section_dir(workspace)
-        mystery_dir = workspace / "level-5" / "mystery"
-
-        if mystery_dir.exists():
-            shutil.rmtree(mystery_dir)
-        mystery_dir.mkdir(parents=True, exist_ok=True)
-
-        # Text files (2)
-        (mystery_dir / "data.bin").write_text("This is just plain text.\n")
-        (mystery_dir / "notes.xyz").write_text("More text content.\n")
-
-        # Image file (1) - minimal PNG header
-        (mystery_dir / "config.txt").write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00")
-
-        # Python script (1) with misleading name
-        (mystery_dir / "analyzer.dat").write_text("#!/usr/bin/env python3\nimport sys\nprint('Hello')\n")
-
-        # Binary file (not counted)
-        (mystery_dir / "readme.doc").write_bytes(b"\x7fELF\x02\x01\x01")
-
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        ok, msg = super().validate(answer, state)
-        if not ok:
-            return ok, msg
-
-        assert answer is not None
-
-        success = False
-        message = "Formát: počet_textových,počet_obrázků,název_skriptu (např. 2,1,skript.py)"
-
-        parts = [p.strip() for p in answer.strip().split(",")]
-        if len(parts) == 3:
-            try:
-                text_count = int(parts[0])
-                img_count = int(parts[1])
-                script_name = parts[2].strip().lower()
-            except ValueError:
-                message = "První dvě hodnoty musí být čísla."
-            else:
-                if text_count != 2:
-                    message = "Počet textových souborů není správně. Hledejte 'ASCII text' ve výstupu 'file *'."
-                elif img_count != 1:
-                    message = "Počet obrázků není správně. Hledejte 'image' ve výstupu 'file *'."
-                elif script_name != "analyzer.dat":
-                    message = "Název Python skriptu není správně. Hledejte 'Python' ve výstupu 'file *'."
-                else:
-                    success = True
-                    message = "Skvělá detektivní práce! Dokončili jste Sekci 5. Příponám se už nedáte zmást!"
-
-        return success, message
-
-
-def get_levels() -> list[Level]:
-    return section.levels
+    start_directory = "mystery"
+    fixture = WorkspaceFixture(
+        clean=("mystery",),
+        files=(
+            FileFixture("mystery/data.bin", "This is just plain text.\n"),
+            FileFixture("mystery/notes.xyz", "More text content.\n"),
+            FileFixture(
+                "mystery/config.txt",
+                bytes.fromhex(
+                    "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de"
+                    "0000000c49444154789c63606060000000040001f61738550000000049454e44ae426082"
+                ),
+            ),
+            FileFixture(
+                "mystery/analyzer.dat",
+                "#!/usr/bin/env python3\nimport sys\nprint('Hello')\n",
+            ),
+            FileFixture("mystery/readme.doc", b"\x7fELF\x02\x01\x01"),
+        ),
+    )
+    completion = Completion(
+        answer=TupleAnswer(
+            (
+                IntegerAnswer(
+                    2,
+                    error_message=(
+                        "Počet prostých textových souborů není správně. "
+                        "Počítejte popisy začínající 'ASCII text', nikoli skripty."
+                    ),
+                    invalid_message="První dvě hodnoty musí být čísla.",
+                ),
+                IntegerAnswer(
+                    1,
+                    error_message="Počet obrázků není správně. Hledejte 'image' ve výstupu 'file *'.",
+                    invalid_message="První dvě hodnoty musí být čísla.",
+                ),
+                ExactAnswer(
+                    "analyzer.dat",
+                    case_sensitive=False,
+                    error_message="Název Python skriptu není správně. Hledejte 'Python' ve výstupu 'file *'.",
+                ),
+            ),
+            format_message="Formát: počet_textových,počet_obrázků,název_skriptu",
+        )
+    )
+    success_message = "Skvělá detektivní práce! Dokončili jste Sekci 5. Příponám se už nedáte zmást!"

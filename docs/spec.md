@@ -19,15 +19,19 @@ ShellGame is a local, single-binary, Linux terminal learning experience for firs
 ### 1.2 Core Commands
 | Command | Purpose |
 |---------|---------|
-| `shellgame init` | Initialize session (create workspace, state) |
+| `shellgame init` | Compatibility command; initialization normally happens automatically |
 | `shellgame` | Show current level instructions (or tutorial splash) |
 | `shellgame hint` | Show progressive hints (max 3 per level) |
-| `shellgame submit -f ANSWER` | Submit an answer derived from navigation / file inspection / creation |
+| `shellgame submit ANSWER` | Submit an answer derived from navigation / file inspection / creation |
 | `shellgame submit` | For state-based validations (location, existence of files) |
 | `shellgame reset` | Rebuild current level's directory structure |
 | `shellgame remove` | Delete state and workspace |
 | `shellgame status` | Show progress, time per level, hints used |
-| `shellgame leaderboard` | Optional local or remote display (non-critical) |
+| `shellgame hint --repeat` | Reprint already revealed hints without consuming a new one |
+| `shellgame skip` | Advance past a bonus (optional or extension) level |
+| `shellgame repeat` | Re-show a level or a section intro |
+| `shellgame show --level` / `--section` | Re-show the current level or the current section intro |
+| `shellgame exit` | Leave the ShellGame subshell |
 
 ### 1.3 Game Philosophy
 Answers (formerly “flags”) are natural discoveries: directory names, file contents, counts, sizes—never artificial tokens. Reinforces authentic terminal literacy.
@@ -52,15 +56,19 @@ Answers (formerly “flags”) are natural discoveries: directory names, file co
 
 ### 2.2 Workspace Example Layout
 ```
-/tmp/shellgame-$USER/
-├── level-1/
+$SHELLGAME_WORKSPACE/          (default: /tmp/shellgame-$USER)
+├── level-1/                   section root for section 1
+│   ├── alpha/
+│   ├── gamma/deep/a/b/c/
+│   └── maze/
 ├── level-2/
-├── nav-bootcamp/
-│   ├── absolute/
-│   ├── maze/
-│   └── r1/r2/r3/r4/
-└── advanced/
+├── ...
+└── level-11/
 ```
+
+One directory per section, named `level-<N>`, declared once as the section root.
+Every path a level declares is relative to that directory - see
+[AUTHORING.md](AUTHORING.md).
 
 ---
 
@@ -212,7 +220,7 @@ Task:
 3. Locate treasure.dat
 4. Read its first word and submit that word.
 
-Submit with: shellgame submit -f <word>
+Submit with: shellgame submit <word>
 Need help? Type: shellgame hint
 ══════════════════════════════════════════════════════
 ```
@@ -221,29 +229,17 @@ Need help? Type: shellgame hint
 
 ## 9. Directory Structure Examples for Navigation Tasks
 
+Navigation levels build their own structure from a declarative
+`WorkspaceFixture`, so the layout lives next to the level rather than in this
+document. Section 1 is the reference example:
+
 ```
-/tmp/shellgame-$USER/nav-bootcamp/
-├── absolute/
-│   ├── alpha/
-│   │   └── sample.txt
-│   └── notes/
-│       └── reminder.md
-├── r1/
-│   └── r2/
-│       └── r3/
-│           └── r4/
-├── nextstage/
-│   └── step1/
-│       └── complete.done
-├── maze/
-│   ├── north/
-│   │   └── east/
-│   │       └── treasure.dat  (contains: "gold coins")
-│   ├── south/
-│   └── west/
-└── longnames/
-    ├── super_secret_laboratory_experiment_42/
-    └── super_secret_laboratory_archive/
+level-1/
+├── alpha/                 1.3  enter a directory, read what is inside
+├── delta/                 1.2  pattern matching with `ls`
+├── gamma/deep/a/b/c/      1.6  multi-level ascent with one `cd ../../..`
+├── absolute-target/       1.8  jump by absolute path
+└── maze/00 .. maze/04     1.7  follow the GO_* markers to 04/final
 ```
 
 ---

@@ -5,6 +5,7 @@
 unset PROMPT_COMMAND
 set +o histexpand
 shopt -u checkwinsize 2>/dev/null || true
+shopt -s globasciiranges 2>/dev/null || true
 
 # `$binary_path` is injected by Python. It may contain spaces and/or multiple argv parts.
 # Store it as a bash argv array so we can execute it reliably (without fragile splitting).
@@ -13,28 +14,66 @@ eval "SHELLGAME_BINARY_ARR=($binary_path)"
 
 $dev_shortcuts
 
-# Internal eval function for protocol commands.
-# - Uses `builtin cd` to bypass user-facing cd hooks when the game needs to teleport.
-# - Handles `exit` explicitly to prevent any leaking of protocol marker lines on stdout/stderr.
+# Decode one base64-encoded protocol argument.
+__shellgame_decode() {
+    printf '%s' "$1" | base64 --decode
+}
+
+# Execute one closed protocol operation.
+# Uses `builtin cd` to bypass user-facing cd hooks when the game teleports.
 __shellgame_eval() {
-    local cmd="$1"
-    if [ "$cmd" = "cd" ]; then
-        shift
-        builtin cd "$@"
-    elif [ "$cmd" = "exit" ]; then
-        # Exit the wrapped subshell immediately.
-        builtin exit 0
-    else
-        eval "$@"
+    local stderr_file="$1"
+    shift
+    local version="${1:-}"
+    local command="${2:-}"
+
+    if [ "$version" != "v1" ]; then
+        return 2
     fi
+    shift 2
+
+    case "$command" in
+        cd)
+            [ "$#" -eq 1 ] || return 2
+            local destination
+            destination="$(__shellgame_decode "$1")" || return 2
+            builtin cd -- "$destination"
+            ;;
+        export)
+            [ "$#" -eq 2 ] || return 2
+            local name value
+            name="$(__shellgame_decode "$1")" || return 2
+            value="$(__shellgame_decode "$2")" || return 2
+            [[ "$name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || return 2
+            printf -v "$name" '%s' "$value"
+            export "$name"
+            ;;
+        echo)
+            [ "$#" -eq 1 ] || return 2
+            __shellgame_decode "$1"
+            printf '\n'
+            ;;
+        pwd)
+            [ "$#" -eq 0 ] || return 2
+            command pwd
+            ;;
+        exit)
+            [ "$#" -eq 0 ] || return 2
+            rm -f "$stderr_file"
+            builtin exit 0
+            ;;
+        *)
+            return 2
+            ;;
+    esac
 }
 
 pwd() {
     command pwd
-    # Record usage for game verification
-    local user_dir="/tmp/shellgame-$USER"
-    if [ -d "$user_dir" ]; then
-        touch "$user_dir/.pwd_used"
+    # Record usage for game verification.
+    # The workspace is only ever supplied by the game; never guess it.
+    if [ -n "${SHELLGAME_WORKSPACE:-}" ] && [ -d "$SHELLGAME_WORKSPACE" ]; then
+        touch "$SHELLGAME_WORKSPACE/.pwd_used"
     fi
 }
 
@@ -73,18 +112,12 @@ shellgame() {
             # Only treat lines that start with the marker as directives.
             # This prevents leaking protocol lines to the user.
             if [[ "$line" == __SHELLGAME_EXEC__* ]]; then
-                local shell_cmd="${line#__SHELLGAME_EXEC__}"
-
-                # Special-case exit: ensure we do not execute any cleanup below that could
-                # accidentally echo the directive, and exit immediately.
-                if [[ "$shell_cmd" == exit* ]]; then
-                    rm -f "$stderr_file"
-                    builtin exit 0
-                fi
-
-                # Use __shellgame_eval to bypass user-facing cd hooks for protocol commands.
-                # This allows the game to teleport even when cd hooks would reject the path.
-                __shellgame_eval $shell_cmd
+                local protocol_payload="${line#__SHELLGAME_EXEC__}"
+                # Intentional word splitting on the payload, but with globbing
+                # disabled so a payload can never expand against the filesystem.
+                set -f
+                __shellgame_eval "$stderr_file" $protocol_payload
+                set +f
             else
                 echo "$line" >&2
             fi
@@ -108,7 +141,7 @@ _shellgame_completions()
   local cur opts
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
-  opts="init hint submit status reset remove exit"
+  opts="init hint submit skip status reset repeat show remove exit"
 
   if [ $COMP_CWORD -eq 1 ]; then
     COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )

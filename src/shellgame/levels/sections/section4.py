@@ -2,47 +2,33 @@
 
 from __future__ import annotations
 
-import shutil
-from pathlib import Path
-
-from typing_extensions import override
-
 from shellgame.levels.base import Level
 from shellgame.levels.collector import Section
-from shellgame.protocols import GameStateProtocol
-from shellgame.validation.validators import (
-    DirectoryExistsValidator,
-    FileExistsValidator,
-    StringValidator,
-    ValidationResult,
+from shellgame.levels.completion import (
+    Completion,
+    DirectoryExists,
+    ExactAnswer,
+    FileExists,
 )
+from shellgame.levels.fixture import FileFixture, WorkspaceFixture
+from shellgame.levels.solution import RunShell, Solution
 
-section = Section()
-
-
-def _setup_section4_common(workspace: Path) -> None:
-    (workspace / "level-4").mkdir(parents=True, exist_ok=True)
+section = Section(4, root="level-4")
 
 
-@section.level
+@section.level(0)
 class SectionIntroLevel(Level):
+    is_intro = True
     title = "Sekce 4: Vytváření a mazání"
     instructions_file = "section4_intro.md"
     hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
     start_directory = None
     success_message = "Jdeme na to!"
 
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_section4_common(workspace)
 
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
-
-
-@section.level
+@section.level(1)
 class CreateFileLevel(Level):
+    solution = Solution(steps=(RunShell("touch novy_soubor.txt"),), answer="novy_soubor.txt")
     title = "Vytvoření souboru"
     instructions = """
         Příkaz `touch` slouží k vytvoření prázdného souboru (nebo aktualizaci času přístupu,
@@ -56,32 +42,27 @@ class CreateFileLevel(Level):
 
         ## Odevzdání
         Odevzdejte název vytvořeného souboru.
-        `shellgame submit -f novy_soubor.txt`
+        `shellgame submit novy_soubor.txt`
         """
     hints = [
         "Příkaz 'touch' vytvoří prázdný soubor. Jaký název má mít?",
         "Syntaxe je jednoduchá: touch název_souboru",
         "Použijte 'touch novy_soubor.txt' a pak ověřte pomocí 'ls'.",
     ]
-    start_directory = "level-4/creation"
-    require_answer = True
-    validators = [
-        StringValidator("novy_soubor.txt"),
-        FileExistsValidator("level-4/creation/novy_soubor.txt"),
-    ]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_section4_common(workspace)
-        (workspace / "level-4" / "creation").mkdir(parents=True, exist_ok=True)
-
-        target = workspace / "level-4" / "creation" / "novy_soubor.txt"
-        if target.exists():
-            target.unlink()
+    start_directory = "creation"
+    fixture = WorkspaceFixture(
+        directories=("creation",),
+        clean=("creation/novy_soubor.txt",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("novy_soubor.txt"),
+        requirements=(FileExists("creation/novy_soubor.txt"),),
+    )
 
 
-@section.level
+@section.level(2)
 class CreateDirectoryLevel(Level):
+    solution = Solution(steps=(RunShell("mkdir data"),), answer="data")
     title = "Vytvoření adresáře"
     instructions = """
         Příkaz `mkdir` (make directory) slouží k vytváření nových adresářů.
@@ -94,31 +75,27 @@ class CreateDirectoryLevel(Level):
 
         ## Odevzdání
         Odevzdejte název vytvořeného adresáře.
-        `shellgame submit -f data`
+        `shellgame submit data`
         """
     hints = [
-        "Použijte 'mkdir data'.",
-        "Ověřte pomocí 'ls -F' (adresáře mají lomítko).",
+        "Příkaz 'mkdir' slouží k vytvoření nového adresáře.",
+        "Spusťte 'mkdir data' pro vytvoření adresáře data.",
+        "Ověřte pomocí 'ls -F' (adresáře mají lomítko) a odevzdejte 'data'.",
     ]
-    start_directory = "level-4/creation"
-    require_answer = True
-    validators = [
-        StringValidator("data"),
-        DirectoryExistsValidator("level-4/creation/data"),
-    ]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_section4_common(workspace)
-        (workspace / "level-4" / "creation").mkdir(parents=True, exist_ok=True)
-
-        target = workspace / "level-4" / "creation" / "data"
-        if target.exists():
-            shutil.rmtree(target)
+    start_directory = "creation"
+    fixture = WorkspaceFixture(
+        directories=("creation",),
+        clean=("creation/data",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("data"),
+        requirements=(DirectoryExists("creation/data"),),
+    )
 
 
-@section.level
+@section.level(3)
 class NestedDirectoryCreationLevel(Level):
+    solution = Solution(steps=(RunShell("mkdir -p projekt/src/tests"),), answer="projekt/src/tests")
     title = "Vytváření zanořených adresářů"
     instructions = """
         Pokud chcete vytvořit celou cestu adresářů najednou (např. `projekt/src/main`),
@@ -135,32 +112,27 @@ class NestedDirectoryCreationLevel(Level):
 
         ## Odevzdání
         Odevzdejte celou cestu, kterou jste vytvořili.
-        `shellgame submit -f projekt/src/tests`
+        `shellgame submit projekt/src/tests`
         """
     hints = [
         "Co se stane, když zkusíte 'mkdir projekt/src/tests' bez přepínače -p?",
         "Přepínač -p (parents) vytvoří i všechny nadřazené adresáře, které chybí.",
         "Použijte 'mkdir -p projekt/src/tests'.",
     ]
-    start_directory = "level-4/nested"
-    require_answer = True
-    validators = [
-        StringValidator("projekt/src/tests"),
-        DirectoryExistsValidator("level-4/nested/projekt/src/tests"),
-    ]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_section4_common(workspace)
-        (workspace / "level-4" / "nested").mkdir(parents=True, exist_ok=True)
-
-        target = workspace / "level-4" / "nested" / "projekt"
-        if target.exists():
-            shutil.rmtree(target)
+    start_directory = "nested"
+    fixture = WorkspaceFixture(
+        directories=("nested",),
+        clean=("nested/projekt",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("projekt/src/tests"),
+        requirements=(DirectoryExists("nested/projekt/src/tests"),),
+    )
 
 
-@section.level
+@section.level(4)
 class DeleteFileLevel(Level):
+    solution = Solution(steps=(RunShell("rm stary_log.txt"),), answer="stary_log.txt")
     title = "Mazání souborů"
     instructions = """
         Příkaz `rm` (remove) slouží k mazání souborů.
@@ -180,30 +152,26 @@ class DeleteFileLevel(Level):
 
         ## Odevzdání
         Odevzdejte název smazaného souboru.
-        `shellgame submit -f stary_log.txt`
+        `shellgame submit stary_log.txt`
         """
     hints = [
         "Příkaz rm permanentně maže soubory. Jaký soubor máte smazat?",
         "Syntaxe je jednoduchá: rm název_souboru",
         "Použijte 'rm stary_log.txt'.",
     ]
-    start_directory = "level-4/cleanup"
-    require_answer = True
-    validators = [
-        StringValidator("stary_log.txt"),
-        FileExistsValidator("level-4/cleanup/stary_log.txt", should_exist=False),
-    ]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_section4_common(workspace)
-        cleanup_dir = workspace / "level-4" / "cleanup"
-        cleanup_dir.mkdir(parents=True, exist_ok=True)
-        (cleanup_dir / "stary_log.txt").write_text("old data")
+    start_directory = "cleanup"
+    fixture = WorkspaceFixture(
+        files=(FileFixture("cleanup/stary_log.txt", "old data"),),
+    )
+    completion = Completion(
+        answer=ExactAnswer("stary_log.txt"),
+        requirements=(FileExists("cleanup/stary_log.txt", should_exist=False),),
+    )
 
 
-@section.level
+@section.level(5)
 class DeleteDirectoryLevel(Level):
+    solution = Solution(steps=(RunShell("rm -r temp"),), answer="temp")
     title = "Mazání adresářů"
     instructions = """
         Pro mazání prázdných adresářů slouží příkaz `rmdir`.
@@ -220,30 +188,27 @@ class DeleteDirectoryLevel(Level):
 
         ## Odevzdání
         Odevzdejte název smazaného adresáře.
-        `shellgame submit -f temp`
+        `shellgame submit temp`
         """
     hints = [
         "Zkuste nejdřív 'rmdir temp'. Co se stane?",
         "Pokud adresář není prázdný, rmdir selže. Jaký přepínač potřebujete pro rekurzivní mazání?",
         "Použijte 'rm -r temp' pro smazání adresáře včetně obsahu.",
     ]
-    start_directory = "level-4/cleanup"
-    require_answer = True
-    validators = [
-        StringValidator("temp"),
-        DirectoryExistsValidator("level-4/cleanup/temp", should_exist=False),
-    ]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_section4_common(workspace)
-        temp_dir = workspace / "level-4" / "cleanup" / "temp"
-        temp_dir.mkdir(parents=True, exist_ok=True)
-        (temp_dir / "junk.txt").write_text("junk")
+    start_directory = "cleanup"
+    fixture = WorkspaceFixture(files=(FileFixture("cleanup/temp/junk.txt", "junk"),))
+    completion = Completion(
+        answer=ExactAnswer("temp"),
+        requirements=(DirectoryExists("cleanup/temp", should_exist=False),),
+    )
 
 
-@section.level
+@section.level(6)
 class ProjectScaffoldLevel(Level):
+    solution = Solution(
+        steps=(RunShell("mkdir -p web/css web/js && touch web/index.html web/css/style.css"),),
+        answer="web",
+    )
     title = "Příprava projektu"
     instructions = """
         ## Úkol
@@ -257,34 +222,31 @@ class ProjectScaffoldLevel(Level):
 
         ## Odevzdání
         Odevzdejte název kořenového adresáře projektu.
-        `shellgame submit -f web`
+        `shellgame submit web`
         """
     hints = [
         "Nejdřív vytvořte adresáře: 'mkdir -p web/css web/js'",
         "Pak vytvořte soubory: 'touch web/index.html web/css/style.css'",
     ]
     extension = True
-    start_directory = "level-4/project"
-    require_answer = True
-    validators = [
-        StringValidator("web"),
-        FileExistsValidator("level-4/project/web/index.html"),
-        FileExistsValidator("level-4/project/web/css/style.css"),
-        DirectoryExistsValidator("level-4/project/web/js"),
-    ]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_section4_common(workspace)
-        (workspace / "level-4" / "project").mkdir(parents=True, exist_ok=True)
-
-        target = workspace / "level-4" / "project" / "web"
-        if target.exists():
-            shutil.rmtree(target)
+    start_directory = "project"
+    fixture = WorkspaceFixture(
+        directories=("project",),
+        clean=("project/web",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("web"),
+        requirements=(
+            FileExists("project/web/index.html"),
+            FileExists("project/web/css/style.css"),
+            DirectoryExists("project/web/js"),
+        ),
+    )
 
 
-@section.level
+@section.level(7)
 class CleanupMultipleFilesLevel(Level):
+    solution = Solution(steps=(RunShell("rm error.log temp.dat junk.tmp"),), answer="mess")
     title = "Úklid nepořádku"
     instructions = """
         Někdy je potřeba smazat více souborů najednou. Příkaz `rm` přijímá více argumentů.
@@ -300,37 +262,44 @@ class CleanupMultipleFilesLevel(Level):
 
         ## Odevzdání
         Odevzdejte název adresáře, který jste vyčistili.
-        `shellgame submit -f mess`
+        `shellgame submit mess`
         """
     hints = [
-        "Použijte 'rm error.log temp.dat junk.tmp'",
-        "Nebo je smažte po jednom.",
+        "Příkaz 'rm' dokáže smazat více souborů najednou, stačí je uvést oddělené mezerami.",
+        "Spusťte 'rm error.log temp.dat junk.tmp' (nebo je smažte postupně po jednom).",
+        "Ověřte pomocí 'ls', že zbyly jen potřebné soubory, a odevzdejte 'mess'.",
     ]
     optional = True
-    start_directory = "level-4/mess"
-    require_answer = True
-    validators = [
-        StringValidator("mess"),
-        FileExistsValidator("level-4/mess/error.log", should_exist=False),
-        FileExistsValidator("level-4/mess/temp.dat", should_exist=False),
-        FileExistsValidator("level-4/mess/junk.tmp", should_exist=False),
-        FileExistsValidator("level-4/mess/keep_me.txt", should_exist=True),
-    ]
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_section4_common(workspace)
-        mess_dir = workspace / "level-4" / "mess"
-        mess_dir.mkdir(parents=True, exist_ok=True)
-
-        (mess_dir / "error.log").write_text("")
-        (mess_dir / "temp.dat").write_text("")
-        (mess_dir / "junk.tmp").write_text("")
-        (mess_dir / "keep_me.txt").write_text("important")
+    start_directory = "mess"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("mess/error.log"),
+            FileFixture("mess/temp.dat"),
+            FileFixture("mess/junk.tmp"),
+            FileFixture("mess/keep_me.txt", "important"),
+        )
+    )
+    completion = Completion(
+        answer=ExactAnswer("mess"),
+        requirements=(
+            FileExists("mess/error.log", should_exist=False),
+            FileExists("mess/temp.dat", should_exist=False),
+            FileExists("mess/junk.tmp", should_exist=False),
+            FileExists("mess/keep_me.txt"),
+        ),
+    )
 
 
-@section.level
+@section.level(8)
 class SectionChallengeLevel(Level):
+    solution = Solution(
+        steps=(
+            RunShell("mkdir -p myproject/src myproject/docs"),
+            RunShell("touch myproject/README.md"),
+            RunShell("rm delete_me.txt && rmdir empty_dir"),
+        ),
+        answer="builder",
+    )
     title = "Souhrn Sekce 4"
     instructions = """
         ### Výzva: Stavitel souborového systému
@@ -363,96 +332,44 @@ class SectionChallengeLevel(Level):
     hints = [
         "Postupujte krok za krokem. Začněte s 'mkdir -p myproject/src myproject/docs'.",
         "Pro soubor: 'touch myproject/README.md'. Pro mazání: 'rm delete_me.txt' a 'rmdir empty_dir'.",
-        "Zkontrolujte strukturu pomocí 'ls -R myproject' a pak odevzdejte 'builder'.",
+        "Zkontrolujte strukturu pomocí 'ls -R myproject' a pak odevzdejte heslo ze zadání.",
     ]
-    start_directory = "level-4/challenge"
-    require_answer = True
-
-    @override
-    def setup(self, workspace: Path) -> None:
-        _setup_section4_common(workspace)
-        challenge_dir = workspace / "level-4" / "challenge"
-
-        if challenge_dir.exists():
-            shutil.rmtree(challenge_dir)
-
-        challenge_dir.mkdir(parents=True, exist_ok=True)
-        (challenge_dir / "delete_me.txt").write_text("Delete this!\n")
-        (challenge_dir / "empty_dir").mkdir(exist_ok=True)
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:  # noqa: PLR0911
-        if answer is None:
-            return False, "Musíte zadat heslo."
-
-        cleaned = answer.strip().lower()
-        if cleaned != "builder":
-            return False, "Heslo není správné. Splňte úkol a odevzdejte: builder"
-
-        challenge = state.workspace / "level-4" / "challenge"
-
-        required = [
-            challenge / "myproject" / "src",
-            challenge / "myproject" / "docs",
-            challenge / "myproject" / "README.md",
-        ]
-        for path in required:
-            if not path.exists():
-                if "src" in str(path):
-                    return False, "Chybí adresář myproject/src. Použijte 'mkdir -p myproject/src'."
-                if "docs" in str(path):
-                    return False, "Chybí adresář myproject/docs."
-                return False, "Chybí soubor myproject/README.md. Použijte 'touch myproject/README.md'."
-
-        if (challenge / "delete_me.txt").exists():
-            return False, "Soubor delete_me.txt nebyl smazán. Použijte 'rm delete_me.txt'."
-
-        if (challenge / "empty_dir").exists():
-            return False, "Adresář empty_dir nebyl smazán. Použijte 'rmdir empty_dir'."
-
-        return True, "Brilantní! Dokončili jste Sekci 4. Umíte vytvářet i bourat!"
-
-
-# ---------------------------------------------------------------------------
-# Backwards-compatible class names (if other code/tests import by old names)
-# ---------------------------------------------------------------------------
-
-
-class Level4_0(SectionIntroLevel):
-    pass
-
-
-class Level4_1(CreateFileLevel):
-    pass
-
-
-class Level4_2(CreateDirectoryLevel):
-    pass
-
-
-class Level4_3(NestedDirectoryCreationLevel):
-    pass
-
-
-class Level4_4(DeleteFileLevel):
-    pass
-
-
-class Level4_5(DeleteDirectoryLevel):
-    pass
-
-
-class Level4_6(ProjectScaffoldLevel):
-    pass
-
-
-class Level4_7(CleanupMultipleFilesLevel):
-    pass
-
-
-class Level4_8(SectionChallengeLevel):
-    pass
-
-
-def get_levels() -> list[Level]:
-    return section.levels
+    start_directory = "challenge"
+    fixture = WorkspaceFixture(
+        directories=("challenge/empty_dir",),
+        files=(FileFixture("challenge/delete_me.txt", "Delete this!\n"),),
+        clean=("challenge",),
+    )
+    completion = Completion(
+        answer=ExactAnswer(
+            "builder",
+            case_sensitive=False,
+            error_message="Heslo není správné. Splňte nejdřív všechny body úkolu.",
+            required_message="Musíte zadat heslo.",
+        ),
+        requirements=(
+            DirectoryExists(
+                "challenge/myproject/src",
+                error_message="Chybí adresář myproject/src. Použijte 'mkdir -p myproject/src'.",
+            ),
+            DirectoryExists(
+                "challenge/myproject/docs",
+                error_message="Chybí adresář myproject/docs.",
+            ),
+            FileExists(
+                "challenge/myproject/README.md",
+                error_message="Chybí soubor myproject/README.md. Použijte 'touch myproject/README.md'.",
+            ),
+            FileExists(
+                "challenge/delete_me.txt",
+                should_exist=False,
+                error_message="Soubor delete_me.txt nebyl smazán. Použijte 'rm delete_me.txt'.",
+            ),
+            DirectoryExists(
+                "challenge/empty_dir",
+                should_exist=False,
+                error_message="Adresář empty_dir nebyl smazán. Použijte 'rmdir empty_dir'.",
+            ),
+        ),
+    )
+    success_message = "Brilantní! Dokončili jste Sekci 4. Umíte vytvářet i bourat!"

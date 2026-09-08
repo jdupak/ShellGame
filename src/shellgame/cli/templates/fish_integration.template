@@ -7,32 +7,61 @@
 set -gx SHELLGAME_BINARY $binary_path
 
 # Track whether we've already autostarted (to avoid double-start).
-set -gx SHELLGAME_AUTO_STARTED 0
+if not set -q SHELLGAME_AUTO_STARTED
+    set -gx SHELLGAME_AUTO_STARTED 0
+end
 
 $dev_shortcuts
 
-# Internal eval function for protocol commands.
-# - Uses `builtin cd` to bypass user-facing cd hooks when the game needs to teleport.
-# - Handles `exit` explicitly to avoid leaking protocol marker lines on remove/exit flows.
+# Decode one base64-encoded protocol argument.
+function __shellgame_decode
+    printf "%s" "$argv[1]" | command base64 --decode
+end
+
+# Execute one closed protocol operation.
+# Uses `builtin cd` to bypass user-facing cd hooks when the game teleports.
 function __shellgame_eval
-    # Split the command string into words
-    set -l words (string split " " -- $argv)
-    set -l cmd $words[1]
-    if test "$cmd" = "cd"
-        builtin cd $words[2..-1]
-    else if test "$cmd" = "exit"
+    set -l stderr_file "$argv[1]"
+    set -e argv[1]
+
+    if test (count $argv) -lt 2; or test "$argv[1]" != "v1"
+        return 2
+    end
+
+    set -l command_name "$argv[2]"
+
+    if test "$command_name" = "cd"; and test (count $argv) -eq 3
+        set -l destination (__shellgame_decode "$argv[3]")
+        or return 2
+        builtin cd -- "$destination"
+    else if test "$command_name" = "export"; and test (count $argv) -eq 4
+        set -l name (__shellgame_decode "$argv[3]")
+        or return 2
+        set -l value (__shellgame_decode "$argv[4]")
+        or return 2
+
+        string match -rq '^[A-Za-z_][A-Za-z0-9_]*$' -- "$name"
+        or return 2
+        set -gx $name "$value"
+    else if test "$command_name" = "echo"; and test (count $argv) -eq 3
+        __shellgame_decode "$argv[3]"
+        printf "\n"
+    else if test "$command_name" = "pwd"; and test (count $argv) -eq 2
+        command pwd
+    else if test "$command_name" = "exit"; and test (count $argv) -eq 2
+        rm -f "$stderr_file"
         exit 0
     else
-        eval $argv
+        return 2
     end
 end
 
 function pwd
     command pwd
-    # Record usage for game verification
-    set -l user_dir "/tmp/shellgame-$USER"
-    if test -d "$user_dir"
-        touch "$user_dir/.pwd_used"
+    # Record usage for game verification.
+    # The workspace is only ever supplied by the game; never guess it.
+    if test -n "$SHELLGAME_WORKSPACE" -a -d "$SHELLGAME_WORKSPACE"
+        touch "$SHELLGAME_WORKSPACE/.pwd_used"
     end
 end
 
@@ -73,17 +102,9 @@ function shellgame
             # - only lines starting exactly with __SHELLGAME_EXEC__
             # - shell command is the remainder of the line
             if string match -rq '^__SHELLGAME_EXEC__' -- "$line"
-                set shell_cmd (string replace -r '^__SHELLGAME_EXEC__' '' -- "$line")
-
-                # Special-case exit: stop processing immediately and exit the wrapped subshell.
-                if string match -rq '^exit(\s|$)' -- "$shell_cmd"
-                    rm -f $stderr_file
-                    exit 0
-                end
-
-                # Use __shellgame_eval to bypass user-facing cd hooks for protocol commands.
-                # This allows the game to teleport even when cd hooks would reject the path.
-                __shellgame_eval $shell_cmd
+                set protocol_payload (string replace -r '^__SHELLGAME_EXEC__' '' -- "$line")
+                set protocol_words (string split " " -- "$protocol_payload")
+                __shellgame_eval "$stderr_file" $protocol_words
             else
                 echo "$line" >&2
             end
@@ -111,7 +132,7 @@ function __fish_shellgame_needs_command
     return 1
 end
 
-complete -c shellgame -f -n "__fish_shellgame_needs_command" -a "init hint submit status reset remove exit"
+complete -c shellgame -f -n "__fish_shellgame_needs_command" -a "init hint submit skip status reset repeat show remove exit"
 
 # Autostart block (runs once when integration is sourced).
 # This must be at the end so the shellgame function is already defined.

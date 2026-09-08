@@ -214,7 +214,7 @@ Task:
 Example output: "image.jpg: ASCII text"
 You would submit: ASCII
 
-Submit with: shellgame submit -f <type-word>
+Submit with: shellgame submit <type-word>
 Need help? Type: shellgame hint
 ══════════════════════════════════════════════════════
 ```

@@ -1,38 +1,25 @@
 """Progress tracker for game state business logic."""
 
 from datetime import datetime
-from typing import Optional
 
-from shellgame.state.manager import GameState, LevelCompletion, StateManager
+from shellgame.state.manager import GameState, LevelCompletion
 
 
 class ProgressTracker:
-    def __init__(self, state_manager: StateManager):
-        self._state_manager = state_manager
-
     def record_attempt(self, state: GameState, level_id: str) -> None:
         state.level_attempts[level_id] = state.level_attempts.get(level_id, 0) + 1
-        self._state_manager.save(state)
 
-    def record_hint_used(self, state: GameState, level_id: str, count: int = 1) -> None:
-        if count <= 0:
-            return
-        state.level_hints_used[level_id] = state.level_hints_used.get(level_id, 0) + count
-        self._state_manager.save(state)
-
-    def ensure_level_started(
-        self, state: GameState, level_id: str, now: Optional[datetime] = None
-    ) -> None:
+    def ensure_level_started(self, state: GameState, level_id: str, now: datetime | None = None) -> bool:
         if level_id in state.level_started_at:
-            return
+            return False
         state.level_started_at[level_id] = now or datetime.now()
-        self._state_manager.save(state)
+        return True
 
     def record_completion(
         self,
         state: GameState,
         level_id: str,
-        completed_at: Optional[datetime] = None,
+        completed_at: datetime | None = None,
     ) -> LevelCompletion:
         completed_at = completed_at or datetime.now()
 
@@ -49,7 +36,6 @@ class ProgressTracker:
             completed_at=completed_at,
         )
         state.levels_complete[level_id] = completion
-        self._state_manager.save(state)
         return completion
 
     def get_hint_status(self, state: GameState, level_id: str, total_hints: int) -> int:
@@ -62,5 +48,4 @@ class ProgressTracker:
             return -1
 
         state.level_hints_used[level_id] = revealed + 1
-        self._state_manager.save(state)
         return revealed

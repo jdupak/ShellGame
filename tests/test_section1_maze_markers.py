@@ -22,7 +22,7 @@ def test_level1_7_each_dir_has_go_xor_warning(tmp_path: Path, monkeypatch: Any) 
     workspace.mkdir()
 
     level = MazeLevel()
-    level.setup(workspace)
+    level.prepare(workspace)
 
     maze_root = workspace / "level-1" / "maze"
     assert maze_root.is_dir()

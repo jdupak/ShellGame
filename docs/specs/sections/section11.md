@@ -327,7 +327,7 @@ Task:
 
 This searches ALL files recursively, including subdirectories.
 
-Submit with: shellgame submit -f <count>
+Submit with: shellgame submit <count>
 Need help? Type: shellgame hint
 ══════════════════════════════════════════════════════
 ```

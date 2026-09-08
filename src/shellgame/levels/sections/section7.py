@@ -1,41 +1,31 @@
 from __future__ import annotations
 
-import shutil
 import stat
-from pathlib import Path
-
-from typing_extensions import override
 
 from shellgame.levels.base import Level
 from shellgame.levels.collector import Section
-from shellgame.protocols import GameStateProtocol
-from shellgame.validation.validators import (
-    ExecutableValidator,
-    PermissionValidator,
-    StringValidator,
-    ValidationResult,
+from shellgame.levels.completion import (
+    Completion,
+    ExactAnswer,
+    PermissionBits,
+    PermissionMode,
 )
+from shellgame.levels.fixture import FileFixture, WorkspaceFixture
+from shellgame.levels.solution import RunShell, Solution
 
-section = Section()
+section = Section(7, root="level-7")
 
 
-@section.level
+@section.level(0)
 class SectionIntroLevel(Level):
+    is_intro = True
     title = "Sekce 7: Oprávnění"
     instructions_file = "section7_intro.md"
     hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
     success_message = "Jdeme na to!"
 
-    @override
-    def setup(self, workspace: Path) -> None:
-        pass
 
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        return super().validate(answer, state)
-
-
-@section.level
+@section.level(1)
 class FindExecutableLevel(Level):
     title = "Hledání spustitelného souboru"
     instructions = """
@@ -50,27 +40,31 @@ class FindExecutableLevel(Level):
 
         ## Odevzdání:
         Odevzdejte název spustitelného souboru.
-        `shellgame submit -f script.sh`
+        `shellgame submit <soubor>`
         """
-    hints = ["Použijte 'ls -l'.", "Hledejte 'x' v oprávněních (např. -rwxr-xr-x)."]
-    start_directory = "level-7/executables"
-    require_answer = True
-    validators = [StringValidator("script.sh")]
+    hints = [
+        "Podrobný výpis souborů včetně sloupců s oprávněními získáte přepínačem '-l'.",
+        "Spusťte 'ls -l' a hledejte písmeno 'x' (execute) v prvním sloupci oprávnění.",
+        "Hledejte skript s právy např. '-rwxr-xr-x' a jeho název zadejte do 'shellgame submit <soubor>'.",
+    ]
+    start_directory = "executables"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture("executables/test.sh", "#!/bin/bash", mode=0o644),
+            FileFixture("executables/data.sh", "#!/bin/bash", mode=0o644),
+            FileFixture(
+                "executables/script.sh",
+                "#!/bin/bash\necho Hi",
+                mode=0o755,
+            ),
+        )
+    )
+    completion = Completion(answer=ExactAnswer("script.sh"))
 
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-7" / "executables"
-        level_dir.mkdir(parents=True, exist_ok=True)
 
-        (level_dir / "test.sh").write_text("#!/bin/bash")
-        (level_dir / "data.sh").write_text("#!/bin/bash")
-
-        target = level_dir / "script.sh"
-        target.write_text("#!/bin/bash\necho Hi")
-        target.chmod(target.stat().st_mode | stat.S_IEXEC)
-
-
-@section.level
+@section.level(2)
 class MakeExecutableLevel(Level):
+    solution = Solution(steps=(RunShell("chmod u+x run_me.sh"),), answer="run_me.sh")
     title = "Nastavení spustitelnosti"
     instructions = """
         Aby šel skript spustit (např. `./script.sh`), musí mít nastavené právo `x`.
@@ -94,28 +88,30 @@ class MakeExecutableLevel(Level):
 
         ## Odevzdání:
         Odevzdejte název souboru.
-        `shellgame submit -f run_me.sh`
+        `shellgame submit run_me.sh`
         """
     hints = [
         "Právo 'x' (execute) je potřeba pro spuštění. Jak ho přidáte pro vlastníka (user)?",
         "Syntaxe chmod: chmod kdo+co soubor. 'u' = user, 'x' = execute.",
         "Použijte 'chmod u+x run_me.sh'.",
     ]
-    start_directory = "level-7/permissions"
-    require_answer = True
-    validators = [StringValidator("run_me.sh"), ExecutableValidator("level-7/permissions/run_me.sh")]
+    start_directory = "permissions"
+    fixture = WorkspaceFixture(files=(FileFixture("permissions/run_me.sh", "#!/bin/bash\necho Run me", mode=0o644),))
+    completion = Completion(
+        answer=ExactAnswer("run_me.sh"),
+        requirements=(
+            PermissionBits(
+                "permissions/run_me.sh",
+                required=stat.S_IXUSR,
+                error_message="Soubor stále není spustitelný pro vlastníka.",
+            ),
+        ),
+    )
 
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-7" / "permissions"
-        level_dir.mkdir(parents=True, exist_ok=True)
 
-        target = level_dir / "run_me.sh"
-        target.write_text("#!/bin/bash\necho Run me")
-        target.chmod(0o644)
-
-
-@section.level
+@section.level(3)
 class MakeReadOnlyLevel(Level):
+    solution = Solution(steps=(RunShell("chmod a-w config.readonly"),), answer="config.readonly")
     title = "Ochrana souboru"
     instructions = """
         Někdy chcete zabránit nechtěnému přepsání souboru. Můžete mu odebrat právo pro zápis (`w`).
@@ -125,46 +121,34 @@ class MakeReadOnlyLevel(Level):
 
         ## Příkazy:
         - `chmod a-w <soubor>`: Odeberte write pro all (všechny)
-        - Nebo `chmod -w <soubor>` (zkratka pro a-w)
+
+        Písmeno `a` nevynechávejte: bez něj výsledek ovlivňuje výchozí maska práv (`umask`).
 
         ## Odevzdání:
         Odevzdejte název souboru.
-        `shellgame submit -f config.readonly`
+        `shellgame submit config.readonly`
         """
-    hints = ["Použijte 'chmod -w config.readonly'.", "Tím odeberete právo zápisu."]
-    start_directory = "level-7/permissions"
-    require_answer = True
-    validators = [StringValidator("config.readonly")]
-
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-7" / "permissions"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        target = level_dir / "config.readonly"
-        target.write_text("Do not touch")
-        target.chmod(0o644)
-
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        ok, msg = super().validate(answer, state)
-        if not ok:
-            return ok, msg
-
-        target = state.workspace / "level-7" / "permissions" / "config.readonly"
-        if not target.exists():
-            return False, "Soubor neexistuje."
-
-        mode = target.stat().st_mode
-        if mode & stat.S_IWUSR:
-            return False, "Soubor má stále právo zápisu pro vlastníka."
-
-        if mode & (stat.S_IWGRP | stat.S_IWOTH):
-            return False, "Soubor má stále právo zápisu pro skupinu nebo ostatní."
-
-        return True, "Správně!"
+    hints = [
+        "'a' znamená all (všechny: vlastníka, skupinu i ostatní), '-w' odebírá právo zápisu.",
+        "Spusťte 'chmod a-w config.readonly'.",
+    ]
+    start_directory = "permissions"
+    fixture = WorkspaceFixture(files=(FileFixture("permissions/config.readonly", "Do not touch", mode=0o644),))
+    completion = Completion(
+        answer=ExactAnswer("config.readonly"),
+        requirements=(
+            PermissionBits(
+                "permissions/config.readonly",
+                forbidden=stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH,
+                error_message="Soubor má stále právo zápisu.",
+            ),
+        ),
+    )
 
 
-@section.level
+@section.level(4)
 class NumericPermissionsLevel(Level):
+    solution = Solution(steps=(RunShell("chmod 755 public_html"),), answer="public_html")
     title = "Číselný zápis"
     instructions = """
         Oprávnění lze nastavit i číselně (oktalově).
@@ -184,24 +168,26 @@ class NumericPermissionsLevel(Level):
 
         ## Odevzdání:
         Odevzdejte název souboru.
-        `shellgame submit -f public_html`
+        `shellgame submit public_html`
         """
-    hints = ["Použijte 'chmod 755 public_html'.", "7 = rwx, 5 = r-x."]
-    start_directory = "level-7/permissions"
-    require_answer = True
-    validators = [StringValidator("public_html"), PermissionValidator("level-7/permissions/public_html", "755")]
-
-    def setup(self, workspace: Path) -> None:
-        level_dir = workspace / "level-7" / "permissions"
-        level_dir.mkdir(parents=True, exist_ok=True)
-
-        target = level_dir / "public_html"
-        target.write_text("<html></html>")
-        target.chmod(0o600)
+    hints = [
+        "Oktalový zápis: 7 = 4+2+1 (rwx) pro vlastníka, 5 = 4+1 (r-x) pro skupinu a ostatní.",
+        "Spusťte 'chmod 755 public_html'.",
+    ]
+    start_directory = "permissions"
+    fixture = WorkspaceFixture(files=(FileFixture("permissions/public_html", "<html></html>", mode=0o600),))
+    completion = Completion(
+        answer=ExactAnswer("public_html"),
+        requirements=(PermissionMode("permissions/public_html", 0o755),),
+    )
 
 
-@section.level
+@section.level(5)
 class PermissionsChallengeLevel(Level):
+    solution = Solution(
+        steps=(RunShell("chmod u+x script.sh && chmod a-w secret.txt && chmod 644 shared.txt"),),
+        answer="guardian",
+    )
     title = "Souhrn Sekce 7"
     instructions = """
         ### Výzva: Strážce oprávnění
@@ -220,8 +206,8 @@ class PermissionsChallengeLevel(Level):
         ### Shrnutí příkazů Sekce 7
         ```
         ls -l            → Zobrazí oprávnění
-        chmod +x soubor  → Přidá právo spuštění
-        chmod -w soubor  → Odebere právo zápisu
+        chmod u+x soubor → Přidá vlastníkovi právo spuštění
+        chmod a-w soubor → Odebere všem právo zápisu
         chmod 755 soubor → Nastaví rwxr-xr-x
         chmod 644 soubor → Nastaví rw-r--r--
         ```
@@ -236,73 +222,43 @@ class PermissionsChallengeLevel(Level):
         `shellgame submit guardian`
         """
     hints = [
-        "Pro spustitelnost: 'chmod +x script.sh'. Pro pouze čtení: 'chmod 444 secret.txt' nebo 'chmod a-w secret.txt'.",
+        "Pro vlastníka: 'chmod u+x script.sh'. Pro pouze čtení: 'chmod 444 secret.txt' nebo 'chmod a-w secret.txt'.",
         "Pro 644: 'chmod 644 shared.txt'. Zkontrolujte pomocí 'ls -l'.",
         "script.sh musí mít 'x' pro vlastníka, secret.txt nesmí mít žádné 'w', shared.txt musí být rw-r--r--.",
     ]
-    require_answer = True
-    expected_answer = "guardian"
-
-    def setup(self, workspace: Path) -> None:
-        challenge_dir = workspace / "level-7" / "challenge"
-
-        if challenge_dir.exists():
-            shutil.rmtree(challenge_dir)
-
-        challenge_dir.mkdir(parents=True, exist_ok=True)
-
-        script = challenge_dir / "script.sh"
-        script.write_text("#!/bin/bash\necho 'Hello'\n")
-        script.chmod(0o600)
-
-        secret = challenge_dir / "secret.txt"
-        secret.write_text("Top secret!\n")
-        secret.chmod(0o666)
-
-        shared = challenge_dir / "shared.txt"
-        shared.write_text("Shared content\n")
-        shared.chmod(0o777)
-
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        ok, msg = super().validate(answer, state)
-        if not ok:
-            return ok, msg
-
-        challenge_dir = state.workspace / "level-7" / "challenge"
-
-        error: str | None = None
-
-        script = challenge_dir / "script.sh"
-        if not script.exists():
-            error = "Chybí soubor script.sh."
-        elif not (script.stat().st_mode & stat.S_IXUSR):
-            error = "script.sh není spustitelný. Použijte 'chmod +x script.sh'."
-
-        if error is None:
-            secret = challenge_dir / "secret.txt"
-            if not secret.exists():
-                error = "Chybí soubor secret.txt."
-            else:
-                mode = secret.stat().st_mode
-                if mode & (stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH):
-                    error = (
-                        "secret.txt má stále právo zápisu. Použijte 'chmod a-w secret.txt' nebo 'chmod 444 secret.txt'."
-                    )
-
-        if error is None:
-            shared = challenge_dir / "shared.txt"
-            if not shared.exists():
-                error = "Chybí soubor shared.txt."
-            else:
-                actual = shared.stat().st_mode & 0o777
-                if actual != 0o644:
-                    error = f"shared.txt nemá oprávnění 644. Aktuální: {oct(actual)}. Použijte 'chmod 644 shared.txt'."
-
-        if error is not None:
-            return False, error
-
-        return True, "Výborně! Dokončili jste Sekci 7. Oprávnění vám jsou jasná jako den!"
-
-
-def get_levels() -> list[Level]:
-    return section.levels
+    start_directory = "challenge"
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture(
+                "challenge/script.sh",
+                "#!/bin/bash\necho 'Hello'\n",
+                mode=0o600,
+            ),
+            FileFixture("challenge/secret.txt", "Top secret!\n", mode=0o666),
+            FileFixture("challenge/shared.txt", "Shared content\n", mode=0o777),
+        ),
+        clean=("challenge",),
+    )
+    completion = Completion(
+        answer=ExactAnswer("guardian"),
+        requirements=(
+            PermissionBits(
+                "challenge/script.sh",
+                required=stat.S_IXUSR,
+                error_message="script.sh není spustitelný. Použijte 'chmod u+x script.sh'.",
+            ),
+            PermissionBits(
+                "challenge/secret.txt",
+                forbidden=stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH,
+                error_message=(
+                    "secret.txt má stále právo zápisu. Použijte 'chmod a-w secret.txt' nebo 'chmod 444 secret.txt'."
+                ),
+            ),
+            PermissionMode(
+                "challenge/shared.txt",
+                0o644,
+                error_message="shared.txt nemá oprávnění 644. Použijte 'chmod 644 shared.txt'.",
+            ),
+        ),
+    )
+    success_message = "Výborně! Dokončili jste Sekci 7. Oprávnění vám jsou jasná jako den!"

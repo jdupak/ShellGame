@@ -1,350 +1,48 @@
-"""Tests for cd hook behavior in both bash and fish.
+"""Tests for the generated `cd` hook dispatch.
 
-These tests verify that the cd hooks for levels 1.8 (absolute path) and 1.9 (step-by-step)
-work consistently across both shell implementations.
+The wrapper body is identical for every hooked level, so what matters is that
+both shells dispatch the same set of levels into it and that the body is emitted
+only once.
 """
-
-import os
-import shutil
-import subprocess
-from pathlib import Path
 
 import pytest
 
 from shellgame.cli.hooks import (
-    generate_bash_cd_hook,
-    generate_fish_cd_hook,
+    generate_bash_cd_hooks,
+    generate_fish_cd_hooks,
+    get_cd_hooked_levels,
 )
 
 
 class TestCdHookGeneration:
-    """Test that cd hooks are generated correctly."""
+    """The shipped dispatch must cover exactly the levels that declare a hook."""
 
-    def test_level_1_8_has_bash_hook(self) -> None:
-        hook = generate_bash_cd_hook("1.8")
-        assert hook, "Level 1.8 should have a bash cd hook"
-        assert "shellgame cd-hook" in hook
+    @pytest.mark.parametrize("level_id", ["1.8", "1.9"])
+    def test_hooked_levels_are_dispatched_in_both_shells(self, level_id: str) -> None:
+        assert level_id in get_cd_hooked_levels()
+        assert f'"{level_id}"' in _bash_patterns()
+        assert f'"{level_id}"' in _fish_patterns()
 
-    def test_level_1_8_has_fish_hook(self) -> None:
-        hook = generate_fish_cd_hook("1.8")
-        assert hook, "Level 1.8 should have a fish cd hook"
-        assert "shellgame cd-hook" in hook
+    @pytest.mark.parametrize("level_id", ["1.1", "2.0"])
+    def test_unhooked_levels_fall_through_to_builtin_cd(self, level_id: str) -> None:
+        assert level_id not in get_cd_hooked_levels()
+        assert f'"{level_id}"' not in _bash_patterns()
+        assert f'"{level_id}"' not in _fish_patterns()
 
-    def test_level_1_9_has_bash_hook(self) -> None:
-        hook = generate_bash_cd_hook("1.9")
-        assert hook, "Level 1.9 should have a bash cd hook"
-        assert "shellgame cd-hook" in hook
-
-    def test_level_1_9_has_fish_hook(self) -> None:
-        hook = generate_fish_cd_hook("1.9")
-        assert hook, "Level 1.9 should have a fish cd hook"
-        assert "shellgame cd-hook" in hook
-
-    def test_non_hooked_level_returns_empty(self) -> None:
-        assert generate_bash_cd_hook("1.1") == ""
-        assert generate_fish_cd_hook("1.1") == ""
-        assert generate_bash_cd_hook("2.0") == ""
-        assert generate_fish_cd_hook("2.0") == ""
+    def test_the_wrapper_body_is_emitted_once(self) -> None:
+        """One shared body; adding a hooked level must not grow the script."""
+        assert generate_bash_cd_hooks().count("shellgame cd-hook --post-move") == 1
+        assert generate_fish_cd_hooks().count("shellgame cd-hook --post-move") == 1
 
 
-@pytest.mark.skip(reason="Requires shellgame binary in PATH")
-class TestLevel18CdHookBehavior:
-    """Test level 1.8 cd hook: requires absolute paths."""
-
-    @pytest.fixture
-    def workspace(self, tmp_path: Path) -> Path:
-        """Create a mock workspace with the absolute-target directory."""
-        ws = tmp_path / "shellgame-workspace"
-        target = ws / "level-1" / "absolute-target"
-        target.mkdir(parents=True)
-        return ws
-
-    @pytest.mark.skipif(not shutil.which("bash"), reason="bash not installed")
-    def test_bash_1_8_rejects_empty_cd(self, workspace: Path, tmp_path: Path) -> None:
-        hook = generate_bash_cd_hook("1.8")
-        script = tmp_path / "test.bash"
-        script.write_text(f"""
-export SHELLGAME_WORKSPACE="{workspace}"
-{hook}
-cd 2>&1
-echo "exit:$?"
-""")
-        result = subprocess.run(
-            ["bash", "--noprofile", "--norc", str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        assert "exit:1" in result.stdout
-        assert "absolutní" in result.stdout.lower() or "absolute" in result.stdout.lower()
-
-    @pytest.mark.skipif(not shutil.which("fish"), reason="fish not installed")
-    def test_fish_1_8_rejects_empty_cd(self, workspace: Path, tmp_path: Path) -> None:
-        hook = generate_fish_cd_hook("1.8")
-        script = tmp_path / "test.fish"
-        script.write_text(f"""
-set -gx SHELLGAME_WORKSPACE "{workspace}"
-{hook}
-cd 2>&1
-echo "exit:$status"
-""")
-        result = subprocess.run(
-            ["fish", "--no-config", str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        assert "exit:1" in result.stdout
-        assert "absolutní" in result.stdout.lower() or "absolute" in result.stdout.lower()
-
-    @pytest.mark.skipif(not shutil.which("bash"), reason="bash not installed")
-    def test_bash_1_8_rejects_relative_path(self, workspace: Path, tmp_path: Path) -> None:
-        hook = generate_bash_cd_hook("1.8")
-        script = tmp_path / "test.bash"
-        script.write_text(f"""
-export SHELLGAME_WORKSPACE="{workspace}"
-{hook}
-cd level-1 2>&1
-echo "exit:$?"
-""")
-        result = subprocess.run(
-            ["bash", "--noprofile", "--norc", str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-            cwd=str(workspace),
-        )
-        assert "exit:1" in result.stdout
-
-    @pytest.mark.skipif(not shutil.which("fish"), reason="fish not installed")
-    def test_fish_1_8_rejects_relative_path(self, workspace: Path, tmp_path: Path) -> None:
-        hook = generate_fish_cd_hook("1.8")
-        script = tmp_path / "test.fish"
-        script.write_text(f"""
-set -gx SHELLGAME_WORKSPACE "{workspace}"
-{hook}
-cd level-1 2>&1
-echo "exit:$status"
-""")
-        result = subprocess.run(
-            ["fish", "--no-config", str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-            cwd=str(workspace),
-        )
-        assert "exit:1" in result.stdout
-
-    @pytest.mark.skipif(not shutil.which("bash"), reason="bash not installed")
-    def test_bash_1_8_accepts_absolute_path(self, workspace: Path, tmp_path: Path) -> None:
-        target = workspace / "level-1" / "absolute-target"
-        hook = generate_bash_cd_hook("1.8")
-        script = tmp_path / "test.bash"
-        script.write_text(f"""
-export SHELLGAME_WORKSPACE="{workspace}"
-{hook}
-cd "{target}" 2>&1
-echo "exit:$?"
-echo "pwd:$(pwd)"
-""")
-        result = subprocess.run(
-            ["bash", "--noprofile", "--norc", str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        assert "exit:0" in result.stdout
-        assert f"pwd:{target}" in result.stdout
-
-    @pytest.mark.skipif(not shutil.which("fish"), reason="fish not installed")
-    def test_fish_1_8_accepts_absolute_path(self, workspace: Path, tmp_path: Path) -> None:
-        target = workspace / "level-1" / "absolute-target"
-        hook = generate_fish_cd_hook("1.8")
-        script = tmp_path / "test.fish"
-        script.write_text(f"""
-set -gx SHELLGAME_WORKSPACE "{workspace}"
-{hook}
-cd "{target}" 2>&1
-echo "exit:$status"
-echo "pwd:"(pwd)
-""")
-        result = subprocess.run(
-            ["fish", "--no-config", str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        assert "exit:0" in result.stdout
-        assert f"pwd:{target}" in result.stdout
+def _bash_patterns() -> str:
+    return next(
+        line
+        for line in generate_bash_cd_hooks().splitlines()
+        if line.strip().startswith('"') and line.strip().endswith(")")
+    )
 
 
-@pytest.mark.skip(reason="Requires shellgame binary in PATH")
-class TestLevel19CdHookBehavior:
-    """Test level 1.9 cd hook: requires step-by-step navigation."""
-
-    @pytest.fixture
-    def user_dir(self, tmp_path: Path) -> Path:
-        """Create a fake user directory for testing."""
-        user = os.environ.get("USER", "test")
-        user_dir = tmp_path / f"shellgame-{user}"
-        user_dir.mkdir()
-        return user_dir
-
-    @pytest.mark.skipif(not shutil.which("bash"), reason="bash not installed")
-    def test_bash_1_9_rejects_empty_cd(self, tmp_path: Path, user_dir: Path) -> None:
-        hook = generate_bash_cd_hook("1.9")
-        # Replace /tmp/shellgame-$USER with our test dir
-        hook = hook.replace("/tmp/shellgame-$USER", str(user_dir))
-        script = tmp_path / "test.bash"
-        script.write_text(f"""
-export HOME="{tmp_path / "home" / "user"}"
-{hook}
-cd 2>&1
-echo "exit:$?"
-""")
-        (tmp_path / "home" / "user").mkdir(parents=True)
-        result = subprocess.run(
-            ["bash", "--noprofile", "--norc", str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        assert "exit:1" in result.stdout
-
-    @pytest.mark.skipif(not shutil.which("fish"), reason="fish not installed")
-    def test_fish_1_9_rejects_empty_cd(self, tmp_path: Path, user_dir: Path) -> None:
-        hook = generate_fish_cd_hook("1.9")
-        hook = hook.replace("/tmp/shellgame-$USER", str(user_dir))
-        script = tmp_path / "test.fish"
-        script.write_text(f"""
-set -gx HOME "{tmp_path / "home" / "user"}"
-{hook}
-cd 2>&1
-echo "exit:$status"
-""")
-        (tmp_path / "home" / "user").mkdir(parents=True)
-        result = subprocess.run(
-            ["fish", "--no-config", str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        assert "exit:1" in result.stdout
-
-    @pytest.mark.skipif(not shutil.which("bash"), reason="bash not installed")
-    def test_bash_1_9_rejects_literal_tilde(self, tmp_path: Path, user_dir: Path) -> None:
-        """Test that literal '~' string is rejected."""
-        hook = generate_bash_cd_hook("1.9")
-        hook = hook.replace("/tmp/shellgame-$USER", str(user_dir))
-        script = tmp_path / "test.bash"
-        # Use single quotes to prevent expansion - tests the hook's literal tilde detection
-        script.write_text(f"""
-export HOME="{tmp_path / "home" / "user"}"
-{hook}
-builtin cd /  # Start at root
-cd '~' 2>&1
-echo "exit:$?"
-""")
-        (tmp_path / "home" / "user").mkdir(parents=True)
-        result = subprocess.run(
-            ["bash", "--noprofile", "--norc", str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        assert "exit:1" in result.stdout
-        assert "~" in result.stdout or "zkratky" in result.stdout.lower()
-
-    @pytest.mark.skipif(not shutil.which("bash"), reason="bash not installed")
-    def test_bash_1_9_rejects_expanded_tilde(self, tmp_path: Path, user_dir: Path) -> None:
-        """Test that expanded ~ (which becomes $HOME path) is rejected."""
-        hook = generate_bash_cd_hook("1.9")
-        hook = hook.replace("/tmp/shellgame-$USER", str(user_dir))
-        home_dir = tmp_path / "home" / "user"
-        home_dir.mkdir(parents=True)
-        script = tmp_path / "test.bash"
-        # Without quotes, bash expands ~ to $HOME before the function is called
-        script.write_text(f"""
-export HOME="{home_dir}"
-{hook}
-builtin cd /  # Start at root
-cd ~ 2>&1
-echo "exit:$?"
-""")
-        result = subprocess.run(
-            ["bash", "--noprofile", "--norc", str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        assert "exit:1" in result.stdout
-        # Should show the tilde message, not the generic absolute path message
-        assert "~" in result.stdout or "zkratky" in result.stdout.lower()
-
-    @pytest.mark.skipif(not shutil.which("fish"), reason="fish not installed")
-    def test_fish_1_9_rejects_tilde(self, tmp_path: Path, user_dir: Path) -> None:
-        hook = generate_fish_cd_hook("1.9")
-        hook = hook.replace("/tmp/shellgame-$USER", str(user_dir))
-        script = tmp_path / "test.fish"
-        script.write_text(f"""
-set -gx HOME "{tmp_path / "home" / "user"}"
-{hook}
-builtin cd /
-cd "~" 2>&1
-echo "exit:$status"
-""")
-        (tmp_path / "home" / "user").mkdir(parents=True)
-        result = subprocess.run(
-            ["fish", "--no-config", str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        assert "exit:1" in result.stdout
-
-    @pytest.mark.skipif(not shutil.which("bash"), reason="bash not installed")
-    def test_bash_1_9_accepts_cd_to_root(self, tmp_path: Path, user_dir: Path) -> None:
-        hook = generate_bash_cd_hook("1.9")
-        hook = hook.replace("/tmp/shellgame-$USER", str(user_dir))
-        script = tmp_path / "test.bash"
-        script.write_text(f"""
-export HOME="{tmp_path / "home" / "user"}"
-{hook}
-cd / 2>&1
-echo "exit:$?"
-echo "pwd:$(pwd)"
-""")
-        (tmp_path / "home" / "user").mkdir(parents=True)
-        result = subprocess.run(
-            ["bash", "--noprofile", "--norc", str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        assert "exit:0" in result.stdout
-        assert "pwd:/" in result.stdout
-
-    @pytest.mark.skipif(not shutil.which("fish"), reason="fish not installed")
-    def test_fish_1_9_accepts_cd_to_root(self, tmp_path: Path, user_dir: Path) -> None:
-        hook = generate_fish_cd_hook("1.9")
-        hook = hook.replace("/tmp/shellgame-$USER", str(user_dir))
-        script = tmp_path / "test.fish"
-        script.write_text(f"""
-set -gx HOME "{tmp_path / "home" / "user"}"
-{hook}
-cd / 2>&1
-echo "exit:$status"
-echo "pwd:"(pwd)
-""")
-        (tmp_path / "home" / "user").mkdir(parents=True)
-        result = subprocess.run(
-            ["fish", "--no-config", str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        assert "exit:0" in result.stdout
-        assert "pwd:/" in result.stdout
-
-
-
+def _fish_patterns() -> str:
+    line = next(line for line in generate_fish_cd_hooks().splitlines() if line.strip().startswith('case "'))
+    return line
