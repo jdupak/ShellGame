@@ -247,7 +247,13 @@ class DevNullLevel(Level):
 
 @section.level(5)
 class StreamsChallengeLevel(Level):
-    solution = Solution(steps=(RunShell("./mixed.sh > output.log 2> errors.log"),), answer="2,3")
+    solution = Solution(
+        steps=(
+            RunShell("./mixed.sh 2> errors.log"),
+            RunShell("./mixed.sh > output.log"),
+        ),
+        answer="2,3",
+    )
     title = "Souhrn Sekce 9"
     instructions = """
         ### Výzva: Mistr streamů
@@ -278,9 +284,9 @@ class StreamsChallengeLevel(Level):
         `shellgame submit <chyby>,<výstup>`
         """
     hints = [
-        "Pro zachycení chyb: './mixed.sh 2> errors.log'. Pro normální výstup: './mixed.sh > output.log'.",
-        "Počet řádků zjistíte pomocí 'wc -l errors.log output.log' nebo 'cat errors.log | wc -l'.",
-        "Každý běh skriptu zapisuje do jiného souboru. Spočítejte řádky v každém z nich zvlášť.",
+        "Chyby se zapisují na chybový výstup (stderr, descriptor 2), standardní výstup na stdout (descriptor 1).",
+        "Spusťte './mixed.sh 2> errors.log' pro uložení chyb a './mixed.sh > output.log' pro běžný výstup.",
+        "Počet řádků spočítejte pomocí 'wc -l errors.log output.log' a odevzdejte dvě čísla oddělená čárkou.",
     ]
     start_directory = "challenge"
     fixture = WorkspaceFixture(

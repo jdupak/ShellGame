@@ -147,6 +147,7 @@ class HiddenBackupSuffixLevel(Level):
 
 @section.level(5)
 class HiddenFilesSummaryChallengeLevel(Level):
+    solution = Solution(answer="2,hidden_master")
     title = "Souhrn Sekce 3"
     instructions = """
         ### Výzva: Mistři skrytých souborů

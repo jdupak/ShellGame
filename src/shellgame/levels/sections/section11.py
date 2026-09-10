@@ -218,7 +218,7 @@ class FindLostFilePathLevel(Level):
 
 @section.level(5)
 class FindPythonFilesToListLevel(Level):
-    solution = Solution(steps=(RunShell("ls src_code/*.py > python_files.txt"),), answer="python_files.txt")
+    solution = Solution(steps=(RunShell('find src_code -name "*.py" > python_files.txt'),), answer="python_files.txt")
     title = "Hledání podle přípony"
     instructions = """
         ### Cíl

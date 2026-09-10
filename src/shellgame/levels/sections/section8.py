@@ -400,7 +400,13 @@ class SortUniqCountUniqueLevel(Level):
 
 @section.level(9)
 class SectionSummaryChallengeLevel(Level):
-    solution = Solution(steps=(RunShell("printf 'Hello World\\nGoodbye\\n' > message.txt"),), answer="3")
+    solution = Solution(
+        steps=(
+            RunShell('echo "Hello World" > message.txt'),
+            RunShell('echo "Goodbye" >> message.txt'),
+        ),
+        answer="3",
+    )
     title = "Souhrn Sekce 8"
     instructions = """\
         ### Výzva: Mistr přesměrování a pipes
@@ -420,9 +426,9 @@ class SectionSummaryChallengeLevel(Level):
         `shellgame submit <počet>`
         """
     hints = [
-        "První řádek: 'echo \"Hello World\" > message.txt'. Druhý: 'echo \"Goodbye\" >> message.txt' (dva >>).",
-        "Pro počítání: 'ls *.txt | wc -l'. Nezapomeňte vytvořit message.txt!",
-        "V adresáři už nějaké .txt soubory jsou. Až přidáte message.txt, spočítejte je všechny.",
+        "Nejprve vytvořte soubor přesměrováním '>' a další řádek přidejte přes append '>>'.",
+        "Použijte 'echo \"Hello World\" > message.txt' a pak 'echo \"Goodbye\" >> message.txt'.",
+        "Spočítejte všechny .txt soubory (včetně nového message.txt) příkazem 'ls *.txt | wc -l'.",
     ]
     start_directory = "challenge"
     fixture = WorkspaceFixture(

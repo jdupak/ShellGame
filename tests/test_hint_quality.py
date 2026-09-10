@@ -249,6 +249,8 @@ def test_hint_progression_scaffolding(levels: list[Level]) -> None:
         "8.2",
         "8.3",
         "8.4",
+        "8.9",
+        "9.5",
         "10.1",
         "10.5",
         "11.1",
