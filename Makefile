@@ -1,7 +1,7 @@
 .PHONY: install dev build-deps test lint format format-check check build clean run run-devmode help venv lock
 
 VENV_DIR ?= .venv
-UV ?= uv
+UV := $(HOME)/.local/bin/uv
 
 help:
 	@echo "ShellGame - Makefile commands:"
@@ -18,7 +18,11 @@ help:
 	@echo "  make run          - Run ShellGame (normal mode; auto-launches wrapped subshell if needed)"
 	@echo "  make run-devmode   - Run ShellGame with --devmode (auto-launches wrapped subshell if needed)"
 
-$(VENV_DIR):
+$(UV):
+	@echo "Downloading uv"
+	@curl -LsSf https://astral.sh/uv/install.sh | sh
+
+$(VENV_DIR): $(UV)
 	$(UV) venv $(VENV_DIR) --quiet
 
 venv: | $(VENV_DIR)
@@ -32,7 +36,7 @@ dev: venv
 build-deps: venv
 	$(UV) sync --extra build
 
-lock:
+lock: $(UV)
 	$(UV) lock
 
 test: dev
