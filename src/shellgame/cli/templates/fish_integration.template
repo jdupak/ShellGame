@@ -6,6 +6,19 @@
 # We set it without quotes so Fish parses it as a list.
 set -gx SHELLGAME_BINARY $binary_path
 
+# Ensure SHELLGAME_FD_HOOK exists so scripts (e.g. buggy.sh) can invoke fd-hook directly
+if not set -q SHELLGAME_FD_HOOK; or not test -x "$SHELLGAME_FD_HOOK"
+    set -g _sg_fd_hook (mktemp -t sg-fd-hook-XXXXXX.sh 2>/dev/null; or mktemp /tmp/sg-fd-hook-XXXXXX.sh)
+    printf '#!/bin/sh\nexec %s fd-hook "$@"\n' "$binary_path" > "$_sg_fd_hook"
+    chmod 700 "$_sg_fd_hook"
+    set -gx SHELLGAME_FD_HOOK "$_sg_fd_hook"
+    function __shellgame_cleanup_fd_hook --on-event fish_exit
+        if set -q _sg_fd_hook; and test -f "$_sg_fd_hook"
+            command rm -f "$_sg_fd_hook"
+        end
+    end
+end
+
 # Track whether we've already autostarted (to avoid double-start).
 if not set -q SHELLGAME_AUTO_STARTED
     set -gx SHELLGAME_AUTO_STARTED 0
@@ -50,6 +63,9 @@ function __shellgame_eval
         command pwd
     else if test "$command_name" = "exit"; and test (count $argv) -eq 2
         rm -f "$stderr_file"
+        if set -q _sg_fd_hook; and test -f "$_sg_fd_hook"
+            command rm -f "$_sg_fd_hook"
+        end
         exit 0
     else
         return 2
@@ -86,6 +102,15 @@ function shellgame
         set is_remove_cmd 1
     end
 
+    # If the current working directory was deleted, relocate before running Python
+    if not test -d "$PWD"
+        if set -q SHELLGAME_WORKSPACE; and test -d "$SHELLGAME_WORKSPACE"
+            builtin cd "$SHELLGAME_WORKSPACE" 2>/dev/null; or builtin cd /tmp 2>/dev/null
+        else
+            builtin cd /tmp 2>/dev/null
+        end
+    end
+
     # Run the actual command and capture stderr
     # Execute directly as a list (SHELLGAME_BINARY is a list)
     $SHELLGAME_BINARY $argv 2>$stderr_file
@@ -117,6 +142,9 @@ function shellgame
     # We do this here (after processing stderr) rather than relying on a protocol directive,
     # because Click's confirmation prompt can interfere with stderr capture timing.
     if test $is_remove_cmd -eq 1; and test $exit_code -eq 0
+        if set -q _sg_fd_hook; and test -f "$_sg_fd_hook"
+            command rm -f "$_sg_fd_hook"
+        end
         exit 0
     end
 

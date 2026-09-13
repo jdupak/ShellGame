@@ -48,6 +48,7 @@ class _Case(NamedTuple):
 STRICT_CD_CASES = [
     _Case("1.4", cd_marker("1.4"), rejected_target="/etc"),
     _Case("1.6", cd_marker("1.6"), rejected_target="/etc"),
+    _Case("1.7", cd_marker("1.7"), rejected_target="/etc"),
     _Case("1.8", cd_marker("1.8"), rejected_target="relative/path"),
     _Case("1.9", MarkerManager.LEVEL1_9_CD_WALK_COMPLETED, rejected_target="/etc"),
     _Case(

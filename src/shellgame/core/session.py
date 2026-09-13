@@ -18,6 +18,7 @@ from shellgame.core.navigation import NavigationManager
 from shellgame.core.progress import ProgressTracker
 from shellgame.levels.base import Level
 from shellgame.levels.registry import LevelRegistry, UnknownLevelError
+from shellgame.paths import ContainedPathError
 from shellgame.shell.client import ShellClient
 from shellgame.state.manager import GameState, LevelCompletion, StateLoadError, StateManager
 from shellgame.ui.display import Display
@@ -236,11 +237,19 @@ class GameSession:
         if not state:
             return
 
+        if self._handle_finished(state):
+            return
+
         level = self._get_level(state.current_level)
         if level is None:
             return
 
-        level.reset(state.workspace)
+        try:
+            level.reset(state.workspace)
+        except ContainedPathError as exc:
+            self._console.print(f"[red]Chyba při obnově levelu: {exc}[/red]\n")
+            return
+
         self._display.show_reset(state.current_level)
         self._display.show_instructions(level)
         self._export_shell_context(workspace=state.workspace, level_id=level.id)
@@ -270,6 +279,9 @@ class GameSession:
         state = self._state_manager.load()
         if not state:
             self._display.show_not_initialized()
+            return
+
+        if self._handle_finished(state):
             return
 
         if section == level:
@@ -415,7 +427,7 @@ class GameSession:
         return True
 
     def _handle_finished(self, state: GameState) -> bool:
-        if state.completed_at is None:
+        if getattr(state, "completed_at", None) is None:
             return False
         self._display.show_game_complete(state)
         return True

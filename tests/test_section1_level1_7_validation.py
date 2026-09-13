@@ -33,7 +33,24 @@ def test_level1_7_submit_without_answer_depends_on_exact_cwd(tmp_path: Path, mon
     assert ok2 is False
 
     # Only the actual maze destination passes.
-    final_dir = tmp_path / "level-1" / "maze" / "04" / "final"
+    final_dir = (
+        tmp_path
+        / "level-1"
+        / "maze"
+        / "entry"
+        / "hall"
+        / "nexus"
+        / "passages"
+        / "tunnel"
+        / "catacombs"
+        / "labyrinth"
+        / "corridor"
+        / "shrine"
+        / "final"
+        / "final_v2"
+        / "final_final"
+        / "opravdu_final_v2_FINAL"
+    )
     monkeypatch.chdir(final_dir)
     ok3, _ = level.validate(None, state)
     assert ok3 is True
@@ -51,8 +68,33 @@ def test_level1_7_answer_is_ignored_when_in_final(tmp_path: Path, monkeypatch: p
 
     state = _State(tmp_path)
 
-    final_dir = tmp_path / "level-1" / "maze" / "04" / "final"
+    final_dir = (
+        tmp_path
+        / "level-1"
+        / "maze"
+        / "entry"
+        / "hall"
+        / "nexus"
+        / "passages"
+        / "tunnel"
+        / "catacombs"
+        / "labyrinth"
+        / "corridor"
+        / "shrine"
+        / "final"
+        / "final_v2"
+        / "final_final"
+        / "opravdu_final_v2_FINAL"
+    )
     monkeypatch.chdir(final_dir)
 
     ok, _ = level.validate("anything", state)
     assert ok is True
+
+
+def test_level1_7_is_mandatory() -> None:
+    level = MazeLevel()
+    assert not level.optional
+    assert not level.extension
+    assert not level.is_bonus
+

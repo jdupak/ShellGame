@@ -17,7 +17,7 @@ from shellgame.cli.hooks import (
 class TestCdHookGeneration:
     """The shipped dispatch must cover exactly the levels that declare a hook."""
 
-    @pytest.mark.parametrize("level_id", ["1.8", "1.9"])
+    @pytest.mark.parametrize("level_id", ["1.7", "1.8", "1.9"])
     def test_hooked_levels_are_dispatched_in_both_shells(self, level_id: str) -> None:
         assert level_id in get_cd_hooked_levels()
         assert f'"{level_id}"' in _bash_patterns()

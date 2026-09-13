@@ -12,6 +12,15 @@ shopt -s globasciiranges 2>/dev/null || true
 declare -a SHELLGAME_BINARY_ARR
 eval "SHELLGAME_BINARY_ARR=($binary_path)"
 
+# Ensure SHELLGAME_FD_HOOK exists so scripts (e.g. buggy.sh) can invoke fd-hook directly
+if [ -z "${SHELLGAME_FD_HOOK:-}" ] || [ ! -x "${SHELLGAME_FD_HOOK:-}" ]; then
+    _sg_fd_hook="$(mktemp "${TMPDIR:-/tmp}/sg-fd-hook-XXXXXX.sh" 2>/dev/null || mktemp /tmp/sg-fd-hook-XXXXXX.sh)"
+    printf '#!/bin/sh\nexec %s fd-hook "$@"\n' "$binary_path" > "$_sg_fd_hook"
+    chmod 700 "$_sg_fd_hook"
+    export SHELLGAME_FD_HOOK="$_sg_fd_hook"
+    trap '[ -n "${_sg_fd_hook:-}" ] && rm -f "$_sg_fd_hook"' EXIT
+fi
+
 $dev_shortcuts
 
 # Decode one base64-encoded protocol argument.
@@ -60,6 +69,7 @@ __shellgame_eval() {
         exit)
             [ "$#" -eq 0 ] || return 2
             rm -f "$stderr_file"
+            [ -n "${_sg_fd_hook:-}" ] && rm -f "$_sg_fd_hook"
             builtin exit 0
             ;;
         *)
@@ -99,6 +109,15 @@ shellgame() {
         is_remove_cmd=1
     fi
 
+    # If the current working directory was deleted, relocate before running Python
+    if [ ! -d "$PWD" ]; then
+        if [ -n "${SHELLGAME_WORKSPACE:-}" ] && [ -d "$SHELLGAME_WORKSPACE" ]; then
+            builtin cd -- "$SHELLGAME_WORKSPACE" 2>/dev/null || builtin cd /tmp 2>/dev/null || true
+        else
+            builtin cd /tmp 2>/dev/null || true
+        fi
+    fi
+
     # Execute the launcher as argv (array), never via eval/string splitting.
     "${SHELLGAME_BINARY_ARR[@]}" "$@" 2>"$stderr_file"
     local exit_code=$?
@@ -130,6 +149,7 @@ shellgame() {
     # We do this here (after processing stderr) rather than relying on a protocol directive,
     # because Click's confirmation prompt can interfere with stderr capture timing.
     if [ "$is_remove_cmd" = "1" ] && [ "$exit_code" = "0" ]; then
+        [ -n "${_sg_fd_hook:-}" ] && rm -f "$_sg_fd_hook"
         builtin exit 0
     fi
 

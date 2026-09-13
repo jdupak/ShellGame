@@ -6,9 +6,16 @@ from typing_extensions import override
 
 from shellgame.levels.base import Level
 from shellgame.levels.collector import Section
-from shellgame.levels.completion import Completion, ExactAnswer, IntegerAnswer, IntegerRangeAnswer, TupleAnswer
+from shellgame.levels.completion import (
+    AtDirectory,
+    Completion,
+    ExactAnswer,
+    IntegerAnswer,
+    IntegerRangeAnswer,
+    TupleAnswer,
+)
 from shellgame.levels.fixture import FileFixture, WorkspaceFixture
-from shellgame.levels.solution import Solution
+from shellgame.levels.solution import Chdir, Solution
 from shellgame.paths import WORKSPACE_ROOT
 from shellgame.protocols import GameStateProtocol, ValidationResult
 
@@ -88,6 +95,7 @@ class HiddenFileReadLevel(Level):
 
 @section.level(3)
 class HiddenVaultKeyLevel(Level):
+    solution = Solution(steps=(Chdir("hub/.vault"),), answer="platinum")
     title = "Uvnitř skrytého adresáře"
     instructions = """
         ### Cíl
@@ -95,7 +103,7 @@ class HiddenVaultKeyLevel(Level):
 
         ### Úkol
         1. Najděte skrytý adresář `.vault`.
-        2. Vstupte do něj.
+        2. Vstupte do něj (`cd .vault`).
         3. Uvnitř najděte soubor `key.txt` a přečtěte ho.
         4. Odevzdejte nalezený klíč.
 
@@ -107,10 +115,12 @@ class HiddenVaultKeyLevel(Level):
         "Skrytý adresář .vault - jak se do něj dostanete pomocí cd?",
         "Jděte do .vault pomocí 'cd .vault', pak přečtěte key.txt.",
     ]
-    extension = True
     start_directory = "hub"
     fixture = WorkspaceFixture(files=(FileFixture("hub/.vault/key.txt", "platinum\n"),))
-    completion = Completion(answer=ExactAnswer("platinum", case_sensitive=False))
+    completion = Completion(
+        answer=ExactAnswer("platinum", case_sensitive=False),
+        requirements=(AtDirectory("hub/.vault"),),
+    )
 
 
 @section.level(4)
@@ -133,7 +143,6 @@ class HiddenBackupSuffixLevel(Level):
         "Hledejte soubor začínající tečkou a končící .bak.",
         "Odevzdejte celý název včetně tečky na začátku.",
     ]
-    optional = True
     start_directory = "backup"
     fixture = WorkspaceFixture(
         files=(
@@ -251,7 +260,6 @@ class SelfReflectionCheckpointLevel(Level):
         "Buďte k sobě upřímní. Pokud váháte, vraťte se k předchozím levelům.",
         "Odevzdejte jakékoliv číslo od 1 do 5.",
     ]
-    optional = True
     start_directory = WORKSPACE_ROOT
     completion = Completion(
         answer=IntegerRangeAnswer(

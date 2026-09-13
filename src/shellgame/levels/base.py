@@ -8,6 +8,10 @@ from pathlib import Path
 from textwrap import dedent
 from typing import NoReturn, final
 
+from rich.align import Align
+from rich.console import Console
+from rich.panel import Panel
+
 from shellgame.levels.cdpolicy import CdPolicy, CdRequest
 from shellgame.levels.completion import Completion
 from shellgame.levels.fixture import WorkspaceFixture
@@ -25,8 +29,18 @@ def block_cd(level_id: str, message: str) -> NoReturn:
     recovery path a player who moves one step too far can be left in a directory
     from which every permitted move leads further away.
     """
-    sys.stderr.write(f"ShellGame ({level_id}): {message}\n")
-    sys.stderr.write(f"ShellGame ({level_id}): {Messages.CD_RECOVERY_TIP}\n")
+    console = Console(file=sys.stderr, force_terminal=True)
+    panel = Panel(
+        Align.center(f"[bold red]{message}[/bold red]", vertical="middle"),
+        title=f"[bold red]ShellGame ({level_id})[/bold red]",
+        border_style="red",
+        style="red",
+        padding=(1, 4),
+    )
+    console.print(panel)
+    for line in f"[dim]{Messages.CD_RECOVERY_TIP}[/dim]".splitlines():
+        console.print(f" {line}")
+    console.print()
     sys.exit(1)
 
 

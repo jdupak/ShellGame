@@ -15,6 +15,7 @@ from shellgame.levels.cdpolicy import (
     RequireAbsolutePath,
     RequireEvidence,
     RequireExactCommand,
+    cd_marker,
 )
 from shellgame.levels.collector import Section
 from shellgame.levels.completion import (
@@ -127,7 +128,6 @@ class LsLevel(Level):
             },
             required_message="Musíte zadat odpověď. Odevzdejte název adresáře: shellgame submit <název>",
         ),
-        allow_empty_when=AtDirectory("delta"),
     )
 
     @override
@@ -322,51 +322,109 @@ def maze_marker_text(name: str) -> str:
     if _GO_TO_DIR.fullmatch(name) or _GO_UP_THEN.fullmatch(name) or _GO_UP_ONLY.fullmatch(name):
         return "Instrukce je v názvu tohoto souboru. Řiďte se jménem, ne obsahem.\n"
     if name == "YOU_ARE_NOT_SUPPOSED_TO_BE_HERE":
-        return "Tady nemáte být. Vraťte se a sledujte soubory začínající na GO_.\n"
+        return (
+            "Tady nemáte být. Vraťte se a sledujte soubory začínající na GO_.\n"
+            "Ztratili jste se? Příkaz 'shellgame reset' vás vrátí na začátek bludiště (maze/entry).\n"
+        )
     if name == "VICTORY.marker":
-        return "Cíl! Odevzdejte název tohoto adresáře: shellgame submit final\n"
+        return (
+            "Konečně skutečný cíl (opravdu_final_v2_FINAL)! Level je automaticky splněn.\n"
+            "Případně můžete odevzdat ručně příkazem: shellgame submit\n"
+        )
     return ""
 
 
 _MAZE_TRAP = "YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"
-# 01/02/03/04 are *siblings* of 00/, so hops between them must go up first.
+# The maze layout uses thematic, non-sequential names to prevent guessing
+# or accidental solutions, while reinforcing navigation with cd .., relative jumps,
+# decoy paths, dead-ends, and loops.
+# Progression flows deeper through connected branches (entry -> nexus -> passages -> catacombs -> labyrinth)
+# with local backtracking and dead ends, avoiding repeated bounces back to the top-level maze root.
 _MAZE_STRUCTURE: dict[str, tuple[str, ...]] = {
-    "00": ("GO_UP_1_THEN_GO_TO_01", "side", "trap"),
-    "00/side": ("GO_TO_DIR_loop",),
-    "00/side/loop": ("GO_UP_2",),
-    "00/trap": (_MAZE_TRAP,),
-    "01": ("GO_TO_DIR_deep", "shallow", "surface", "deep"),
-    "01/deep": ("GO_TO_DIR_a", "c", "d", "a", "offtrack"),
-    "01/deep/offtrack": ("GO_UP_1_THEN_GO_TO_a",),
-    "01/deep/a": ("GO_TO_DIR_b", "x", "z", "b", "alt"),
-    "01/deep/a/alt": ("GO_UP_1",),
-    "01/shallow": (_MAZE_TRAP,),
-    "01/surface": (_MAZE_TRAP,),
-    "01/deep/c": (_MAZE_TRAP,),
-    "01/deep/d": (_MAZE_TRAP,),
-    "01/deep/a/x": (_MAZE_TRAP,),
-    "01/deep/a/z": (_MAZE_TRAP,),
-    "01/deep/a/b": ("GO_UP_4_THEN_GO_TO_02", "decoy.txt", "note.md", "wrong"),
-    "01/deep/a/b/wrong": ("GO_UP_1",),
-    "02": ("GO_UP_1_THEN_GO_TO_03", "stray.txt", "readme.md"),
-    "02/side": ("GO_UP_1",),
-    "03": ("GO_TO_DIR_x", "w", "z", "x"),
-    "03/x": ("GO_TO_DIR_y", "q", "r", "y"),
-    "03/x/y": ("GO_UP_3_THEN_GO_TO_04", "marker.txt"),
-    "03/w": (_MAZE_TRAP,),
-    "03/z": (_MAZE_TRAP,),
-    "03/x/q": (_MAZE_TRAP,),
-    "03/x/r": (_MAZE_TRAP,),
-    "04": ("GO_TO_DIR_final", "finish", "end", "done"),
-    "04/finish": (_MAZE_TRAP,),
-    "04/end": (_MAZE_TRAP,),
-    "04/done": (_MAZE_TRAP,),
-    "04/final": ("VICTORY.marker",),
+    # --- Entrance area ---
+    "entry": ("GO_TO_DIR_hall", "dungeon", "courtyard"),
+    "entry/courtyard": (_MAZE_TRAP,),
+    "entry/dungeon": (_MAZE_TRAP,),
+    "entry/hall": ("GO_TO_DIR_nexus", "alcove", "side_door"),
+    "entry/hall/alcove": (_MAZE_TRAP,),
+    "entry/hall/side_door": ("GO_UP_1",),  # local backtrack loop to entry/hall
+
+    # --- Nexus hub (under entry/hall) ---
+    "entry/hall/nexus": ("GO_TO_DIR_passages", "sanctum", "rotunda", "archives"),
+    "entry/hall/nexus/sanctum": (_MAZE_TRAP,),
+    "entry/hall/nexus/archives": (_MAZE_TRAP,),
+    "entry/hall/nexus/rotunda": ("GO_UP_1",),  # local backtrack to nexus
+
+    # --- Passages branch (under entry/hall/nexus) ---
+    "entry/hall/nexus/passages": ("GO_TO_DIR_tunnel", "gallery", "shaft"),
+    "entry/hall/nexus/passages/gallery": (_MAZE_TRAP,),
+    "entry/hall/nexus/passages/shaft": ("GO_UP_1",),  # local backtrack to passages
+    "entry/hall/nexus/passages/tunnel": ("GO_TO_DIR_cavern", "crevice"),
+    "entry/hall/nexus/passages/tunnel/crevice": (_MAZE_TRAP,),
+    "entry/hall/nexus/passages/tunnel/cavern": ("GO_TO_DIR_depths", "grotto", "abyss"),
+    "entry/hall/nexus/passages/tunnel/cavern/grotto": (_MAZE_TRAP,),
+    "entry/hall/nexus/passages/tunnel/cavern/abyss": (_MAZE_TRAP,),
+
+    # Deep dead-end in passages that requires ascending 2 levels back to tunnel
+    # depths is at entry/hall/nexus/passages/tunnel/cavern/depths.
+    # 2 levels up reaches tunnel, then instruction points to an alternate route (catacombs under tunnel)
+    "entry/hall/nexus/passages/tunnel/cavern/depths": ("GO_UP_2_THEN_GO_TO_catacombs", "echoes.txt"),
+
+    # --- Catacombs (branch off tunnel) ---
+    "entry/hall/nexus/passages/tunnel/catacombs": ("GO_TO_DIR_vault", "ossuary", "crypts"),
+    "entry/hall/nexus/passages/tunnel/catacombs/ossuary": (_MAZE_TRAP,),
+    "entry/hall/nexus/passages/tunnel/catacombs/crypts": ("GO_UP_1",),
+    "entry/hall/nexus/passages/tunnel/catacombs/vault": ("GO_TO_DIR_chamber", "iron_cell", "sepulcher"),
+    "entry/hall/nexus/passages/tunnel/catacombs/vault/iron_cell": (_MAZE_TRAP,),
+    "entry/hall/nexus/passages/tunnel/catacombs/vault/sepulcher": (_MAZE_TRAP,),
+
+    # vault/chamber has explored deep into catacombs.
+    # Back up 2 levels (vault -> catacombs) to switch to labyrinth under catacombs
+    "entry/hall/nexus/passages/tunnel/catacombs/vault/chamber": ("GO_UP_2_THEN_GO_TO_labyrinth", "relic.txt"),
+
+    # --- Labyrinth & Final Sanctum (branch off catacombs) ---
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth": ("GO_TO_DIR_corridor", "dead_end", "ruins"),
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/dead_end": (_MAZE_TRAP,),
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/ruins": (_MAZE_TRAP,),
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor": ("GO_TO_DIR_shrine", "false_exit", "mist"),
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/false_exit": (_MAZE_TRAP,),
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/mist": ("GO_UP_1",),
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine": ("GO_TO_DIR_final", "mirage", "shadow"),
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/mirage": (_MAZE_TRAP,),
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/shadow": (_MAZE_TRAP,),
+
+    # Versioning pun sequence: final -> final_v2 -> final_final -> opravdu_final_v2_FINAL
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final": (
+        "GO_TO_DIR_final_v2",
+        "decoy_exit",
+        "draft.txt",
+    ),
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/decoy_exit": (_MAZE_TRAP,),
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2": (
+        "GO_TO_DIR_final_final",
+        "abandoned_branch",
+        "old.bak",
+    ),
+    (
+        "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/abandoned_branch"
+    ): (_MAZE_TRAP,),
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/final_final": (
+        "GO_TO_DIR_opravdu_final_v2_FINAL",
+        "fake_end",
+    ),
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/final_final/fake_end": (
+        _MAZE_TRAP,
+    ),
+    (
+        "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/final_final/opravdu_final_v2_FINAL"
+    ): (
+        "VICTORY.marker",
+    ),
 }
 
 
 def _is_maze_file(item: str) -> bool:
-    return item.startswith("GO_") or item == _MAZE_TRAP or item.endswith((".txt", ".md", ".marker"))
+    return item.startswith("GO_") or item == _MAZE_TRAP or item.endswith((".txt", ".md", ".marker", ".bak"))
 
 
 def _maze_fixture() -> WorkspaceFixture:
@@ -389,7 +447,7 @@ def _maze_fixture() -> WorkspaceFixture:
                 add_file(relative, item)
             else:
                 directories.append(relative)
-        if not has_go:
+        if not has_go and not any(item == "VICTORY.marker" for item in contents):
             add_file(f"maze/{dir_path}/{_MAZE_TRAP}", _MAZE_TRAP)
 
     return WorkspaceFixture(
@@ -401,21 +459,31 @@ def _maze_fixture() -> WorkspaceFixture:
 
 @section.level(7)
 class MazeLevel(Level):
+    _SANCTUARY = (
+        "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine"
+        "/final/final_v2/final_final/opravdu_final_v2_FINAL"
+    )
     solution = Solution(
         steps=tuple(
             Chdir(step)
             for step in (
-                "maze/00",
-                "maze/01",
-                "maze/01/deep",
-                "maze/01/deep/a",
-                "maze/01/deep/a/b",
-                "maze/02",
-                "maze/03",
-                "maze/03/x",
-                "maze/03/x/y",
-                "maze/04",
-                "maze/04/final",
+                "maze/entry",
+                "maze/entry/hall",
+                "maze/entry/hall/nexus",
+                "maze/entry/hall/nexus/passages",
+                "maze/entry/hall/nexus/passages/tunnel",
+                "maze/entry/hall/nexus/passages/tunnel/cavern",
+                "maze/entry/hall/nexus/passages/tunnel/cavern/depths",
+                "maze/entry/hall/nexus/passages/tunnel/catacombs",
+                "maze/entry/hall/nexus/passages/tunnel/catacombs/vault",
+                "maze/entry/hall/nexus/passages/tunnel/catacombs/vault/chamber",
+                "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth",
+                "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor",
+                "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine",
+                "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final",
+                "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2",
+                "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/final_final",
+                "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/final_final/opravdu_final_v2_FINAL",
             )
         ),
     )
@@ -425,29 +493,72 @@ class MazeLevel(Level):
         Projděte bludištěm podle instrukcí.
 
         ### Pravidla
-        - Start: `level-1/maze/00/`
+        - Start: `level-1/maze/entry/`
         - Instrukce je v **názvu** souboru `GO_…` (příkaz `ls`)
         - `GO_TO_DIR_x` → `cd x`
         - `GO_UP_N` → `cd ..` (N-krát)
         - `GO_UP_N_THEN_GO_TO_x` → `cd ..` (N-krát), potom `cd x`
+        - Během bludiště nemůžete odejít mimo `maze/`
 
         ### Úkol
         1. Jděte do startu
         2. Sledujte instrukce až do cíle
-        3. Odevzdejte název cílového adresáře
-           `shellgame submit <název>`
+        3. Jakmile vstoupíte do skutečného cíle, level se automaticky splní
+           (případně můžete odevzdat `shellgame submit`)
+
+        Pokud se v bludišti ztratíte, příkaz `shellgame reset` vás vrátí zpět na začátek (`maze/entry`).
         """
     hints = [
         "Sledujte pouze názvy souborů začínající na 'GO_'. Vypište je pomocí 'ls'.",
-        "Pro instrukce typu 'GO_UP_4_THEN_GO_TO_02' použijte 'cd ../../../..' a poté 'cd 02'.",
-        "Pokračujte ve sledování instrukcí, dokud nenajdete soubor 'VICTORY.marker'.",
+        "Pro instrukce typu 'GO_UP_2_THEN_GO_TO_catacombs' použijte 'cd ../..' a poté 'cd catacombs'.",
         "Ignorujte soubory, které nezačínají na 'GO_', jsou to pasti.",
+        "Pokud se ztratíte, příkaz 'shellgame reset' vás vrátí na start.",
     ]
-    extension = True
-    start_directory = "maze/00"
+    start_directory = "maze/entry"
     fixture = _maze_fixture()
-    success_message = "Správně! Prošli jste bludištěm."
-    completion = Completion(requirements=(AtDirectory("maze/04/final"),))
+    success_message = "Správně! Prošli jste bludištěm až do skutečného cíle!"
+    completion = Completion(requirements=(AtDirectory(_SANCTUARY),))
+
+    @property
+    @override
+    def hooks(self) -> dict[str, CdHookCallback]:
+        return {"cd": self._handle_cd}
+
+    def _handle_cd(
+        self, *, target: str | None, pwd: str | None, post_move: bool, state: GameStateProtocol
+    ) -> None:
+        maze_root = (self.section_path(state.workspace) / "maze").resolve()
+
+        if not post_move:
+            # Pre-move: Guard player from leaving level-1/maze before completion
+            if self.cd_enforcement_lifted(cd_marker(self.id), target=target, pwd=pwd, state=state):
+                return
+
+            if not target:
+                # `cd` without arguments attempts to go home (outside the maze)
+                block_cd(self.id, "Nemůžete opustit bludiště. Pokračujte v navigaci uvnitř maze/.")
+
+            dest = Path(target).expanduser()
+            if not dest.is_absolute():
+                base = Path(pwd) if pwd else Path.cwd()
+                dest = base / dest
+
+            try:
+                dest_resolved = dest.resolve()
+            except (OSError, RuntimeError):
+                return
+
+            if not dest_resolved.is_relative_to(maze_root):
+                block_cd(self.id, "Nemůžete opustit bludiště před jeho dokončením.")
+        else:
+            # Post-move: Check if user reached true final room for autowin
+            if not pwd:
+                return
+
+            dest_resolved = Path(pwd).resolve()
+            sanctuary_resolved = (self.section_path(state.workspace) / self._SANCTUARY).resolve()
+            if dest_resolved == sanctuary_resolved:
+                MarkerManager.from_state(state).create(cd_marker(self.id))
 
 
 @section.level(8)
@@ -508,6 +619,8 @@ class HomeWalkLevel(Level):
         2. Zjistěte cestu domů (`echo $HOME`)
         3. Jděte domů krok za krokem (každý segment zvlášť)
         4. Nakonec použijte jen `shellgame submit`
+
+        Poznámka: Váš domovský adresář (`$HOME`) leží mimo herní pracovní prostor.
         """
     hints = [
         "Zjistěte cestu k domovu pomocí 'echo $HOME'.",
@@ -515,7 +628,6 @@ class HomeWalkLevel(Level):
         "Tip: pokud je HOME třeba /home/ada, udělejte: cd / ; cd home ; cd ada.",
         "V tomhle levelu neodevzdáváte textovou odpověď – důležitá je správná sekvence `cd`.",
     ]
-    extension = True
     start_directory = WORKSPACE_ROOT
     reset_markers = (MarkerManager.LEVEL1_9_CD_WALK_PROGRESS,)
     success_message = "Správně! Došli jste domů krok za krokem."
@@ -622,7 +734,6 @@ class HomeCheckLevel(Level):
         "Odevzdejte název vašeho domovského adresáře (poslední část cesty).",
         "Vlnovka '~' je zkratka pro domovský adresář aktuálního uživatele.",
     ]
-    extension = True
     start_directory = WORKSPACE_ROOT
     completion = Completion(
         answer=ExactAnswer(Path.home().name),
@@ -632,6 +743,7 @@ class HomeCheckLevel(Level):
 
 @section.level(11)
 class StructureLevel(Level):
+    solution = Solution(answer="absolute-target,alpha,delta,gamma,maze,patterns")
     title = "Vizualizace struktury"
     instructions = """
         ### Cíl
@@ -651,7 +763,6 @@ class StructureLevel(Level):
         "Ujistěte se, že uvádíte pouze adresáře, ne soubory.",
         "Lomítko / ve výpisu označuje adresář. Do odpovědi ho nepište.",
     ]
-    optional = True
     start_directory = ""
     fixture = WorkspaceFixture(directories=("absolute-target", "maze"))
     completion = Completion(

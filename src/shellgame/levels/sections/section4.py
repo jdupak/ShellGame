@@ -228,7 +228,6 @@ class ProjectScaffoldLevel(Level):
         "Nejdřív vytvořte adresáře: 'mkdir -p web/css web/js'",
         "Pak vytvořte soubory: 'touch web/index.html web/css/style.css'",
     ]
-    extension = True
     start_directory = "project"
     fixture = WorkspaceFixture(
         directories=("project",),
@@ -269,7 +268,6 @@ class CleanupMultipleFilesLevel(Level):
         "Spusťte 'rm error.log temp.dat junk.tmp' (nebo je smažte postupně po jednom).",
         "Ověřte pomocí 'ls', že zbyly jen potřebné soubory, a odevzdejte 'mess'.",
     ]
-    optional = True
     start_directory = "mess"
     fixture = WorkspaceFixture(
         files=(

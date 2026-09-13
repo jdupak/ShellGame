@@ -33,8 +33,9 @@ class WarmupPasswordLevel(Level):
         Odevzdejte pomocí: `shellgame submit start`
         """
     hints = [
+        "Heslo je uvedeno přímo v zadání úkolu výše.",
+        "Zadejte příkaz 'shellgame submit' následovaný tímto heslem.",
         "Opravdu jen napište: shellgame submit start",
-        "Nic víc v tom nehledejte :)",
     ]
     start_directory = ""
     completion = Completion(answer=ExactAnswer("start", case_sensitive=False))

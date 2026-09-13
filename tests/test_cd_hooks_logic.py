@@ -7,7 +7,7 @@ import pytest
 
 from shellgame.core.session import GameSession
 from shellgame.levels.cdpolicy import cd_marker
-from shellgame.levels.sections.section1 import AbsoluteCdLevel, HomeWalkLevel
+from shellgame.levels.sections.section1 import AbsoluteCdLevel, HomeWalkLevel, MazeLevel
 from shellgame.markers import MarkerManager
 from shellgame.state.manager import GameState
 
@@ -18,6 +18,8 @@ def mock_session() -> GameSession:
     registry = MagicMock()
 
     def get_level(level_id: str):
+        if level_id == "1.7":
+            return MazeLevel()
         if level_id == "1.8":
             return AbsoluteCdLevel()
         if level_id == "1.9":
@@ -216,3 +218,65 @@ class TestLevel19HookLogic:
 
             # Assert: Nothing happens
             mock_create.assert_not_called()
+
+
+class TestLevel17HookLogic:
+    """Test Level 1.7 logic (maze boundary guard and autowin)."""
+
+    def test_pre_move_blocks_leaving_maze(self, mock_session: GameSession, mock_state: GameState) -> None:
+        mock_state.current_level = "1.7"
+        mock_session._state_manager.load.return_value = mock_state
+
+        level = MazeLevel()
+        level.prepare(mock_state.workspace)
+
+        # cd /etc or outside maze should be blocked
+        with pytest.raises(SystemExit) as excinfo:
+            mock_session.handle_cd_hook(
+                target="/etc",
+                pwd=str(mock_state.workspace / "level-1" / "maze" / "entry"),
+                post_move=False,
+            )
+        assert excinfo.value.code == 1
+
+    def test_pre_move_allows_returning_to_start(self, mock_session: GameSession, mock_state: GameState) -> None:
+        mock_state.current_level = "1.7"
+        mock_session._state_manager.load.return_value = mock_state
+
+        level = MazeLevel()
+        level.prepare(mock_state.workspace)
+        start_dir = mock_state.workspace / "level-1" / "maze" / "entry"
+
+        # Moving to start_dir is always allowed
+        mock_session.handle_cd_hook(
+            target=str(start_dir),
+            pwd=str(mock_state.workspace / "level-1" / "maze" / "nexus"),
+            post_move=False,
+        )
+
+    def test_pre_move_allows_navigation_within_maze(self, mock_session: GameSession, mock_state: GameState) -> None:
+        mock_state.current_level = "1.7"
+        mock_session._state_manager.load.return_value = mock_state
+
+        level = MazeLevel()
+        level.prepare(mock_state.workspace)
+
+        # cd nexus inside maze
+        mock_session.handle_cd_hook(
+            target="nexus",
+            pwd=str(mock_state.workspace / "level-1" / "maze"),
+            post_move=False,
+        )
+
+    def test_post_move_autowin_on_final(self, mock_session: GameSession, mock_state: GameState) -> None:
+        mock_state.current_level = "1.7"
+        mock_session._state_manager.load.return_value = mock_state
+
+        level = MazeLevel()
+        level.prepare(mock_state.workspace)
+
+        sanctuary = mock_state.workspace / "level-1" / level._SANCTUARY
+        with patch("shellgame.markers.MarkerManager.create") as mock_create:
+            mock_session.handle_cd_hook(target=None, pwd=str(sanctuary), post_move=True)
+            mock_create.assert_called_with(cd_marker("1.7"))
+

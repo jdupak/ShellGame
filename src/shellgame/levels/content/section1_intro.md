@@ -12,7 +12,7 @@ Souborový systém vašeho počítače je organizován jako stromová struktura 
 │       ├── stažené/
 │       └── projekty/
 ├── tmp/                   ← Dočasné soubory
-│   └── shellgame-student/ ← Váš pracovní prostor pro hru
+│   └── shellgame-<user>/  ← Váš pracovní prostor pro hru (např. shellgame-student/)
 │       └── level-1/       ← ZDE ZAČÍNÁTE!
 ├── etc/                   ← Systémové konfigurace
 └── usr/                   ← Programy a knihovny

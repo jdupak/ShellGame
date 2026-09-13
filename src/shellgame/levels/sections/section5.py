@@ -142,10 +142,10 @@ class FindCriticalCodeInLogLevel(Level):
 
         1. Otevřete soubor: `less server.log`
         2. Hledejte: stiskněte `/`, napište `CRITICAL`, Enter
-        3. Zjistěte, jaké číslo je na konci nalezeného řádku
+        3. Zjistěte, jaký chybový kód (číslo za "Code") je na konci nalezeného řádku
 
         ## Odevzdání
-        Odevzdejte číslo z CRITICAL řádku.
+        Odevzdejte chybový kód z CRITICAL řádku.
         `shellgame submit <číslo>`
         """
     hints = [
@@ -202,7 +202,6 @@ class FindFakeJpgLevel(Level):
         "Spusťte 'file *.jpg' a prozkoumejte typy jednotlivých souborů.",
         "Hledejte soubor, u kterého je uvedeno 'ASCII text'. Jeho název odevzdejte.",
     ]
-    extension = True
     start_directory = "downloads"
     fixture = WorkspaceFixture(
         files=(
@@ -233,7 +232,6 @@ class IdentifyPythonScriptLevel(Level):
         "Spusťte 'file *' a hledejte soubor, u kterého výstup uvádí 'Python script'.",
         "Vypište si nalezený název Python skriptu a zadejte ho do 'shellgame submit <skript>'.",
     ]
-    optional = True
     start_directory = "bin"
     fixture = WorkspaceFixture(
         files=(

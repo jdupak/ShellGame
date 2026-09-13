@@ -48,11 +48,15 @@ class GameState(BaseModel):
 
 class StateManager:
     def __init__(self) -> None:
-        xdg_config = os.environ.get("XDG_CONFIG_HOME")
-        if xdg_config:
-            self.state_dir = Path(xdg_config) / "shellgame"
+        state_dir_env = os.environ.get("SHELLGAME_STATE_DIR")
+        if state_dir_env:
+            self.state_dir = Path(state_dir_env)
         else:
-            self.state_dir = Path.home() / ".config" / "shellgame"
+            xdg_config = os.environ.get("XDG_CONFIG_HOME")
+            if xdg_config:
+                self.state_dir = Path(xdg_config) / "shellgame"
+            else:
+                self.state_dir = Path.home() / ".config" / "shellgame"
         self.state_file = self.state_dir / "state.json"
 
     def load(self) -> GameState | None:
@@ -104,6 +108,9 @@ class StateManager:
     @staticmethod
     def default_workspace(username: str) -> Path:
         """The only place that derives a workspace path from a username."""
+        env_ws = os.environ.get("SHELLGAME_WORKSPACE")
+        if env_ws:
+            return Path(env_ws)
         return Path(f"/tmp/shellgame-{username}")
 
     def init(self, username: str, workspace_path: Path | None = None) -> GameState:

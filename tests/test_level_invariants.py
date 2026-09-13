@@ -153,6 +153,14 @@ def test_registered_level_ids_are_unique() -> None:
     assert len({level.id for level in levels}) == len(levels)
 
 
+def test_no_level_is_optional_or_extension() -> None:
+    levels = _all_levels()
+    for level in levels:
+        assert not level.optional, f"Level {level.id} has optional=True"
+        assert not level.extension, f"Level {level.id} has extension=True"
+        assert not level.is_bonus, f"Level {level.id} has is_bonus=True"
+
+
 @pytest.mark.parametrize("level", _all_levels(), ids=lambda level: level.id)
 def test_intro_metadata_matches_public_id(level: Level) -> None:
     assert level.is_intro is str(level.id).endswith(".0")

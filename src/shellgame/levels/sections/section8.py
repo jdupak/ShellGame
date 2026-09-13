@@ -383,7 +383,6 @@ class SortUniqCountUniqueLevel(Level):
         "Řetězec: sort → uniq → wc -l spočítá unikátní řádky.",
         "Spusťte 'sort visitors.txt | uniq | wc -l' a odevzdejte číslo z výstupu.",
     ]
-    extension = True
     start_directory = "sort"
     success_message = "Správně! Sort | uniq je klasická kombinace pro práci s daty."
     fixture = WorkspaceFixture(files=(FileFixture("sort/visitors.txt", _VISITORS),))

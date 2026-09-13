@@ -57,10 +57,9 @@ class SiblingNavigationLevel(Level):
         Nebo v jednom kroku:
         `cd ../finish`
 
-        Odevzdejte název adresáře, ve kterém se nacházíte.
-
-        Odevzdejte pomocí: `shellgame submit [název-adresáře]`
-        (nebo jen `shellgame submit` pokud jste v cíli)
+        Odevzdejte název cílového adresáře:
+        `shellgame submit finish`
+        (nebo přímo v cíli: `shellgame submit`)
         """
     hints = [
         "Do sourozeneckého adresáře se dostanete přes rodičovský adresář ('..').",
@@ -226,7 +225,6 @@ class ChainedClueTraversalLevel(Level):
         "Instrukce vás posílají někam dál. Jaký příkaz použijete pro přesun do adresáře?",
         "Přečtěte start.txt, přejděte do adresáře 'next', přečtěte clue.txt.",
     ]
-    extension = True
     start_directory = ""
     fixture = WorkspaceFixture(
         files=(
@@ -266,7 +264,6 @@ class CreateFileWithTouchLevel(Level):
         "Spusťte 'touch my_file.txt' v aktuálním adresáři.",
         "Ověřte vytvoření souboru příkazem 'ls' a odešlete: 'shellgame submit'.",
     ]
-    optional = True
     start_directory = ""
     fixture = WorkspaceFixture(clean=("my_file.txt",))
     completion = Completion(requirements=(FileExists("my_file.txt"),))
@@ -274,6 +271,10 @@ class CreateFileWithTouchLevel(Level):
 
 @section.level(7)
 class SectionChallengeLevel(Level):
+    solution = Solution(
+        steps=(Chdir("challenge/room1"), Chdir("challenge/room2")),
+        answer="navigator",
+    )
     title = "Souhrn Sekce 2"
     instructions = """
         ### Výzva: Test dovedností Sekce 2
@@ -325,7 +326,7 @@ class SectionChallengeLevel(Level):
             },
             error_message="Heslo není správné. Hledejte password.txt v room2.",
             required_message="Musíte zadat heslo: shellgame submit <heslo>",
-        )
+        ),
     )
     success_message = "Výborně! Dokončili jste Sekci 2. Umíte navigovat a číst soubory!"
 
@@ -358,7 +359,7 @@ class HelpDiscoveryLevel(Level):
         Použijte: `ls --help | grep -- "-h"` nebo si přečtěte `man ls`.
 
         Odpovězte: Přepínač -h zobrazuje velikosti v jakém formátu?
-        (Odpověď je jedno anglické slovo)
+        (např. human nebo human-readable)
 
         ## Odevzdání
         `shellgame submit <slovo>`
@@ -368,7 +369,6 @@ class HelpDiscoveryLevel(Level):
         "Hledejte řádek s '-h' - říká něco o 'human readable' velikostech.",
         "V nápovědě vyhledejte popis přepínače -h; odevzdejte první slovo z výrazu 'human-readable'.",
     ]
-    extension = True
     start_directory = ""
     completion = Completion(
         answer=ChoiceAnswer(

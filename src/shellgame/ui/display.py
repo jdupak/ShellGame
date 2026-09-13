@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import sys
 from pathlib import Path
 from typing import Any, cast
 
@@ -56,7 +58,10 @@ class Display:
         self.console = console
 
     def wait_for_continue(self) -> None:
-        self.console.input(" [dim]Stiskněte Enter pro pokračování...[/dim]")
+        if not sys.stdin.isatty():
+            return
+        with contextlib.suppress(EOFError):
+            self.console.input(" [dim]Stiskněte Enter pro pokračování...[/dim]")
 
     def show_instructions(self, level: Any) -> None:
         if level.is_intro:

@@ -221,12 +221,12 @@ Hints ladder introduces chaining `..` before giving explicit command.
 Failure: Using multiple sequential single ascents acceptable but emphasize efficiency.
 
 ### Level 1.6 – Maze Navigation
-Start: `level-1/maze/00/`
-Goal: Follow `_GO_` instructions; handle multi-up directives; disregard stray files.
-Answer: `final` (basename of ending directory containing `VICTORY.marker`)
-Validation: Confirm current directory ends with `/final`
+Start: `level-1/maze/entry/`
+Goal: Follow `GO_` instructions; handle multi-up directives; disregard stray files and traps.
+Answer: `sanctuary` (ending directory containing `VICTORY.marker`)
+Validation: Confirm current directory is `maze/labyrinth/corridor/shrine/sanctuary`
 Hints:
-1. "Only follow filenames starting with _GO_."
+1. "Only follow filenames starting with GO_."
 2. "For multi-up, count how many ../ segments you need."
 3. "Final directory basename is 'final'"
 Failure: If answer given without being in `final`: "You are not at the final directory; verify with pwd."

@@ -142,7 +142,7 @@ class AppendStderrToFileLevel(Level):
 
 @section.level(3)
 class AllOutputToFileLevel(Level):
-    solution = Solution(steps=(RunShell("./buggy.sh > all_output.log 2>&1"),), answer="all_output.log")
+    solution = Solution(steps=(RunShell("./buggy.sh &> all_output.log"),), answer="all_output.log")
     title = "Všechny výstupy"
     instructions = """
         Někdy chcete zachytit VŠECHNO - normální výstup i chyby do jednoho souboru.

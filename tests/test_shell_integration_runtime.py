@@ -296,3 +296,79 @@ print(f"ARGS: {sys.argv[1:]}")
     # If fixed, 'PWNED' should NOT be printed by the shell echo,
     # but it SHOULD be printed by the python script as an argument.
     assert "PWNED" not in result.stdout or "ARGS: ['; echo PWNED']" in result.stdout
+
+
+@pytest.mark.skipif(not shutil.which("bash"), reason="bash not installed")
+def test_bash_relocates_from_deleted_cwd_before_invoking_python(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    sub = workspace / "sub"
+    sub.mkdir()
+
+    mock_game_code = """
+import os
+import sys
+print(f"CWD: {os.getcwd()}")
+"""
+    binary_cmd = create_mock_game(tmp_path, mock_game_code)
+    quoted_binary = " ".join(shlex.quote(p) for p in binary_cmd.split())
+    integration = get_bash_integration(quoted_binary, devmode=False)
+    integration_file = tmp_path / "integration.bash"
+    integration_file.write_text(integration, encoding="utf-8")
+
+    cmd = [
+        "bash",
+        "--noprofile",
+        "--norc",
+        "-c",
+        f"source {integration_file}; cd {sub}; rm -rf {sub}; shellgame check",
+    ]
+
+    result = subprocess.run(
+        cmd,
+        check=False,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "SHELLGAME_WORKSPACE": str(workspace)},
+    )
+
+    assert result.returncode == 0
+    assert f"CWD: {workspace.resolve()}" in result.stdout
+
+
+@pytest.mark.skipif(not shutil.which("fish"), reason="fish not installed")
+def test_fish_relocates_from_deleted_cwd_before_invoking_python(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    sub = workspace / "sub"
+    sub.mkdir()
+
+    mock_game_code = """
+import os
+import sys
+print(f"CWD: {os.getcwd()}")
+"""
+    binary_cmd = create_mock_game(tmp_path, mock_game_code)
+    quoted_binary = " ".join(shlex.quote(p) for p in binary_cmd.split())
+    integration = get_fish_integration(quoted_binary, devmode=False)
+    integration_file = tmp_path / "integration.fish"
+    integration_file.write_text(integration, encoding="utf-8")
+
+    cmd = [
+        "fish",
+        "--no-config",
+        "-c",
+        f"source {integration_file}; cd {sub}; rm -rf {sub}; shellgame check",
+    ]
+
+    result = subprocess.run(
+        cmd,
+        check=False,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "SHELLGAME_WORKSPACE": str(workspace)},
+    )
+
+    assert result.returncode == 0
+    assert f"CWD: {workspace.resolve()}" in result.stdout
+

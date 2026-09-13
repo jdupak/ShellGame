@@ -205,7 +205,6 @@ class RenameDirectoryLevel(Level):
         "Přejmenování adresáře funguje stejně jako u souborů: 'mv <starý_název> <nový_název>'.",
         "Spusťte 'mv tmp_data data'.",
     ]
-    extension = True
     start_directory = "renaming"
     fixture = WorkspaceFixture(
         files=(FileFixture("renaming/tmp_data/file.txt", "content"),),
@@ -245,7 +244,6 @@ class OrganizeLogsLevel(Level):
         "Příkaz 'mv' dokáže přesunout více souborů najednou do cílového adresáře: 'mv <soubory> <cíl>/'.",
         "Spusťte 'mv *.log logs/' a odevzdejte 'logs'.",
     ]
-    optional = True
     start_directory = "organize"
     fixture = WorkspaceFixture(
         directories=("organize/logs",),

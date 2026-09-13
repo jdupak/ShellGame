@@ -9,34 +9,36 @@ def test_level1_7_maze_has_first_step(tmp_path: Path) -> None:
     level = MazeLevel()
     level.prepare(tmp_path)
 
-    start_dir = tmp_path / "level-1" / "maze" / "00"
+    start_dir = tmp_path / "level-1" / "maze" / "entry"
     assert start_dir.is_dir()
-    instruction = start_dir / "GO_UP_1_THEN_GO_TO_01"
+    instruction = start_dir / "GO_TO_DIR_hall"
     assert instruction.is_file()
 
     destination = resolve_maze_instruction(instruction.name, start_dir)
     assert destination is not None
     assert destination.is_dir()
-    assert destination == tmp_path / "level-1" / "maze" / "01"
+    assert destination == tmp_path / "level-1" / "maze" / "entry" / "hall"
 
 
-def test_level1_7_deep_step_go_up_4_then_go_to_02_is_valid(tmp_path: Path) -> None:
+def test_level1_7_deep_step_go_up_2_then_go_to_catacombs_is_valid(tmp_path: Path) -> None:
     level = MazeLevel()
     level.prepare(tmp_path)
 
     maze_root = tmp_path / "level-1" / "maze"
-    deep_step = maze_root / "01" / "deep" / "a" / "b"
+    deep_step = (
+        maze_root / "entry" / "hall" / "nexus" / "passages" / "tunnel" / "cavern" / "depths"
+    )
     assert deep_step.is_dir()
 
-    instr = deep_step / "GO_UP_4_THEN_GO_TO_02"
+    instr = deep_step / "GO_UP_2_THEN_GO_TO_catacombs"
     assert instr.is_file()
 
-    # Simulate the meaning: go up 4 levels from b -> a -> deep -> 01 -> maze
+    # Simulate the meaning: go up 2 levels from depths -> cavern -> tunnel, then into catacombs
     landing = deep_step
-    for _ in range(4):
+    for _ in range(2):
         landing = landing.parent
-    assert landing == maze_root
-    assert (landing / "02").is_dir()
+    assert landing == maze_root / "entry" / "hall" / "nexus" / "passages" / "tunnel"
+    assert (landing / "catacombs").is_dir()
 
 
 def test_every_maze_instruction_resolves_to_an_existing_directory(tmp_path: Path) -> None:

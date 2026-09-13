@@ -10,17 +10,16 @@ def test_level1_7_maze_has_branches_and_a_loop(tmp_path: Path) -> None:
     level.prepare(tmp_path)
 
     maze_root = tmp_path / "level-1" / "maze"
-    start = maze_root / "00"
+    start = maze_root / "entry"
     assert start.is_dir()
 
-    # Branching at the start: at least one decoy directory besides the "right" path.
-    assert (start / "01").exists() is False  # 01 is sibling of 00, not inside it
-    assert (maze_root / "01").is_dir()
-    assert (start / "side").is_dir()
-    assert (start / "trap").is_dir()
+    # Branching at the start: decoys along with the right path
+    assert (start / "hall").is_dir()
+    assert (start / "dungeon").is_dir()
+    assert (start / "courtyard").is_dir()
 
-    # A small loop: 00/side/loop contains an instruction that points back to 00.
-    loop_dir = start / "side" / "loop"
-    assert loop_dir.is_dir()
-    assert (loop_dir / "GO_UP_2").is_file()
-    assert resolve_maze_instruction("GO_UP_2", loop_dir) == start
+    # A local backtrack loop: entry/hall/side_door points back to entry/hall via GO_UP_1
+    side_door = start / "hall" / "side_door"
+    assert side_door.is_dir()
+    assert (side_door / "GO_UP_1").is_file()
+    assert resolve_maze_instruction("GO_UP_1", side_door) == start / "hall"
