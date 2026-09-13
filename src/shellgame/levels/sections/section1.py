@@ -348,13 +348,11 @@ _MAZE_STRUCTURE: dict[str, tuple[str, ...]] = {
     "entry/hall": ("GO_TO_DIR_nexus", "alcove", "side_door"),
     "entry/hall/alcove": (_MAZE_TRAP,),
     "entry/hall/side_door": ("GO_UP_1",),  # local backtrack loop to entry/hall
-
     # --- Nexus hub (under entry/hall) ---
     "entry/hall/nexus": ("GO_TO_DIR_passages", "sanctum", "rotunda", "archives"),
     "entry/hall/nexus/sanctum": (_MAZE_TRAP,),
     "entry/hall/nexus/archives": (_MAZE_TRAP,),
     "entry/hall/nexus/rotunda": ("GO_UP_1",),  # local backtrack to nexus
-
     # --- Passages branch (under entry/hall/nexus) ---
     "entry/hall/nexus/passages": ("GO_TO_DIR_tunnel", "gallery", "shaft"),
     "entry/hall/nexus/passages/gallery": (_MAZE_TRAP,),
@@ -364,12 +362,10 @@ _MAZE_STRUCTURE: dict[str, tuple[str, ...]] = {
     "entry/hall/nexus/passages/tunnel/cavern": ("GO_TO_DIR_depths", "grotto", "abyss"),
     "entry/hall/nexus/passages/tunnel/cavern/grotto": (_MAZE_TRAP,),
     "entry/hall/nexus/passages/tunnel/cavern/abyss": (_MAZE_TRAP,),
-
     # Deep dead-end in passages that requires ascending 2 levels back to tunnel
     # depths is at entry/hall/nexus/passages/tunnel/cavern/depths.
     # 2 levels up reaches tunnel, then instruction points to an alternate route (catacombs under tunnel)
     "entry/hall/nexus/passages/tunnel/cavern/depths": ("GO_UP_2_THEN_GO_TO_catacombs", "echoes.txt"),
-
     # --- Catacombs (branch off tunnel) ---
     "entry/hall/nexus/passages/tunnel/catacombs": ("GO_TO_DIR_vault", "ossuary", "crypts"),
     "entry/hall/nexus/passages/tunnel/catacombs/ossuary": (_MAZE_TRAP,),
@@ -377,11 +373,9 @@ _MAZE_STRUCTURE: dict[str, tuple[str, ...]] = {
     "entry/hall/nexus/passages/tunnel/catacombs/vault": ("GO_TO_DIR_chamber", "iron_cell", "sepulcher"),
     "entry/hall/nexus/passages/tunnel/catacombs/vault/iron_cell": (_MAZE_TRAP,),
     "entry/hall/nexus/passages/tunnel/catacombs/vault/sepulcher": (_MAZE_TRAP,),
-
     # vault/chamber has explored deep into catacombs.
     # Back up 2 levels (vault -> catacombs) to switch to labyrinth under catacombs
     "entry/hall/nexus/passages/tunnel/catacombs/vault/chamber": ("GO_UP_2_THEN_GO_TO_labyrinth", "relic.txt"),
-
     # --- Labyrinth & Final Sanctum (branch off catacombs) ---
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth": ("GO_TO_DIR_corridor", "dead_end", "ruins"),
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/dead_end": (_MAZE_TRAP,),
@@ -392,7 +386,6 @@ _MAZE_STRUCTURE: dict[str, tuple[str, ...]] = {
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine": ("GO_TO_DIR_final", "mirage", "shadow"),
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/mirage": (_MAZE_TRAP,),
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/shadow": (_MAZE_TRAP,),
-
     # Versioning pun sequence: final -> final_v2 -> final_final -> opravdu_final_v2_FINAL
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final": (
         "GO_TO_DIR_final_v2",
@@ -405,9 +398,9 @@ _MAZE_STRUCTURE: dict[str, tuple[str, ...]] = {
         "abandoned_branch",
         "old.bak",
     ),
-    (
-        "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/abandoned_branch"
-    ): (_MAZE_TRAP,),
+    ("entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/abandoned_branch"): (
+        _MAZE_TRAP,
+    ),
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/final_final": (
         "GO_TO_DIR_opravdu_final_v2_FINAL",
         "fake_end",
@@ -417,9 +410,7 @@ _MAZE_STRUCTURE: dict[str, tuple[str, ...]] = {
     ),
     (
         "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/final_final/opravdu_final_v2_FINAL"
-    ): (
-        "VICTORY.marker",
-    ),
+    ): ("VICTORY.marker",),
 }
 
 
@@ -524,9 +515,7 @@ class MazeLevel(Level):
     def hooks(self) -> dict[str, CdHookCallback]:
         return {"cd": self._handle_cd}
 
-    def _handle_cd(
-        self, *, target: str | None, pwd: str | None, post_move: bool, state: GameStateProtocol
-    ) -> None:
+    def _handle_cd(self, *, target: str | None, pwd: str | None, post_move: bool, state: GameStateProtocol) -> None:
         maze_root = (self.section_path(state.workspace) / "maze").resolve()
 
         if not post_move:

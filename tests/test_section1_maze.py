@@ -25,9 +25,7 @@ def test_level1_7_deep_step_go_up_2_then_go_to_catacombs_is_valid(tmp_path: Path
     level.prepare(tmp_path)
 
     maze_root = tmp_path / "level-1" / "maze"
-    deep_step = (
-        maze_root / "entry" / "hall" / "nexus" / "passages" / "tunnel" / "cavern" / "depths"
-    )
+    deep_step = maze_root / "entry" / "hall" / "nexus" / "passages" / "tunnel" / "cavern" / "depths"
     assert deep_step.is_dir()
 
     instr = deep_step / "GO_UP_2_THEN_GO_TO_catacombs"

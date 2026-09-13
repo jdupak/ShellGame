@@ -97,4 +97,3 @@ def test_level1_7_is_mandatory() -> None:
     assert not level.optional
     assert not level.extension
     assert not level.is_bonus
-

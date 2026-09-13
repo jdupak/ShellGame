@@ -58,4 +58,3 @@ def test_level1_7_trap_file_includes_reset_instruction(tmp_path: Path) -> None:
     content = trap_file.read_text(encoding="utf-8")
     assert "shellgame reset" in content
     assert "maze/entry" in content
-

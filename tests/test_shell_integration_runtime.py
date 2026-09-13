@@ -371,4 +371,3 @@ print(f"CWD: {os.getcwd()}")
 
     assert result.returncode == 0
     assert f"CWD: {workspace.resolve()}" in result.stdout
-

@@ -279,4 +279,3 @@ class TestLevel17HookLogic:
         with patch("shellgame.markers.MarkerManager.create") as mock_create:
             mock_session.handle_cd_hook(target=None, pwd=str(sanctuary), post_move=True)
             mock_create.assert_called_with(cd_marker("1.7"))
-
