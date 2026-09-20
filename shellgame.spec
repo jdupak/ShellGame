@@ -3,14 +3,15 @@
 # Reproducible PyInstaller spec for ShellGame.
 # Used by: `make build`
 
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 block_cipher = None
 
-# Include Click/Rich templates bundled as package data.
-# NOTE: We also include the package-data listing in pyproject.toml.
+# Include runtime templates and level introductions bundled as package data.
+# NOTE: We also include the package-data listings in pyproject.toml.
 datas = []
 datas += collect_data_files("shellgame.cli.templates")
+datas += collect_data_files("shellgame.levels.content")
 
 
 a = Analysis(
@@ -18,7 +19,7 @@ a = Analysis(
     pathex=["."],
     binaries=[],
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=collect_submodules("shellgame.levels.sections"),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

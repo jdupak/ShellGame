@@ -49,6 +49,7 @@ shellgame = "shellgame.__main__:cli"
 
 [tool.setuptools.package-data]
 "shellgame.cli.templates" = ["*.template"]
+"shellgame.levels.content" = ["*.md"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

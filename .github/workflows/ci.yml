@@ -3,6 +3,10 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -32,3 +36,44 @@ jobs:
 
       - name: Run tests
         run: make test
+
+  build-and-release:
+    if: github.event_name == 'push'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: uv sync --extra build
+
+      - name: Build Linux binary
+        run: |
+          uv run pyinstaller shellgame.spec
+          mkdir -p dist/package
+          cp dist/shellgame dist/package/shellgame
+          tar -czf shellgame-linux-x86_64.tar.gz -C dist/package shellgame
+
+      - name: Upload release archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: shellgame-linux-x86_64.tar.gz
+          path: shellgame-linux-x86_64.tar.gz
+
+      - name: Publish GitHub release asset
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: ShellGame build ${{ github.run_number }}
+          files: shellgame-linux-x86_64.tar.gz
+          draft: false
+          prerelease: false
+          generate_release_notes: true

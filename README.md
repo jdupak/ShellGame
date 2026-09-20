@@ -156,11 +156,27 @@ Notes:
 
 ## Install (distribution)
 
-Create a standalone binary using `PyInstaller`:
+Install the latest Linux x86_64 binary into the current directory (no root or `sudo` required), then run it directly:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jdupak/ShellGame/main/scripts/install.sh | bash
+./shellgame
+```
+
+To choose another installation directory:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jdupak/ShellGame/main/scripts/install.sh | INSTALL_DIR="$HOME/bin" bash
+"$HOME/bin/shellgame"
+```
+
+Or build a standalone binary locally with `PyInstaller`:
 
 ```bash
 make build
 ```
+
+Every push to the default branch creates a GitHub Release asset containing a packed `shellgame` binary.
 
 ## Shell integration (built-in)
 
