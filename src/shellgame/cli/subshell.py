@@ -239,6 +239,18 @@ def launch_subshell(shell_name: str, devmode: bool = False) -> None:
         env["SHELLGAME_WRAPPER"] = "1"
         env["SHELLGAME_FD_HOOK"] = fd_hook_path
 
+        # In PyInstaller onefile bundles, LD_LIBRARY_PATH is set to the extraction dir (_MEIPASS).
+        # We must restore the original LD_LIBRARY_PATH so spawned shells and system binaries
+        # (like flatpak, git, curl) use system libraries instead of bundled ones.
+        if "LD_LIBRARY_PATH_ORIG" in env:
+            env["LD_LIBRARY_PATH"] = env.pop("LD_LIBRARY_PATH_ORIG")
+        else:
+            env.pop("LD_LIBRARY_PATH", None)
+        if "DYLD_LIBRARY_PATH_ORIG" in env:
+            env["DYLD_LIBRARY_PATH"] = env.pop("DYLD_LIBRARY_PATH_ORIG")
+        else:
+            env.pop("DYLD_LIBRARY_PATH", None)
+
         if shell_name == "fish":
             _run_subshell(
                 ["fish", "--init-command", _generate_fish_init_command(script_path)],

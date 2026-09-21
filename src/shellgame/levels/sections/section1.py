@@ -427,18 +427,16 @@ _MAZE_STRUCTURE: dict[str, tuple[str, ...]] = {
         "abandoned_branch",
         "old.bak",
     ),
-    (
-        "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/"
-        "final/final_v2/abandoned_branch"
-    ): (_MAZE_TRAP,),
+    ("entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/abandoned_branch"): (
+        _MAZE_TRAP,
+    ),
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/final_final": (
         "GO_TO_DIR_opravdu_final_v2_FINAL",
         "fake_end",
     ),
-    (
-        "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/"
-        "final/final_v2/final_final/fake_end"
-    ): (_MAZE_TRAP,),
+    ("entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/final_final/fake_end"): (
+        _MAZE_TRAP,
+    ),
     (
         "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/"
         "final/final_v2/final_final/opravdu_final_v2_FINAL"

@@ -46,8 +46,7 @@ def test_level6_7_teaches_alias_for_both_shells_and_its_scope() -> None:
         ),
         (
             "fish",
-            "function shellgame; string join ' ' $argv; end; "
-            "alias sg shellgame; sg submit alias-ready",
+            "function shellgame; string join ' ' $argv; end; alias sg shellgame; sg submit alias-ready",
         ),
     ],
 )

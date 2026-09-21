@@ -198,9 +198,7 @@ def test_grep_hints_do_not_reveal_the_matching_line(tmp_path: Path) -> None:
     start = level.get_start_directory(workspace)
     assert start is not None
     matching_line = next(
-        line
-        for line in (start / "config.txt").read_text(encoding="utf-8").splitlines()
-        if "ACTIVE_PROFILE" in line
+        line for line in (start / "config.txt").read_text(encoding="utf-8").splitlines() if "ACTIVE_PROFILE" in line
     )
 
     assert all(matching_line not in hint for hint in level.hints)

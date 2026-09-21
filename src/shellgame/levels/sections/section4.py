@@ -392,10 +392,7 @@ class SectionChallengeLevel(Level):
         Po splnění všech bodů spusťte `shellgame submit`.
         """
     hints = [
-        (
-            "Rozdělte úkol na výsledky: dva adresáře a jeden soubor vytvořit, "
-            "dvě existující položky odstranit."
-        ),
+        ("Rozdělte úkol na výsledky: dva adresáře a jeden soubor vytvořit, dvě existující položky odstranit."),
         (
             "Vnořené adresáře vytvoří 'mkdir -p'; prázdný soubor 'touch'. "
             "Soubor a prázdný adresář se mažou různými příkazy."
