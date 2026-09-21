@@ -41,30 +41,35 @@ class SiblingNavigationLevel(Level):
     title = "Navigace mezi sourozenci"
     instructions = """
         ### Cíl
-        Přejděte z jednoho podadresáře do druhého (sourozeneckého) adresáře.
+        Přejděte z aktuálního podadresáře do sousedního (sourozeneckého) adresáře.
 
-        ### Příkazy k naučení
-        - `cd ../<název>` (jít nahoru a hned dolů do jiného adresáře)
+        ### Struktura adresářů
+        ```
+        level-2/
+        ├── start/       ← Zde se nacházíte (start)
+        └── finish/      ← Váš cíl
+        ```
+
+        ### Navigace mezi sourozenci
+        Adresáře `start` a `finish` leží vedle sebe ve stejném rodičovském adresáři (`level-2`).
+        Protože `finish` neleží uvnitř `start`, nelze použít přímý příkaz `cd finish`.
+        Musíte se nejprve vrátit k rodiči (`..`) a odtud vstoupit do cíle:
+        - Ve dvou krocích: nejprve o úroveň výše (`cd ..`) a potom do cíle.
+        - Nebo v jednom kroku spojenou relativní cestou: `cd ../<cílový_adresář>`.
 
         ### Úkol
-        Nacházíte se v adresáři `level-2/start`.
-        Vaším úkolem je přejít do adresáře `level-2/finish`.
+        1. Začínáte v adresáři `level-2/start`
+        2. Přejděte do sousedního adresáře `finish`
+        3. V cíli ověřte polohu příkazem `pwd` a odešlete řešení
 
-        Můžete to udělat ve dvou krocích:
-        1. `cd ..` (zpět do level-2)
-        2. `cd finish` (do cíle)
-
-        Nebo v jednom kroku:
-        `cd ../finish`
-
-        Odevzdejte název cílového adresáře:
-        `shellgame submit finish`
-        (nebo přímo v cíli: `shellgame submit`)
+        ### Odevzdání
+        V cílovém adresáři spusťte:
+        `shellgame submit`
         """
     hints = [
-        "Do sourozeneckého adresáře se dostanete přes rodičovský adresář ('..').",
-        "Můžete použít 'cd ..' a pak 'cd finish', nebo to spojit do jednoho příkazu 'cd ../finish'.",
-        "Po přesunu ověřte polohu příkazem 'pwd'. Odevzdejte poslední část cesty nebo prázdný 'shellgame submit'.",
+        "Do sourozeneckého adresáře se dostanete přes společného rodiče ('..').",
+        "Zkuste nejprve vystoupat o úroveň výše nebo použít spojenou relativní cestu začínající '../'.",
+        "Po přesunu ověřte polohu příkazem 'pwd' a spusťte 'shellgame submit'.",
     ]
     start_directory = "start"
     fixture = WorkspaceFixture(directories=("start", "finish"))
@@ -273,44 +278,56 @@ class CreateFileWithTouchLevel(Level):
 
 @section.level(7)
 class HelpDiscoveryLevel(Level):
+    solution = Solution(answer="human-readable")
     title = "Jak najít pomoc"
     instructions = """
-        # Jak najít pomoc
-
-        Nikdo si nepamatuje všechny přepínače všech příkazů. Proto existuje nápověda!
+        ### Cíl
+        Naučte se vyhledávat v nápovědě k příkazům.
 
         ### Dva způsoby, jak získat pomoc
-        1. `ls --help` → stručný přehled přepínačů
-        2. `man ls` → podrobný manuál; ukončíte ho klávesou `q`
+        Nikdo si nepamatuje všechny přepínače všech příkazů:
+        1. `<příkaz> --help` → stručný přehled přepínačů přímo v terminálu
+        2. `man <příkaz>` → podrobný manuál (stránkovaný; ukončíte ho klávesou `q`)
 
-        ### Hledání v manuálu
-        V `man ls` stiskněte `/`, napište `-h` a potvrďte Enterem.
-        Klávesa `n` přejde na další výskyt.
+        ### 💡 Hledání v manuálu (`man`)
+        V manuálu můžete vyhledávat:
+        - Stiskněte klávesu `/`, napište hledaný text (např. `-h`) a stiskněte **Enter**.
+        - Klávesou `n` přejdete na další výskyt.
+        - Klávesou `q` manuál ukončíte.
 
-        ## Úkol
-        Pomocí `ls --help` nebo `man ls` zjistěte, v jakém formátu přepínač `-h` zobrazuje velikosti.
+        ### Úkol
+        1. Spusťte `ls --help` nebo otevřete manuál `man ls`.
+        2. Vyhledejte přepínač `-h`.
+        3. Krátké přepínače mívají svůj dlouhý ekvivalent začínající na `--` (např. `-a` má `--all`).
+           Jaký dlouhý název má přepínač `-h`?
+        4. Odevzdejte tento dlouhý název (např. `human-readable` nebo `--human-readable`).
 
-        ## Odevzdání
-        `shellgame submit <hodnota>`
+        ### Odevzdání
+        `shellgame submit <název>`
         """
     hints = [
-        "Spusťte 'ls --help' a projděte seznam přepínačů.",
-        "Alternativně otevřete 'man ls' a vyhledejte '-h' pomocí klávesy '/'.",
-        "Odevzdejte termín, který dokumentace používá pro tento formát velikostí.",
+        "Spusťte 'ls --help' nebo 'man ls' a vyhledejte řádek s přepínačem '-h'.",
+        "V nápovědě uvidíte zápis ve tvaru '-h, --název'. Hledejte slovo za dvěma pomlčkami.",
+        "Přepínač '-h' je zkratka pro 'human-readable'. Odevzdejte: shellgame submit human-readable",
     ]
     start_directory = ""
     completion = Completion(
         answer=ChoiceAnswer(
             (
                 "human-readable",
+                "--human-readable",
+                "human readable",
                 "human",
                 "čitelné",
                 "citelne",
                 "čitelné formátování",
             ),
             case_sensitive=False,
-            error_message="Odpověď není správně. Podívejte se na popis '-h' v 'ls --help' nebo 'man ls'.",
-            required_message="Musíte zadat odpověď: shellgame submit <hodnota>",
+            error_message=(
+                "Odpověď není správně. V nápovědě vyhledejte řádek s přepínačem '-h' "
+                "a najděte jeho dlouhý název (--...)."
+            ),
+            required_message="Musíte zadat odpověď: shellgame submit <název>",
         )
     )
     success_message = "Správně! Teď víte, jak najít pomoc. Příkaz --help a man jsou vaši nejlepší přátelé!"

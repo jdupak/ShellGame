@@ -160,7 +160,36 @@ function __fish_shellgame_needs_command
     return 1
 end
 
-complete -c shellgame -f -n "__fish_shellgame_needs_command" -a "init hint submit skip status reset repeat show remove exit"
+# Disable general file completion by default
+complete -c shellgame -f
+
+# Root commands
+complete -c shellgame -n "__fish_shellgame_needs_command" -a "init hint submit skip status reset repeat show remove exit"
+complete -c shellgame -s h -l help -d "Zobrazit nápovědu"
+
+# Options for hint
+complete -c shellgame -n "__fish_seen_subcommand_from hint" -s r -l repeat -d "Zobrazit znovu všechny již zobrazené nápovědy"
+complete -c shellgame -n "__fish_seen_subcommand_from hint" -s h -l help -d "Zobrazit nápovědu"
+
+# Options for repeat
+complete -c shellgame -n "__fish_seen_subcommand_from repeat" -l section -d "Číslo sekce ke zopakování"
+complete -c shellgame -n "__fish_seen_subcommand_from repeat" -l level -d "ID levelu ke zopakování"
+complete -c shellgame -n "__fish_seen_subcommand_from repeat" -s h -l help -d "Zobrazit nápovědu"
+
+# Options for show
+complete -c shellgame -n "__fish_seen_subcommand_from show" -l section -d "Zobrazit úvod aktuální sekce"
+complete -c shellgame -n "__fish_seen_subcommand_from show" -l level -d "Zobrazit zadání aktuálního levelu"
+complete -c shellgame -n "__fish_seen_subcommand_from show" -s h -l help -d "Zobrazit nápovědu"
+
+# Subcommands for dev
+complete -c shellgame -n "__fish_seen_subcommand_from dev" -a "jump next prev reload start"
+
+# Allow file completion for submit
+complete -c shellgame -n "__fish_seen_subcommand_from submit" -F
+
+# Wrap completions for common aliases
+complete -c sg -w shellgame
+complete -c g -w shellgame
 
 # Autostart block (runs once when integration is sourced).
 # This must be at the end so the shellgame function is already defined.

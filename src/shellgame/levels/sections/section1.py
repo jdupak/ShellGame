@@ -742,30 +742,50 @@ class HomeWalkLevel(Level):
 @section.level(10)
 class HomeCheckLevel(Level):
     solution = Solution(steps=(GoHome(),), answer=Path.home().name)
-    title = "Potvrzení domova"
+    title = "Zkratka pro domov (~)"
     instructions = """
         ### Cíl
-        Ověřte, že jste doma.
+        Naučte se používat zkratku `~` (vlnovku) pro rychlý návrat do domovského adresáře.
 
-        ### Příkazy
-        - `cd ~` - jít domů
+        ### Zkratka pro domov: `~` (vlnovka / tilda)
+        V předchozím levelu jste šli do domovského adresáře krok za krokem. V běžné práci
+        však celou cestu psát nemusíte:
+        - Znak `~` (vlnovka) je v shellu zkratka pro váš domovský adresář (`$HOME`).
+        - Příkaz `cd ~` vás okamžitě přenese domů, ať se nacházíte kdekoliv v systému.
+        - Zkratku lze použít i v cestách, např. `cd ~/dokumenty`.
+        - *(Tip: do domovského adresáře vás přenese i samotný příkaz `cd` bez parametrů.)*
+
+        ### 💡 Jak napsat znak `~` na klávesnici
+        - **Česká klávesnice**: `Pravý Alt` (AltGr) + klávesa `+` (obvykle vpravo nahoře;
+          po stisku může být potřeba stisknout mezerník).
+        - **Anglická klávesnice**: `Shift` + klávesa pod `Esc` (vlevo nahoře).
 
         ### Úkol
-        1. Jděte domů (`cd ~`)
-        2. Odevzdejte název domovského adresáře
+        1. Začínáte v herním prostoru (`level-1`)
+        2. Přejděte do domovského adresáře pomocí zkratky: `cd ~`
+        3. Příkazem `pwd` ověřte, kde se nacházíte
+        4. Odevzdejte název vašeho domovského adresáře (poslední část cesty z `pwd`)
+
+        ### Odevzdání
+        `shellgame submit <název>`
         """
     hints = [
-        "Můžete použít 'cd ~' nebo 'cd $HOME' pro rychlý návrat domů.",
-        "Použijte 'pwd' pro kontrolu, kde jste.",
-        "Odevzdejte název vašeho domovského adresáře (poslední část cesty).",
-        "Vlnovka '~' je zkratka pro domovský adresář aktuálního uživatele.",
+        (
+            "Znak '~' (vlnovka) je zkratka shellu pro domovský adresář ($HOME). "
+            "Příkaz 'cd ~' vás přenese domů odkudkoliv."
+        ),
+        "Na české klávesnici napíšete '~' pomocí Pravého Alt (AltGr) + klávesy '+'.",
+        "Po přesunu použijte 'pwd' pro zjištění plné cesty a odevzdejte pouze její poslední část (basename).",
+        "Pokud 'pwd' ukáže např. '/home/jan', odevzdáte 'jan' příkazem 'shellgame submit jan'.",
     ]
     start_directory = WORKSPACE_ROOT
     completion = Completion(
         answer=ExactAnswer(Path.home().name),
         requirements=(AtHome(),),
     )
-    success_message = "Správně! `~` se rozbalí na váš domovský adresář, ať stojíte kdekoliv v systému."
+    success_message = (
+        "Správně! Znak `~` (vlnovka) se v shellu vždy rozbalí na váš domovský adresář, ať stojíte kdekoliv v systému."
+    )
 
 
 #: The `1.11` suffix is intentionally unused: a level was retired after IDs had

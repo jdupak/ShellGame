@@ -158,16 +158,45 @@ shellgame() {
 
 _shellgame_completions()
 {
-  local cur opts
+  local cur subcmd
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
-  opts="init hint submit skip status reset repeat show remove exit"
 
-  if [ $COMP_CWORD -eq 1 ]; then
-    COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+  local commands="init hint submit skip status reset repeat show remove exit"
+
+  if [ "$COMP_CWORD" -eq 1 ]; then
+    if [[ "${cur}" == -* ]]; then
+      COMPREPLY=( $(compgen -W "--help" -- "${cur}") )
+    else
+      COMPREPLY=( $(compgen -W "${commands}" -- "${cur}") )
+    fi
+    return 0
   fi
+
+  subcmd="${COMP_WORDS[1]}"
+  case "${subcmd}" in
+    hint)
+      COMPREPLY=( $(compgen -W "-r --repeat --help" -- "${cur}") )
+      ;;
+    repeat)
+      COMPREPLY=( $(compgen -W "--section --level --help" -- "${cur}") )
+      ;;
+    show)
+      COMPREPLY=( $(compgen -W "--section --level --help" -- "${cur}") )
+      ;;
+    submit)
+      COMPREPLY=( $(compgen -f -- "${cur}") )
+      ;;
+    dev)
+      if [ "$COMP_CWORD" -eq 2 ]; then
+        COMPREPLY=( $(compgen -W "jump next prev reload start" -- "${cur}") )
+      fi
+      ;;
+    *)
+      ;;
+  esac
 }
-complete -F _shellgame_completions shellgame
+complete -F _shellgame_completions shellgame sg g
 
 # Export the function so it's available in the shell
 export -f shellgame

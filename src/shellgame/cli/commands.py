@@ -153,11 +153,13 @@ def hint(repeat: bool) -> None:
     _get_session().hint(repeat=repeat)
 
 
-@cli.command()
+@cli.command(context_settings={"ignore_unknown_options": True})
 @click.argument("answer", required=False)
 @click.pass_context
 def submit(ctx: click.Context, answer: str | None = None) -> None:
     """Odeslat odpověď pro aktuální level."""
+    if answer is None and ctx.args:
+        answer = " ".join(ctx.args)
     _get_session().submit(answer)
 
 

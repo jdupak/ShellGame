@@ -477,3 +477,75 @@ print({export_level!r}, file=sys.stderr)
         result = _run_fish(int_file, f"shellgame; cd {target_dir} 2>&1; echo exit:$status")
         assert "exit:1" in result.stdout
         assert "1.9" in result.stdout
+
+
+class TestAutocompleteParity:
+    """Test autocomplete behavior for both bash and fish."""
+
+    @pytest.mark.skipif(not shutil.which("bash"), reason="bash not installed")
+    def test_bash_completes_commands_and_options(self, tmp_path: Path) -> None:
+        binary_cmd = _create_mock_game(tmp_path, "import sys; sys.exit(0)")
+        integration = get_bash_integration(binary_cmd, devmode=False)
+        int_file = tmp_path / "integration.bash"
+        int_file.write_text(integration)
+
+        # Test root completion
+        result = _run_bash(
+            int_file,
+            'COMP_WORDS=(shellgame ""); COMP_CWORD=1; _shellgame_completions; echo "root:${COMPREPLY[*]}"',
+        )
+        assert "hint" in result.stdout
+        assert "submit" in result.stdout
+        assert "repeat" in result.stdout
+        assert "show" in result.stdout
+
+        # Test hint options
+        result = _run_bash(
+            int_file,
+            'COMP_WORDS=(shellgame hint "-"); COMP_CWORD=2; _shellgame_completions; echo "hint:${COMPREPLY[*]}"',
+        )
+        assert "--repeat" in result.stdout
+        assert "-r" in result.stdout
+
+        # Test repeat options
+        result = _run_bash(
+            int_file,
+            'COMP_WORDS=(shellgame repeat "--"); COMP_CWORD=2; _shellgame_completions; echo "repeat:${COMPREPLY[*]}"',
+        )
+        assert "--section" in result.stdout
+        assert "--level" in result.stdout
+
+        # Test alias sg
+        result = _run_bash(
+            int_file,
+            'COMP_WORDS=(sg hint "-"); COMP_CWORD=2; _shellgame_completions; echo "sg:${COMPREPLY[*]}"',
+        )
+        assert "--repeat" in result.stdout
+
+    @pytest.mark.skipif(not shutil.which("fish"), reason="fish not installed")
+    def test_fish_completes_commands_and_options(self, tmp_path: Path) -> None:
+        binary_cmd = _create_mock_game(tmp_path, "import sys; sys.exit(0)")
+        integration = get_fish_integration(binary_cmd, devmode=False)
+        int_file = tmp_path / "integration.fish"
+        int_file.write_text(integration)
+
+        # Test root completion
+        result = _run_fish(int_file, 'complete -C "shellgame "')
+        assert "hint" in result.stdout
+        assert "submit" in result.stdout
+        assert "repeat" in result.stdout
+        assert "show" in result.stdout
+
+        # Test hint options
+        result = _run_fish(int_file, 'complete -C "shellgame hint -"')
+        assert "--repeat" in result.stdout
+        assert "-r" in result.stdout
+
+        # Test repeat options
+        result = _run_fish(int_file, 'complete -C "shellgame repeat --"')
+        assert "--section" in result.stdout
+        assert "--level" in result.stdout
+
+        # Test alias sg
+        result = _run_fish(int_file, 'complete -C "sg hint -"')
+        assert "--repeat" in result.stdout

@@ -32,16 +32,16 @@ class CreateFileLevel(Level):
     solution = Solution(steps=(RunShell("touch novy_soubor.txt"),), answer=None)
     title = "Vytvoření souboru"
     instructions = """
-        Příkaz `touch` slouží k vytvoření prázdného souboru. U existujícího souboru
-        aktualizuje jeho časové značky.
+        ### Cíl
+        Vytvořte nový prázdný soubor.
 
-        ## Úkol
+        ### Příkazy
+        - `touch <název_souboru>` (vytvoří prázdný soubor nebo aktualizuje časové značky)
+
+        ### Úkol
         Vytvořte prázdný soubor s názvem `novy_soubor.txt` v aktuálním adresáři.
 
-        ## Příkazy
-        - `touch <název_souboru>`
-
-        ## Odevzdání
+        ### Odevzdání
         Až bude soubor existovat a bude zcela prázdný, spusťte:
         `shellgame submit`
         """
@@ -73,16 +73,17 @@ class CreateDirectoryLevel(Level):
     solution = Solution(steps=(RunShell("mkdir data"),), answer="data")
     title = "Vytvoření adresáře"
     instructions = """
-        Příkaz `mkdir` (make directory) slouží k vytváření nových adresářů.
+        ### Cíl
+        Vytvořte nový adresář.
 
-        ## Úkol
+        ### Příkazy
+        - `mkdir <název_adresáře>` (make directory)
+
+        ### Úkol
         Vytvořte adresář s názvem `data` v aktuálním adresáři.
 
-        ## Příkazy
-        - `mkdir <název_adresáře>`
-
-        ## Odevzdání
-        Odevzdejte název vytvořeného adresáře.
+        ### Odevzdání
+        Odevzdejte název vytvořeného adresáře:
         `shellgame submit <název>`
         """
     hints = [
@@ -115,19 +116,21 @@ class NestedDirectoryCreationLevel(Level):
     solution = Solution(steps=(RunShell("mkdir -p projekt/src/tests"),), answer=None)
     title = "Vytváření zanořených adresářů"
     instructions = """
-        Pokud chcete vytvořit celou cestu adresářů najednou (např. `projekt/src/main`),
-        příkaz `mkdir` by normálně selhal, pokud rodičovské adresáře neexistují.
+        ### Cíl
+        Vytvořte zanořenou strukturu adresářů jedním příkazem.
 
-        Přepínač `-p` (parents) řekne příkazu `mkdir`, aby vytvořil i všechny chybějící
-        rodičovské adresáře.
+        ### Vytváření cest s přepínačem `-p`
+        Při vytváření celé cesty (např. `projekt/src/tests`) příkaz `mkdir` bez přepínače
+        selže, pokud nadřazené adresáře neexistují.
+        Přepínač `-p` (parents) vytvoří celou cestu včetně chybějících rodičovských adresářů.
 
-        ## Úkol
+        ### Příkazy
+        - `mkdir -p <cesta>` (vytvoří adresář včetně všech chybějících nadřazených složek)
+
+        ### Úkol
         Vytvořte strukturu adresářů `projekt/src/tests`.
 
-        ## Příkazy
-        - `mkdir -p <cesta>`
-
-        ## Odevzdání
+        ### Odevzdání
         Až bude celá struktura vytvořená, spusťte:
         `shellgame submit`
         """
@@ -161,23 +164,22 @@ class DeleteFileLevel(Level):
     solution = Solution(steps=(RunShell("rm stary_log.txt"),), answer="stary_log.txt")
     title = "Mazání souborů"
     instructions = """
-        Příkaz `rm` (remove) slouží k mazání souborů.
+        ### Cíl
+        Smažte nepotřebný soubor.
 
-        ### Důležité varování
-        Smazané soubory v příkazové řádce NEJDOU DO KOŠE! Jsou nenávratně pryč.
+        ### Příkazy
+        - `rm <soubor>` (remove — smaže zadaný soubor)
 
-        ### Bezpečnostní tipy
-        - `rm -i soubor` (zeptá se před smazáním)
-        - Před `rm *.log` si zkontrolujte `ls *.log`
+        ### ⚠️ Důležité varování
+        Příkaz `rm` nepřesouvá soubory do koše jako grafické prostředí — maže je okamžitě a nevratně.
+        - `rm -i <soubor>` se před smazáním zeptá na potvrzení.
+        - Před hromadným mazáním (např. `rm *.log`) si obsah zkontrolujte pomocí `ls *.log`.
 
-        ## Úkol
+        ### Úkol
         Smažte soubor `stary_log.txt`, který se nachází v aktuálním adresáři.
 
-        ## Příkazy
-        - `rm <soubor>`
-
-        ## Odevzdání
-        Odevzdejte název smazaného souboru.
+        ### Odevzdání
+        Odevzdejte název smazaného souboru:
         `shellgame submit <název>`
         """
     hints = [
@@ -210,20 +212,18 @@ class DeleteDirectoryLevel(Level):
     solution = Solution(steps=(RunShell("rm -r temp"),), answer="temp")
     title = "Mazání adresářů"
     instructions = """
-        Pro mazání prázdných adresářů slouží příkaz `rmdir`.
-        Pokud adresář není prázdný, `rmdir` selže.
+        ### Cíl
+        Smažte adresář i s jeho obsahem.
 
-        Pro smazání adresáře i s jeho obsahem použijte `rm -r` (recursive).
+        ### Příkazy
+        - `rmdir <adresář>` (odstraní prázdný adresář; s obsahem selže)
+        - `rm -r <adresář>` (recursive — rekurzivně smaže adresář i s obsahem)
 
-        ## Úkol
+        ### Úkol
         Smažte adresář `temp`, který obsahuje nějaké dočasné soubory.
 
-        ## Příkazy
-        - `rmdir <adresář>` (jen prázdný)
-        - `rm -r <adresář>` (rekurzivně i s obsahem)
-
-        ## Odevzdání
-        Odevzdejte název smazaného adresáře.
+        ### Odevzdání
+        Odevzdejte název smazaného adresáře:
         `shellgame submit <název>`
         """
     hints = [
@@ -258,17 +258,21 @@ class ProjectScaffoldLevel(Level):
     )
     title = "Příprava projektu"
     instructions = """
-        ## Úkol
-        Vytvořte následující strukturu v adresáři `web`:
+        ### Cíl
+        Připravte kompletní kostru nového projektu.
 
+        ### Příkazy k použití
+        - `mkdir -p <cesta>` pro adresáře
+        - `touch <cesta>` pro soubory
+
+        ### Úkol
+        Vytvořte následující strukturu v adresáři `web`:
         - `web/index.html` (soubor)
         - `web/css/style.css` (soubor v podadresáři)
         - `web/js` (prázdný adresář)
 
-        Použijte kombinaci `mkdir -p` a `touch`.
-
-        ## Odevzdání
-        Odevzdejte název kořenového adresáře projektu.
+        ### Odevzdání
+        Odevzdejte název kořenového adresáře projektu:
         `shellgame submit <název>`
         """
     hints = [
@@ -309,16 +313,17 @@ class CleanupMultipleFilesLevel(Level):
     solution = Solution(steps=(RunShell("rm error.log temp.dat junk.tmp"),), answer=None)
     title = "Úklid nepořádku"
     instructions = """
-        Příkaz `rm` přijímá více argumentů, ale soubory lze mazat také postupně.
+        ### Cíl
+        Smažte více souborů najednou a zachovejte důležitá data.
 
-        ## Úkol
+        ### Příkazy
+        - `rm soubor1 soubor2 ...` (smaže více souborů najednou)
+
+        ### Úkol
         V adresáři `mess` smažte soubory `error.log`, `temp.dat` a `junk.tmp`.
         Soubor `keep_me.txt` musí zůstat zachovaný. Hodnotí se výsledný stav, ne počet příkazů.
 
-        ## Příkazy
-        - `rm soubor1 soubor2 soubor3`
-
-        ## Odevzdání
+        ### Odevzdání
         Až budou nepotřebné soubory pryč, spusťte:
         `shellgame submit`
         """

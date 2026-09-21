@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing_extensions import override
-
 from shellgame.levels.base import Level
 from shellgame.levels.collector import Section
 from shellgame.levels.completion import (
@@ -11,13 +9,10 @@ from shellgame.levels.completion import (
     Completion,
     ExactAnswer,
     IntegerAnswer,
-    IntegerRangeAnswer,
     TupleAnswer,
 )
 from shellgame.levels.fixture import FileFixture, WorkspaceFixture
 from shellgame.levels.solution import Chdir, Solution
-from shellgame.paths import WORKSPACE_ROOT
-from shellgame.protocols import GameStateProtocol, ValidationResult
 
 section = Section(3, root="level-3")
 
@@ -233,76 +228,3 @@ class HiddenFilesSummaryChallengeLevel(Level):
         )
     )
     success_message = "Výborně! Dokončili jste Sekci 3. Skryté soubory před vámi nic neskryjí!"
-
-
-@section.level(6)
-class SelfReflectionCheckpointLevel(Level):
-    solution = Solution(answer="4")
-    title = "Kontrolní bod: Sebehodnocení"
-    instructions = """
-        ### Čas na zamyšlení!
-
-        Právě jste se naučili základy práce v terminálu:
-        - **Sekce 1**: Navigace (`pwd`, `cd`, `ls`)
-        - **Sekce 2**: Čtení souborů (`cat`) a hledání nápovědy (`man`, `--help`)
-        - **Sekce 3**: Skryté soubory (`ls -a`, soubory začínající `.`)
-
-        ### Úkol: Sebehodnocení
-
-        Na stupnici **1-5** ohodnoťte svou jistotu:
-        - **1** = Potřebuji víc procvičování
-        - **3** = Rozumím základům, ale občas váhám
-        - **5** = Cítím se jistě, mohu pokračovat
-
-        ### Otázky k zamyšlení
-        1. Umím se pohybovat mezi adresáři pomocí `cd`?
-        2. Dokážu zobrazit skryté soubory?
-        3. Vím, jak přečíst obsah souboru?
-        4. Umím najít nápovědu k příkazu?
-
-        ### Odevzdání
-        Odevzdejte číslo 1-5 podle vaší jistoty.
-        Pokud si nejste jistí, poznamenejte si nejslabší oblast z otázek výše.
-        Po odevzdání dostanete tipy, které sekce si zopakovat.
-
-        `shellgame submit <hodnota>`
-        """
-    hints = [
-        "Toto je sebehodnocení - neexistuje špatná odpověď!",
-        "Buďte k sobě upřímní. Pokud váháte, vraťte se k předchozím levelům.",
-        "Odevzdejte jakékoliv číslo od 1 do 5.",
-    ]
-    start_directory = WORKSPACE_ROOT
-    completion = Completion(
-        answer=IntegerRangeAnswer(
-            1,
-            5,
-            error_message="Hodnocení musí být od 1 do 5.",
-            invalid_message="Odevzdejte číslo od 1 do 5.",
-            required_message="Odevzdejte číslo od 1 do 5.",
-        ),
-    )
-    success_message = "Díky za sebehodnocení! Vědomí toho, co vám ještě nesedí, je základ dalšího učení."
-
-    @override
-    def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:
-        success, msg = super().validate(answer, state)
-        if not success or answer is None:
-            return success, msg
-
-        rating = int(answer.strip())
-        if rating <= 2:
-            return True, (
-                "Děkujeme za upřímnost! Zopakujte si navigaci v Sekci 1, "
-                "čtení a nápovědu v Sekci 2 nebo skryté soubory v Sekci 3. "
-                "Úvod zobrazíte například příkazem 'shellgame repeat --section 2'."
-            )
-        if rating == 3:
-            return True, (
-                "Dobrý základ! Zopakujte si jednu oblast, ve které jste váhali: "
-                "Sekci 1 pro navigaci, 2 pro čtení a nápovědu nebo 3 pro skryté položky. "
-                "Potom pokračujte na Sekci 4!"
-            )
-        return True, (
-            "Skvělé! Máte solidní základy. Pokračujte na Sekci 4, kde se naučíte vytvářet a organizovat soubory!"
-        )
