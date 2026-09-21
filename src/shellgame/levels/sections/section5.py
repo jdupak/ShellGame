@@ -24,19 +24,24 @@ class SectionIntroLevel(Level):
 
 @section.level(1)
 class FileSizeInBytesLevel(Level):
+    solution = Solution(answer="12345")
     title = "Velikost souboru"
     instructions = """
-        Příkaz `ls -l` (long listing) zobrazí podrobné informace o souborech, včetně jejich velikosti v bajtech.
-        Pokud chcete velikost v čitelnějším formátu (KB, MB), použijte `ls -lh` (human readable).
+        ### Cíl
+        Zjistěte přesnou velikost souboru v bajtech.
 
-        ## Úkol:
-        Zjistěte přesnou velikost souboru `database.db` v bajtech.
+        Příkaz `ls -l` (long listing) zobrazí podrobné informace o souborech včetně jejich
+        velikosti v bajtech (5. sloupec). Přepínač `-h` ji převede do čitelnější podoby (KB, MB).
 
-        ## Příkazy:
-        - `ls -l`: Zobrazí detaily (velikost je pátý sloupec)
+        ### Příkazy
+        - `ls -l` (zobrazí detaily; velikost je v pátém sloupci)
 
-        ## Odevzdání:
-        Odevzdejte velikost souboru jako číslo.
+        ### Úkol
+        1. V aktuálním adresáři je soubor `database.db`.
+        2. Pomocí `ls -l` zjistěte jeho přesnou velikost v bajtech.
+        3. Odevzdejte tuto velikost jako číslo.
+
+        ### Odevzdání
         `shellgame submit <bajty>`
         """
     hints = [
@@ -52,19 +57,25 @@ class FileSizeInBytesLevel(Level):
 
 @section.level(2)
 class FindFileByExactSizeLevel(Level):
+    solution = Solution(answer="file_d")
     title = "Hledání podle velikosti"
     instructions = """
-        V adresáři je mnoho souborů, ale jen jeden má specifickou velikost.
+        ### Cíl
+        Najděte v podrobném výpisu soubor s konkrétní velikostí.
 
-        ## Úkol:
-        Najděte soubor, který má přesně **1337 bajtů**.
+        ### Příkazy
+        - `ls -l` (zobrazí podrobnosti včetně velikosti v 5. sloupci)
 
-        ## Příkazy:
-        - `ls -l`: Projděte seznam a hledejte velikost 1337.
+        ### Úkol
+        V adresáři je několik souborů (`file_a`, `file_b`, `file_c`, `file_d`).
+        Pouze jeden z nich má velikost přesně **1337 bajtů**.
 
-        ## Odevzdání:
-        Odevzdejte název nalezeného souboru.
-        `shellgame submit nazev_souboru`
+        1. Spusťte `ls -l` a zkontrolujte sloupec s velikostí.
+        2. Najděte soubor s velikostí přesně 1337 bajtů.
+        3. Odevzdejte název tohoto souboru.
+
+        ### Odevzdání
+        `shellgame submit <název_souboru>`
         """
     hints = [
         "Příkaz 'ls -l' zobrazuje podrobný výpis souborů včetně velikosti v bajtech v pátém sloupci.",
@@ -80,30 +91,42 @@ class FindFileByExactSizeLevel(Level):
             FileFixture("search/file_a", b"x" * 1000),
             FileFixture("search/file_b", b"x" * 2000),
             FileFixture("search/file_c", b"x" * 1338),
-            FileFixture("search/target_file", b"x" * 1337),
+            FileFixture("search/file_d", b"x" * 1337),
         )
     )
-    completion = Completion(answer=ExactAnswer("target_file"))
+    completion = Completion(
+        answer=ExactAnswer(
+            "file_d",
+            mistakes={
+                "file_c": "Soubor 'file_c' má 1338 bajtů (o 1 bajt více). Hledejte přesně 1337 bajtů.",
+                "file_a": "Soubor 'file_a' má 1000 bajtů. Hledejte přesně 1337 bajtů.",
+                "file_b": "Soubor 'file_b' má 2000 bajtů. Hledejte přesně 1337 bajtů.",
+            },
+        )
+    )
     success_message = "Správně! Podrobný výpis se čte po sloupcích — stačí porovnat ten jeden, který vás zajímá."
 
 
 @section.level(3)
 class IdentifyJpegAmongFilesLevel(Level):
+    solution = Solution(answer="file3")
     title = "Typ souboru"
     instructions = """
+        ### Cíl
+        Rozpoznejte obrázek mezi soubory bez přípony podle jejich obsahu.
+
         V Linuxu přípona souboru (např. `.txt`, `.jpg`) neurčuje jeho typ. O tom rozhoduje obsah.
         Příkaz `file` prozkoumá obsah souboru a řekne vám, o jaký typ se jedná.
 
-        ## Úkol:
+        ### Příkazy
+        - `file <soubor>` (zjistí typ konkrétního souboru)
+        - `file *` (zjistí typ všech souborů v aktuálním adresáři)
+
+        ### Úkol
         V adresáři jsou tři soubory bez přípony: `file1`, `file2`, `file3`.
-        Jeden z nich je obrázek (JPEG image data). Zjistěte který.
+        Jeden z nich je obrázek (`JPEG image data`). Zjistěte který a odevzdejte jeho název.
 
-        ## Příkazy:
-        - `file <soubor>`: Zjistí typ souboru
-        - `file *`: Zjistí typ všech souborů v adresáři
-
-        ## Odevzdání:
-        Odevzdejte název souboru, který je obrázkem.
+        ### Odevzdání
         `shellgame submit <soubor>`
         """
     hints = [
@@ -128,37 +151,45 @@ class FindCriticalCodeInLogLevel(Level):
     solution = Solution(answer="42")
     title = "Hledání ve velkém souboru"
     instructions = """
-        Příkaz `cat` vypíše celý soubor najednou, což je u velkých souborů nepraktické.
-        Pro procházení a hledání informací ve velkém souboru se hodí interaktivní nástroj `less`.
+        ### Cíl
+        Naučte se prohlížet a prohledávat velké soubory pomocí interaktivního nástroje `less`.
+
+        Příkaz `cat` vypíše celý soubor najednou, což je u dlouhých souborů nepraktické.
+        Interaktivní stránkovač `less` umožní souborem pohodlně listovat a hledat v něm.
+
+        ### 🚪 Jak z less odejít: klávesa `q` (Quit)
+        Nástroj `less` zabere celou obrazovku terminálu. Během jeho běhu nelze zadávat
+        běžné příkazy shellu.
+        **Pro ukončení prohlížeče a návrat do příkazové řádky stiskněte klávesu `q`.**
 
         ### Ovládání less
         ```
-        Mezerník / Page Down  → O stránku dolů
-        b / Page Up           → O stránku nahoru
-        j / šipka dolů        → O řádek dolů
-        k / šipka nahoru      → O řádek nahoru
-        g                     → Na začátek souboru
-        G                     → Na konec souboru
-        /hledany_text         → Hledat (n = další výskyt)
-        q                     → Ukončit
+        q                     → UKONČIT prohlížení (návrat do shellu)
+        /hledany_text         → Hledat text v souboru (potvrdit Enterem)
+        n                     → Další výskyt hledaného textu
+        Enter / šipka dolů    → Posun o jeden řádek dolů
+        Mezerník / Page Down  → Posun o celou stránku dolů
+        b / Page Up           → Posun o stránku nahoru
+        šipka nahoru          → Posun o řádek nahoru
+        g / G                 → Na začátek / na konec souboru
         ```
 
-        ## Úkol
-        Soubor `server.log` má 200 řádků. Najděte v něm informaci o chybovém kódu
-        na řádku obsahujícím `CRITICAL`. Doporučený nástroj je `less`.
+        ### Úkol
+        Soubor `server.log` má 200 řádků. Najděte v něm chybový kód na řádku s textem `CRITICAL`:
 
         1. Otevřete soubor: `less server.log`
-        2. Hledejte: stiskněte `/`, napište `CRITICAL` a potvrďte Enterem
-        3. Přečtěte chybový kód (číslo za `Code`) na konci nalezeného řádku
-        4. Stisknutím `q` ukončete `less` a teprve potom odešlete odpověď
+        2. Hledejte: stiskněte `/`, napište `CRITICAL` a stiskněte **Enter**
+        3. Přečtěte chybový kód (číslo za slovem `Code`) na konci nalezeného řádku
+        4. **Stiskněte klávesu `q`** pro ukončení `less` a návrat do příkazové řádky
+        5. Odešlete nalezený kód pomocí `shellgame submit`
 
-        ## Odevzdání
-        Odevzdejte chybový kód z CRITICAL řádku.
+        ### Odevzdání
         `shellgame submit <číslo>`
         """
     hints = [
         "V less použijte / pro vyhledávání. Napište /CRITICAL a stiskněte Enter.",
         "Nalezený řádek obsahuje číslo na konci. Přečtěte ho.",
+        "Pro návrat do shellu stiskněte klávesu 'q' (quit).",
         "Pozor: neodevzdáváte číslo řádku (v závorkách na začátku), ale kód na konci věty.",
     ]
     start_directory = "logs"
@@ -190,32 +221,70 @@ class FindCriticalCodeInLogLevel(Level):
 
 @section.level(5)
 class FindFakeJpgLevel(Level):
+    solution = Solution(answer="secret.jpg")
     title = "Zamaskovaný soubor"
     instructions = """
-        Někdo se pokusil skrýt tajnou zprávu tím, že soubor pojmenoval jako obrázek.
+        ### Cíl
+        Najděte soubor s příponou `.jpg`, který ve skutečnosti není obrázkem.
 
-        ## Úkol:
-        V adresáři `downloads` je několik souborů s příponou `.jpg`.
-        Jeden z nich je ale ve skutečnosti textový soubor (ASCII text). Najděte ho.
+        V adresáři `downloads` je mnoho různých stažených souborů (dokumenty, archivy,
+        skripty i logy). Někdo se pokusil ukrýt tajnou textovou zprávu tím, že ji pojmenoval
+        s příponou `.jpg`.
 
-        ## Příkazy:
-        - `file *.jpg`: Zkontroluje všechny soubory s příponou .jpg
+        ### Příkazy
+        - `file *.jpg` (zkontroluje pouze soubory s příponou .jpg místo všech položek)
 
-        ## Odevzdání:
-        Odevzdejte název falešného obrázku.
+        ### Úkol
+        1. V adresáři `downloads` je mnoho různých souborů. Spuštění `file *` by vypsalo
+           desítky položek bez užitku.
+        2. Pomocí `file *.jpg` zkontrolujte pouze soubory s příponou `.jpg`.
+        3. Najděte, který soubor je ve skutečnosti textový (`ASCII text`).
+        4. Odevzdejte název tohoto souboru.
+
+        ### Odevzdání
         `shellgame submit <soubor>`
         """
     hints = [
-        "Příkaz 'file' určí skutečný typ souboru bez ohledu na jeho příponu.",
-        "Spusťte 'file *.jpg' a prozkoumejte typy jednotlivých souborů.",
-        "Hledejte soubor, u kterého je uvedeno 'ASCII text'. Jeho název odevzdejte.",
+        "Příkaz 'file' zkoumá skutečný obsah souboru bez ohledu na jeho příponu.",
+        "Místo 'file *' použijte 'file *.jpg' — zkontrolujete jen soubory s příponou .jpg.",
+        "Hledejte mezi soubory .jpg ten, u kterého 'file' vypíše 'ASCII text'. Odevzdejte jeho název.",
     ]
     start_directory = "downloads"
     fixture = WorkspaceFixture(
         files=(
+            # Real JPEGs
             FileFixture("downloads/photo1.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF"),
             FileFixture("downloads/photo2.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF"),
-            FileFixture("downloads/secret.jpg", "This is actually a text file."),
+            FileFixture("downloads/photo3.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF"),
+            FileFixture("downloads/photo4.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF"),
+            FileFixture("downloads/photo5.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF"),
+            FileFixture("downloads/vacation.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF"),
+            FileFixture("downloads/sunset.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF"),
+            FileFixture("downloads/wallpaper.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF"),
+            FileFixture("downloads/avatar.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF"),
+            FileFixture("downloads/nature.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF"),
+            # Disguised secret text file
+            FileFixture("downloads/secret.jpg", "This is actually a secret text file.\n"),
+            # Smoke files of various types (documents, archives, text, data)
+            FileFixture("downloads/manual.pdf", b"%PDF-1.4\n%EOF\n"),
+            FileFixture("downloads/archive.zip", b"PK\x03\x04\x14\x00\x00\x00\x08\x00"),
+            FileFixture("downloads/backup.tar.gz", b"\x1f\x8b\x08\x00\x00\x00\x00\x00"),
+            FileFixture("downloads/music.mp3", b"ID3\x03\x00\x00\x00"),
+            FileFixture("downloads/notes.txt", "Random notes and meeting minutes.\n"),
+            FileFixture("downloads/install.sh", "#!/bin/sh\necho 'installing...'\n"),
+            FileFixture("downloads/setup.log", "[INFO] Setup initialized.\n"),
+            FileFixture("downloads/table.csv", "id,name,value\n1,alpha,100\n"),
+            FileFixture("downloads/data.json", '{"status": "ok", "count": 42}\n'),
+            FileFixture("downloads/config.yaml", "env: production\ndebug: false\n"),
+            FileFixture("downloads/readme.md", "# Downloads Readme\nJust downloads.\n"),
+            FileFixture("downloads/styles.css", "body { margin: 0; padding: 0; }\n"),
+            FileFixture("downloads/index.html", "<!DOCTYPE html><html><body>Test</body></html>\n"),
+            FileFixture("downloads/script.py", "#!/usr/bin/env python3\nprint('hello')\n"),
+            FileFixture(
+                "downloads/checksums.sha256", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n"
+            ),
+            FileFixture("downloads/report.doc", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"),
+            FileFixture("downloads/app.bin", b"\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00"),
         )
     )
     completion = Completion(answer=ExactAnswer("secret.jpg"))
@@ -224,21 +293,30 @@ class FindFakeJpgLevel(Level):
 
 @section.level(6)
 class IdentifyPythonScriptLevel(Level):
+    solution = Solution(answer="calc.py")
     title = "Rozpoznání Python skriptu"
     instructions = """
-        Příkaz `file` dokáže podle obsahu rozpoznat Python skript, i když má neobvyklý název.
-        Popis `Python script` ale neříká, zda má soubor právo ke spuštění (`x`). Typ zjišťuje `file`,
-        oprávnění zobrazuje `ls -l` a mění `chmod` — tomu se věnuje Sekce 8.
+        ### Cíl
+        Rozpoznejte Python skript mezi různými typy souborů.
 
-        ## Úkol:
-        Najděte v adresáři `bin` soubor, který příkaz `file` označí jako Python skript.
+        Příkaz `file` dokáže podle obsahu spolehlivě rozpoznat Python skript i bez ohledu na jeho název.
+        Popis `Python script` ale neříká, zda má soubor právo ke spuštění (`x`) — typ zjišťuje `file`,
+        kdežto oprávnění zobrazuje `ls -l` a mění `chmod` (tomu se věnuje Sekce 8).
 
-        ## Odevzdání:
-        Odevzdejte název skriptu.
+        ### Příkazy
+        - `file *` (vypíše typy všech souborů v aktuálním adresáři)
+
+        ### Úkol
+        Nacházíte se přímo v adresáři `bin` (nikam nemusíte přecházet):
+        1. Prozkoumejte soubory v aktuálním adresáři pomocí `file *`.
+        2. Najděte soubor, který příkaz `file` označí jako `Python script`.
+        3. Odevzdejte název tohoto souboru.
+
+        ### Odevzdání
         `shellgame submit <soubor>`
         """
     hints = [
-        "Příkaz 'file *' vypíše typ pro všechny soubory v aktuálním adresáři.",
+        "Jste přímo v adresáři 'bin'. Spusťte 'file *' pro zjištění typů všech souborů.",
         "Spusťte 'file *' a hledejte soubor, u kterého výstup uvádí 'Python script'.",
         "Odevzdejte název souboru označeného jako 'Python script'; samotný popis neověřuje právo x.",
     ]

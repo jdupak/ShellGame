@@ -64,7 +64,7 @@ level-5/
 │   ├── file_a             (1000 bytes)
 │   ├── file_b             (2000 bytes)
 │   ├── file_c             (1338 bytes)
-│   └── target_file        (1337 bytes)
+│   └── file_d             (1337 bytes)
 ├── types/
 │   ├── file1              (text)
 │   ├── file2              (binary)
@@ -120,7 +120,7 @@ Hints:
 ### Level 5.2 – Hledání podle velikosti
 Start: `$WORKSPACE/level-5/search/`
 Task: "Najděte soubor, který má přesně 1337 bajtů."\
-Answer: filename (např. `target_file`)
+Answer: filename (např. `file_d`)
 Hints:
 1. "Use `ls -l` to check sizes."
 2. "Look for `1337` in the size column."
