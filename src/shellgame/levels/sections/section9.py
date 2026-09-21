@@ -82,8 +82,9 @@ class RedirectLsToFileLevel(Level):
         - `ls > seznam.txt`
 
         ## Odevzdání
-        Odevzdejte název vytvořeného souboru.
-        `shellgame submit seznam.txt`
+        Po vytvoření souboru spusťte:
+        `shellgame submit`
+        (můžete také zadat: `shellgame submit seznam.txt`)
         """
     hints = [
         "Použijte operátor '>' pro přesměrování výstupu.",
@@ -108,6 +109,7 @@ class RedirectLsToFileLevel(Level):
                 missing_message="Soubor neexistuje.",
             ),
         ),
+        allow_empty=True,
     )
     success_message = "Správně! Výstup příkazu nemusí skončit na obrazovce — dá se uložit a dál s ním pracovat."
 
@@ -129,8 +131,9 @@ class AppendWithRedirectLevel(Level):
         - `echo "Text" >> soubor`
 
         ## Odevzdání
-        Odevzdejte název souboru.
-        `shellgame submit log.txt`
+        Po přidání textu spusťte:
+        `shellgame submit`
+        (můžete také zadat: `shellgame submit log.txt`)
         """
     hints = [
         "Dvě šipky '>>' znamenají append (připojení na konec souboru bez přepsání obsahu).",
@@ -152,6 +155,7 @@ class AppendWithRedirectLevel(Level):
                 missing_message="Soubor neexistuje.",
             ),
         ),
+        allow_empty=True,
     )
     success_message = "Správně! Zdvojená šipka připojuje, takže předchozí obsah souboru zůstane zachovaný."
 
@@ -173,8 +177,9 @@ class ConcatenatePartsLevel(Level):
         - `cat soubor1 soubor2 > novy_soubor`
 
         ## Odevzdání
-        Odevzdejte název nového souboru.
-        `shellgame submit full.txt`
+        Po vytvoření spojeného souboru spusťte:
+        `shellgame submit`
+        (můžete také zadat: `shellgame submit full.txt`)
         """
     hints = [
         "Příkaz 'cat' umí přijmout více souborů najednou a vypsat jejich obsahy za sebou.",
@@ -203,6 +208,7 @@ class ConcatenatePartsLevel(Level):
                 missing_message="Soubor neexistuje.",
             ),
         ),
+        allow_empty=True,
     )
     success_message = "Správně! Příkaz cat čte soubory v pořadí argumentů a stejné pořadí má i výsledek."
 
@@ -520,7 +526,9 @@ class InteractiveCatInputLevel(Level):
         Po druhém řádku stiskněte Enter a potom na prázdném řádku Ctrl+D.
 
         ## Odevzdání
-        `shellgame submit poznamka.txt`
+        Po ukončení zápisu pomocí Ctrl+D spusťte:
+        `shellgame submit`
+        (můžete také zadat: `shellgame submit poznamka.txt`)
         """
     hints = [
         "`cat` bez názvu vstupního souboru čte standardní vstup; EOF mu oznámí, že už žádná data nepřijdou.",
@@ -552,6 +560,7 @@ class InteractiveCatInputLevel(Level):
                 ),
             ),
         ),
+        allow_empty=True,
     )
     success_message = "Správně! EOF ukončilo vstup a `cat` soubor uzavřel."
 

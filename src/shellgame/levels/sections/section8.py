@@ -101,8 +101,9 @@ class MakeExecutableLevel(Level):
         - `chmod u+x <soubor>`: Přidá právo execute pro usera
 
         ## Odevzdání:
-        Odevzdejte název souboru.
-        `shellgame submit run_me.sh`
+        Po přidání práva spuštění spusťte:
+        `shellgame submit`
+        (můžete také zadat: `shellgame submit run_me.sh`)
         """
     hints = [
         "Právo 'x' (execute) je potřeba pro spuštění. Jak ho přidáte pro vlastníka (user)?",
@@ -123,6 +124,7 @@ class MakeExecutableLevel(Level):
                 ),
             ),
         ),
+        allow_empty=True,
     )
     success_message = "Správně! Symbolický chmod se skládá ze tří částí: kdo, operace a které právo."
 
@@ -224,11 +226,11 @@ class PermissionsChallengeLevel(Level):
         steps=(RunShell("chmod u+x script.sh && chmod a-w secret.txt && chmod 644 shared.txt && chmod g+r team.txt"),),
         answer=None,
     )
-    title = "Výzva: Oprávnění souborů"
+    title = "Kontrolní úkol: Oprávnění souborů"
     instructions = """
-        ### Výzva: Oprávnění souborů
+        ### Kontrolní úkol: Oprávnění souborů
 
-        Ukažte, že rozumíte oprávněním!
+        Ukažte, že rozumíte oprávněním běžných souborů předtím, než přejdeme k adresářům!
 
         ### Úkol
         V `level-8/challenge` jsou 4 soubory:
@@ -300,7 +302,7 @@ class PermissionsChallengeLevel(Level):
             ),
         ),
     )
-    success_message = "Výborně! Oprávnění běžných souborů máte pod kontrolou."
+    success_message = "Správně! Oprávnění běžných souborů máte pod kontrolou. Nyní se podíváme na adresáře."
 
 
 @section.level(6)

@@ -40,15 +40,17 @@ class BackupImportantFileLevel(Level):
         - `cp config.yaml config.yaml.bak` (před úpravou konfigurace)
         - `cp report.docx report_v1.docx` (verzování dokumentů)
 
-        ## Úkol:
-        Vytvořte zálohu souboru `dulezite.txt`. Kopii pojmenujte `dulezite.bak`.
+        ### Úkol
+        1. Začínáte v `level-6/copying`. Vytvořte zálohu souboru `dulezite.txt`. Kopii pojmenujte `dulezite.bak`.
+        2. Ověřte výsledek pomocí `ls`.
 
         ## Příkazy:
         - `cp <zdroj> <cíl>`: Zkopíruje zdroj do cíle
 
         ## Odevzdání:
-        Odevzdejte název vytvořené kopie.
-        `shellgame submit dulezite.bak`
+        Po vytvoření zálohy spusťte:
+        `shellgame submit`
+        (můžete také zadat: `shellgame submit dulezite.bak`)
         """
     hints = [
         "Příkaz cp má dva argumenty: odkud a kam kopírujete.",
@@ -65,8 +67,8 @@ class BackupImportantFileLevel(Level):
             "dulezite.bak",
             mistakes={
                 "dulezite.txt": (
-                    "'dulezite.txt' je zdroj, ne vytvořená kopie. "
-                    "Příkaz cp bere nejdřív zdroj a až potom cíl - odevzdejte jméno cíle."
+                    "Odevzdali jste název původního souboru, ne jeho kopie. "
+                    "Příkaz cp bere nejdřív zdroj a potom cíl: 'cp zdroj cíl'."
                 ),
             },
         ),
@@ -76,6 +78,7 @@ class BackupImportantFileLevel(Level):
                 "copying/dulezite.bak",
             ),
         ),
+        allow_empty=True,
     )
     success_message = "Správně! Záloha je samostatná kopie pod novým jménem, originál zůstává nedotčený."
 
@@ -94,8 +97,9 @@ class BackupProjectDirectoryLevel(Level):
         - `cp -r <zdroj> <cíl>`: Zkopíruje adresář
 
         ## Odevzdání:
-        Odevzdejte název nového adresáře.
-        `shellgame submit projekt_zaloha`
+        Po zkopírování adresáře spusťte:
+        `shellgame submit`
+        (můžete také zadat: `shellgame submit projekt_zaloha`)
         """
     hints = [
         "Pro kopírování celého adresáře včetně obsahu je nutné použít rekurzivní přepínač '-r'.",
@@ -116,6 +120,7 @@ class BackupProjectDirectoryLevel(Level):
                 "copying/projekt_zaloha",
             ),
         ),
+        allow_empty=True,
     )
     success_message = "Správně! Přepínač -r říká příkazu cp, že má sestoupit do celého stromu adresáře."
 
@@ -135,8 +140,9 @@ class RenameFileLevel(Level):
         - `mv <staré_jméno> <nové_jméno>`: Přejmenuje soubor
 
         ## Odevzdání:
-        Odevzdejte nový název souboru.
-        `shellgame submit spravne_jmeno.txt`
+        Po přejmenování spusťte:
+        `shellgame submit`
+        (můžete také zadat: `shellgame submit spravne_jmeno.txt`)
         """
     hints = [
         "Příkaz 'mv' slouží nejen k přesunu, ale i k přejmenování souboru: 'mv staré nové'.",
@@ -156,6 +162,7 @@ class RenameFileLevel(Level):
                 "moving/spravne_jmeno.txt",
             ),
         ),
+        allow_empty=True,
     )
     success_message = "Správně! Přejmenování je jen přesun na novou cestu ve stejném adresáři."
 
@@ -179,8 +186,9 @@ class MoveReportToDocumentsLevel(Level):
         S lomítkem `mv` místo toho ohlásí chybu, takže se o překlepu v názvu adresáře dozvíte hned.
 
         ## Odevzdání:
-        Odevzdejte název adresáře, kam jste soubor přesunuli.
-        `shellgame submit dokumenty`
+        Po přesunu souboru spusťte:
+        `shellgame submit`
+        (můžete také zadat: `shellgame submit dokumenty`)
         """
     hints = [
         "O tom, co 'mv' udělá, rozhoduje podoba cíle: soubor znamená přejmenování, existující adresář přesun.",
@@ -209,6 +217,7 @@ class MoveReportToDocumentsLevel(Level):
                 ),
             ),
         ),
+        allow_empty=True,
     )
     success_message = "Správně! Podoba cíle rozhoduje, jestli mv přejmenovává, nebo přesouvá."
 

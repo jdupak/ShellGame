@@ -27,6 +27,7 @@ Nebo jedním příkazem: cd ../finish
 - Navigace mezi sousedními adresáři (`cd ../jiný`)
 - Rychlý návrat do předchozího adresáře (`cd -`)
 - Čtení obsahu souborů (`cat`)
+- Přerušení běžícího příkazu klávesovou zkratkou (**Ctrl+C**)
 - Vytváření souborů (`touch`)
 
 ### Proč je `cd -` užitečný?
