@@ -47,7 +47,7 @@ class GrepConfigLineToFileLevel(Level):
 
         ### Odevzdání
         Odevzdejte název vytvořeného souboru:
-        `shellgame submit profile.txt`
+        `shellgame submit <název-souboru>`
         """
     hints = [
         "Příkaz `grep` hledá zadaný vzor v souborech.",
@@ -86,6 +86,7 @@ class GrepConfigLineToFileLevel(Level):
             ),
         ),
     )
+    success_message = "Správně! `grep` vybere jen potřebné řádky a `>` je uloží pro další použití."
 
 
 @section.level(2)
@@ -123,9 +124,13 @@ class RecursiveGrepFindFileLevel(Level):
     completion = Completion(
         answer=SuffixAnswer(
             "config/settings.py",
-            error_message="To není správný soubor. Hledáme ten s 'SECRET_KEY'.",
+            error_message=(
+                "To není správná odpověď. `grep -r` vypisuje před dvojtečkou celou relativní cestu — "
+                "odevzdejte ji i s adresáři, ne jen samotný název souboru. Úvodní `./` nevadí."
+            ),
         )
     )
+    success_message = "Správně! S přepínačem -r prochází grep celý strom adresářů a u každého nálezu uvede cestu."
 
 
 @section.level(3)
@@ -214,9 +219,13 @@ class FindLostFilePathLevel(Level):
     completion = Completion(
         answer=SuffixAnswer(
             "messy_dir/a/b/c/d/lost_file.txt",
-            error_message="To není správná cesta.",
+            error_message=(
+                "To není správná cesta. Odevzdejte ji přesně tak, jak ji vypsal `find` — "
+                "včetně všech adresářů, ne jen název souboru. Úvodní `./` nevadí."
+            ),
         )
     )
+    success_message = "Správně! `find` hledá podle vlastností souboru, takže si poradí i s neznámým umístěním."
 
 
 @section.level(5)
@@ -243,7 +252,7 @@ class FindPythonFilesToListLevel(Level):
         Vytvořte `python_files.txt` obsahující přesně seřazené cesty nalezených souborů.
 
         ### Odevzdání
-        `shellgame submit python_files.txt`
+        `shellgame submit <název-souboru>`
         """
     hints = [
         "Omezte `find` na běžné soubory pomocí `-type f`; adresář s příponou `.py` se počítat nemá.",
@@ -268,11 +277,18 @@ class FindPythonFilesToListLevel(Level):
                 "extension/python_files.txt",
                 exact="src_code/main.py\nsrc_code/utils.py",
                 strip=True,
-                error_message="Soubor musí obsahovat přesně seřazené cesty nalezených Python souborů.",
-                missing_message="Soubor neexistuje.",
+                error_message=(
+                    "Obsah souboru nesedí. Bez `-type f` se do výpisu dostane i adresář s příponou `.py`; "
+                    "bez uvozovek kolem vzoru ho rozbalí shell ještě před spuštěním `find`. "
+                    "Nezapomeňte také na `sort`."
+                ),
+                missing_message=(
+                    "Soubor zatím neexistuje. Výstup příkazu uložte pomocí `>` do souboru zadaného v úkolu."
+                ),
             ),
         ),
     )
+    success_message = "Správně! Spojení `find`, `sort` a `>` dává výsledek, který vyjde pokaždé stejně."
 
 
 @section.level(6)

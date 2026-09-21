@@ -2,6 +2,14 @@
 
 V této sekci se naučíte manipulovat se soubory a adresáři - vytvářet jejich kopie a přesouvat je na jiná místa.
 
+## Proč je to důležité?
+„Před úpravou konfigurace si udělej zálohu.“ — rada, kterou uslysíte všude,
+a která se v terminálu vejde do jednoho příkazu.
+
+`cp` a `mv` jsou zároveň první příkazy, které doopravdy přepisují vaše data.
+Oba umí bez varování přepsat existující cíl — proto se už teď vyplatí
+zvyknout si nejdřív zkontrolovat, co na cílovém místě leží.
+
 ## `cp` vs `mv` - jaký je rozdíl?
 ```
 cp (copy)                      mv (move)

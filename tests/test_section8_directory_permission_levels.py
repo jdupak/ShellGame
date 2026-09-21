@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from shellgame.levels.sections.section7 import (
+from shellgame.levels.sections.section8 import (
     DirectoryTraversePermissionLevel,
     DirectoryWritePermissionLevel,
     PermissionsChallengeLevel,

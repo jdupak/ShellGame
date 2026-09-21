@@ -4,13 +4,18 @@ from pathlib import Path
 
 import pytest
 
+from shellgame.levels.loader import initialize_levels
+from shellgame.levels.registry import get_registry
 from shellgame.state.manager import (
+    _LEVEL_SWAPS_2_1,
+    _SECTION_ROTATION_2_1,
     CURRENT_STATE_VERSION,
     GameState,
     LevelCompletion,
     StateLoadError,
     StateManager,
     StateSaveError,
+    _migrate_level_id_to_2_1,
 )
 
 
@@ -198,3 +203,96 @@ class TestStateManager:
 
         with pytest.raises(StateLoadError, match="Nepodporovaná verze"):
             manager.load()
+
+
+class TestSectionReorderMigration:
+    """State 2.1 renumbered sections; a pre-2.1 save must keep its real progress.
+
+    Without an explicit remap the registry's nearest-match fallback would resume
+    the player on whatever level now carries their saved number - different
+    content - and credit their finished levels to the wrong section.
+    """
+
+    def _load(self, tmp_path: Path, payload: dict) -> GameState:
+        manager = StateManager()
+        manager.state_dir = tmp_path
+        manager.state_file = tmp_path / "state.json"
+        manager.state_file.write_text(json.dumps(payload))
+        loaded = manager.load()
+        assert loaded is not None
+        return loaded
+
+    def _payload(self, **overrides: object) -> dict:
+        payload: dict = {
+            "version": "2.0",
+            "username": "testuser",
+            "workspace": "/tmp/test",
+            "current_level": "1.1",
+            "start_time": datetime.now().isoformat(),
+        }
+        payload.update(overrides)
+        return payload
+
+    @pytest.mark.parametrize(
+        ("saved", "expected"),
+        [
+            ("1.1", "1.1"),  # untouched sections keep their IDs
+            ("5.4", "5.4"),
+            ("11.6", "11.6"),
+            ("7.2", "8.2"),  # permissions moved back one slot
+            ("8.5", "9.5"),  # redirection moved back one slot
+            ("9.4", "10.4"),  # error streams moved back one slot
+            ("10.3", "7.3"),  # wildcards moved forward
+            ("2.7", "2.8"),  # help lesson and challenge swapped
+            ("2.8", "2.7"),
+            ("6.7", "6.8"),  # alias aside and challenge swapped
+            ("6.8", "6.7"),
+        ],
+    )
+    def test_current_level_follows_its_content(self, tmp_path: Path, saved: str, expected: str) -> None:
+        loaded = self._load(tmp_path, self._payload(current_level=saved))
+
+        assert loaded.current_level == expected
+        assert loaded.version == CURRENT_STATE_VERSION
+
+    def test_progress_keyed_by_level_id_is_remapped_too(self, tmp_path: Path) -> None:
+        completion = {"time_sec": 12, "hints": 1, "attempts": 0, "completed_at": datetime.now().isoformat()}
+        loaded = self._load(
+            tmp_path,
+            self._payload(
+                current_level="10.1",
+                levels_complete={"7.1": completion},
+                level_attempts={"8.5": 3},
+                level_hints_used={"9.4": 2},
+                level_started_at={"10.3": datetime.now().isoformat()},
+            ),
+        )
+
+        assert loaded.current_level == "7.1"
+        assert set(loaded.levels_complete) == {"8.1"}
+        assert loaded.level_attempts == {"9.5": 3}
+        assert loaded.level_hints_used == {"10.4": 2}
+        assert set(loaded.level_started_at) == {"7.3"}
+
+    def test_every_migrated_id_resolves_to_a_registered_level(self) -> None:
+        """Round-trip: rebuild each level's pre-2.1 ID, then migrate it forward."""
+        initialize_levels()
+        registry = get_registry()
+        inverse_rotation = {new: old for old, new in _SECTION_ROTATION_2_1.items()}
+
+        def previous_id(level_id: str) -> str:
+            section, _, number = level_id.partition(".")
+            old = f"{inverse_rotation.get(int(section), int(section))}.{number}"
+            # The swaps are their own inverse, so reapplying them rebuilds the old ID.
+            return _LEVEL_SWAPS_2_1.get(old, old)
+
+        old_ids = [previous_id(str(level.id)) for level in registry.list_levels()]
+        migrated = [_migrate_level_id_to_2_1(old_id) for old_id in old_ids]
+
+        assert migrated == [str(level.id) for level in registry.list_levels()]
+        assert len(set(migrated)) == len(old_ids), "migration must not collapse two levels onto one"
+
+    def test_already_migrated_state_is_left_alone(self, tmp_path: Path) -> None:
+        loaded = self._load(tmp_path, self._payload(version=CURRENT_STATE_VERSION, current_level="7.2"))
+
+        assert loaded.current_level == "7.2"

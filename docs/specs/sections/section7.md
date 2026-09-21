@@ -1,194 +1,361 @@
-# Section 7 Specification – "Permissions Matter"
+# Section 7 Specification – "Wildcards & Pattern Matching"
+
+> **Renumbered.** This section used to be number 10; wildcards were moved ahead of
+> permissions and redirection so globbing is taught before it is used. Level IDs and
+> `level-10/` workspace paths below still use the old `10.x` numbering, and the
+> Extension/Optional level statuses were never implemented. Treat this file as the
+> original design intent, not as a description of the shipped section.
 
 ## 1. Purpose & Scope
-Section 7 introduces file permissions, a fundamental concept in Unix-like systems. Building on file inspection skills from Section 5, students will learn to:
-- Read the permission string in `ls -l` output.
-- Understand the meaning of read (`r`), write (`w`), and execute (`x`) for owner, group, and others.
-- Modify file permissions using `chmod`.
-- Make a script executable.
-- Protect a file by removing write permissions.
+Section 10 introduces shell globbing (wildcards) for batch file operations. Building on all prior sections, students learn to:
+- Use `*` (match any characters)
+- Use `?` (match single character)
+- Use `[...]` (character classes)
+- Use `[!...]` (negated character classes)
+- Apply wildcards with commands learned previously (ls, cp, mv, rm)
+- Understand glob expansion happens before command execution
+- Recognize when patterns match nothing (literal interpretation)
+- Combine wildcards with redirection and pipes
 
 Deliberate exclusions:
-- No advanced permission topics like `setuid`, `setgid`, or sticky bits.
-- No `umask` or default permissions.
-- No file ownership changes (`chown`, `chgrp`).
+- No extended globs (`**`, `?(pattern)`, etc.)
+- No brace expansion (`{a,b,c}`)
+- No regular expressions (grep regex covered minimally)
+- No find command (deferred to Section 11)
 
-Allowed commands: `pwd`, `ls`, `ls -l`, `cd`, `chmod`, `cat`
-Estimated Time: 7 minutes (core Levels 7.1–7.4)
-> Time Calibration: Target 6 minutes average; slow path 5 minutes focusing on 7.1, 7.2, 7.4. Level 7.3 (protect & error) becomes Extension (can revisit after numeric mode).
+Allowed commands: All previous commands plus wildcard patterns: `*`, `?`, `[abc]`, `[!abc]`, `[a-z]`
+
+**Shell requirement:** Exercises using `?`, bracket sets, or ranges require
+Bash (currently 10.2–10.4). Display this requirement before those commands.
+Fish players run the provided quoted `bash -c 'command'` example, then submit
+from their existing wrapped shell. Do not switch them into an unwrapped
+interactive shell. Exercises using only `*` remain portable.
+
+Estimated Time: 10–12 minutes (core Levels 10.1–10.6) + optional Level 10.7 (~2 minutes)
+<!-- REVISED: -->
+> Time Calibration: Target 7 minutes average; slow path 5–6 minutes (Levels 10.1–10.4). 10.5–10.6 become Extension (operations), 10.7 Optional.
 
 ## 2. Learning Objectives
-By the end of Section 7, the player will be able to:
-1.  Identify the owner, group, and other permissions for a file.
-2.  Recognize which files are executable by looking at their permissions.
-3.  Add execute permissions to a file using `chmod +x`.
-4.  Remove write permissions using `chmod -w`.
-5.  Apply permissions using numeric modes (e.g., `chmod 755`).
-6.  Understand the consequence of trying to write to a file without write permission.
+By the end of Section 10 the player will:
+1. Use `*` to match zero or more characters.
+2. Use `?` to match exactly one character.
+3. Use `[abc]` to match one character from a set.
+4. Use `[!abc]` or `[^abc]` to match one character NOT in a set.
+5. Use ranges like `[0-9]` or `[a-z]`.
+6. Apply wildcards to list, copy, move, and remove multiple files at once.
+7. Understand that the shell expands globs before passing to commands.
+8. Count matches using wildcard patterns.
+9. (Optional) Combine complex patterns for precise batch operations.
 
-## 3. Concept Tutorial (Displayed Before Level 7.1)
+## 3. Concept Tutorial (Displayed Before Level 10.1)
 Key concepts:
--   **Permissions**: Every file and directory has permissions that control who can read, write, or execute it.
--   **`ls -l` Output**: The first 10 characters show the permissions (e.g., `-rwxr-xr--`).
-    -   The first character is the file type (`-` for file, `d` for directory).
-    -   The next 3 are for the **owner** (`rwx` = read, write, execute).
-    -   The next 3 are for the **group** (`r-x` = read, execute).
-    -   The final 3 are for **others** (`r--` = read only).
--   **`chmod`**: The command to "change mode" (change permissions).
-    -   **Symbolic mode**: `chmod +x file` (adds execute), `chmod -w file` (removes write). You can specify `u` (user/owner), `g` (group), `o` (other), e.g., `chmod u+x file`.
-    -   **Numeric (octal) mode**: Each permission has a value: `r`=4, `w`=2, `x`=1. Sum them up for each category. `rwx` = 4+2+1=7. `r-x` = 4+0+1=5. `r--` = 4+0+0=4. So, `rwxr-xr--` is `754`.
+- **Wildcards (globs)**: Patterns the shell expands to matching filenames
+- **`*`**: Matches zero or more characters
+  - `*.txt` matches all files ending in .txt
+  - `log_*` matches all files starting with log_
+  - `*` matches all non-hidden files (no leading dot)
+- **`?`**: Matches exactly one character
+  - `file?.txt` matches file1.txt, fileA.txt but not file12.txt
+  - `data_?.csv` matches data_1.csv through data_9.csv
+- **`[...]`**: Character class—matches one character from set
+  - `file[123].txt` matches file1.txt, file2.txt, file3.txt
+  - `[aeiou]*` matches files starting with vowels
+  - `[0-9]` matches single digit
+  - `[a-z]` matches single lowercase letter
+- **`[!...]`** or **`[^...]`**: Negated class—matches one character NOT in set
+  - `[!0-9]*` matches files NOT starting with digit
+- **Expansion order**: Shell expands globs BEFORE running command
+  - `ls *.txt` → shell finds matches → runs `ls file1.txt file2.txt ...`
+- **No matches**: If pattern matches nothing, often treated as literal string (varies by shell)
+
+Visual example:
+```
+Files: data_1.csv, data_2.csv, image.jpg, readme.txt, script.sh
+
+ls *.csv        → data_1.csv data_2.csv
+ls data_?.csv   → data_1.csv data_2.csv
+ls [dr]*        → data_1.csv data_2.csv readme.txt
+ls *.[st]*      → readme.txt script.sh
+```
 
 Short prompt:
-"Permissions control who can do what. Use `ls -l` to see them and `chmod` to change them. Make your scripts runnable and your data safe."
+"Wildcards multiply your power. One pattern, many files. Master globs to work at scale."
 
-## 4. Directory Layout (Initial for Section 7)
-Base: `$WORKSPACE/level-7/`
+## 4. Directory Layout (Initial for Section 10)
+Base: `$WORKSPACE/level-10/`
 
+Proposed structure:
 ```
-level-7/
-├── scripts/
-│   ├── run_me.sh         (permissions: 755, rwxr-xr-x)
-│   └── needs_fixing.sh   (permissions: 644, rw-r--r--)
-├── data/
-│   ├── report.txt        (permissions: 666, rw-rw-rw-)
-│   └── protected.dat     (permissions: 444, r--r--r--)
-└── numeric/
-    └── target.sh         (permissions: 644, rw-r--r--)
+level-10/
+├── patterns/
+│   ├── file1.txt
+│   ├── file2.txt
+│   ├── file3.txt
+│   ├── file10.txt
+│   ├── data_a.csv
+│   ├── data_b.csv
+│   ├── data_c.csv
+│   ├── image1.jpg
+│   ├── image2.jpg
+│   ├── script.sh
+│   ├── readme.md
+│   └── archive.tar
+├── single/
+│   ├── log_1.txt
+│   ├── log_2.txt
+│   ├── log_3.txt
+│   ├── log_a.txt
+│   ├── log_b.txt
+│   └── summary.txt
+├── classes/
+│   ├── alpha.txt
+│   ├── beta.txt
+│   ├── gamma.txt
+│   ├── delta.txt
+│   ├── 1_report.txt
+│   ├── 2_report.txt
+│   ├── 3_report.txt
+│   └── summary.log
+├── batch/
+│   ├── temp1.tmp
+│   ├── temp2.tmp
+│   ├── temp3.tmp
+│   ├── keep1.txt
+│   ├── keep2.txt
+│   └── important.doc
+├── organize/
+│   └── .placeholder
+└── advanced/
+    ├── a1.dat
+    ├── a2.dat
+    ├── b1.dat
+    ├── b2.dat
+    ├── c1.dat
+    ├── x.dat
+    └── y.dat
 ```
 
 ## 5. Level Index
-| ID   | Title                          | Focus                               | Answer Type          |
-|------|--------------------------------|-------------------------------------|----------------------|
-| 7.1  | Find the Executable            | Reading `x` permission bit          | File basename        |
-| 7.2  | Make a Script Executable       | `chmod +x`                          | Permission string    |
-| 7.3  | Protect a File                 | Extension                         | Error keyword        |
-| 7.4  | Apply Numeric Mode             | `chmod 755`                         | Permission string    |
+| ID    | Title                              | Focus                                  | Answer Type           |
+|-------|------------------------------------|----------------------------------------|-----------------------|
+| 10.1  | Star Wildcard Basics               | * for multiple matches                 | Integer (count)       |
+| 10.2  | Question Mark Single Match         | ? for single character                 | Integer (count)       |
+| 10.3  | Character Classes                  | [abc] sets                             | Integer (count)       |
+| 10.4  | Negated Character Classes          | [!abc] exclusion                       | Integer (count)       |
+| 10.5  | Batch File Operations              | Extension                        | Integer (count)       |
+| 10.6  | Pattern-Based Cleanup              | Extension                        | Integer (remaining)   |
+| 10.7  | (Optional) Complex Pattern Combo   | Optional                         | Ordered list          |
 
 ## 6. Detailed Level Specifications
 
-### Level 7.1 – Find the Executable
-Start: `$WORKSPACE/level-7/scripts/`
-Task: "One of the scripts in this directory is already executable. Use `ls -l` to find it. Submit its basename without the extension."
-Target: `run_me.sh`
-Answer: `run_me`
+### Level 10.1 – Star Wildcard Basics
+Start: `$WORKSPACE/level-10/patterns/`
+Task: "Count how many files match the pattern *.txt using ls *.txt | wc -l. Submit the count."
+Files matching: file1.txt, file2.txt, file3.txt, file10.txt (4 files)
+Answer: `4`
 Validation:
--   The submitted name must correspond to the file with execute (`x`) permissions.
+- Integer.
+- Matches actual *.txt count.
 Hints:
-1.  "Use `ls -l` to view the permissions for all files."
-2.  "Look for an `x` in the permission string (e.g., `-rwxr-xr-x`)."
-3.  "The executable file is `run_me.sh`."
+1. "Use: ls *.txt | wc -l"
+2. "* matches zero or more characters."
+3. "Answer: 4"
+Failure:
+- Wrong count → "Verify with ls *.txt"
 
-### Level 7.2 – Make a Script Executable
-Start: `$WORKSPACE/level-7/scripts/`
-Task: "The script `needs_fixing.sh` is not executable. Add execute permission for the owner (`u`), group (`g`), and others (`o`). After you run the command, submit the new permission string for the owner (the first three letters after the initial dash)."
-Action: `chmod +x needs_fixing.sh` or `chmod 755 needs_fixing.sh`.
-Initial permissions: `rw-r--r--`. Final permissions: `rwxr-xr-x`.
-Owner's permission trio: `rwx`.
-Answer: `rwx`
+### Level 10.2 – Question Mark Single Match
+Start: `$WORKSPACE/level-10/single/`
+Task: "Count files matching log_?.txt (single character between underscore and dot). Submit the count."
+Files matching: log_1.txt, log_2.txt, log_3.txt, log_a.txt, log_b.txt (5 files)
+NOT matching: summary.txt (doesn't match pattern)
+Answer: `5`
 Validation:
--   The file `needs_fixing.sh` must have execute permissions for all.
--   The submitted answer must be the owner's permission string.
+- Integer.
+- ? matches exactly one character.
 Hints:
-1.  "Use `chmod +x <filename>` to add execute permission for everyone."
-2.  "After running `chmod`, use `ls -l` again to see the new permissions."
-3.  "The owner's permissions will be `rwx`."
+1. "Use: ls log_?.txt | wc -l"
+2. "? matches exactly one character."
+3. "Answer: 5"
+Failure:
+- Includes summary.txt → "Pattern is log_?.txt—summary doesn't match."
 
-### Level 7.3 – Protect a File
-Start: `$WORKSPACE/level-7/data/`
-Task: "The file `report.txt` can be written to by anyone. Remove the write permission (`w`) for the 'other' users. Then, try to append text to it with `echo 'test' >> report.txt`. The command will fail. Submit the key word from the error message."
-Action: `chmod o-w report.txt`. Then `echo 'test' >> report.txt`.
-Error message: `bash: report.txt: Permission denied`
-Answer: `denied`
+### Level 10.3 – Character Classes
+Start: `$WORKSPACE/level-10/classes/`
+Task: "Count files starting with vowels (a, e, i, o, u) using pattern [aeiou]*.txt. Submit the count."
+Files matching: alpha.txt (1 file)
+NOT matching: beta.txt, gamma.txt, delta.txt (start with consonants)
+Answer: `1`
 Validation:
--   The file `report.txt` must have `o-w` permissions.
--   The submitted word must be `denied` (case-insensitive).
+- Integer.
+- Only files starting with vowels.
 Hints:
-1.  "Use `chmod o-w report.txt` to remove write permission for 'others'."
-2.  "After changing the permission, try to append to the file: `echo 'test' >> report.txt`."
-3.  "The error message contains the word `denied`."
+1. "Use: ls [aeiou]*.txt | wc -l"
+2. "Character class [aeiou] matches one vowel."
+3. "Answer: 1"
+Failure:
+- Includes consonants → "Only vowels: a, e, i, o, u"
 
-### Level 7.4 – Apply Numeric Mode
-Start: `$WORKSPACE/level-7/numeric/`
-Task: "Use the numeric mode to set the permissions of `target.sh` to `755` (owner can read/write/execute, group and others can read/execute). After setting it, submit the new permission string for 'other' users (the last three characters)."
-Action: `chmod 755 target.sh`.
-Final permissions: `rwxr-xr-x`.
-"Other" permissions: `r-x`.
-Answer: `r-x`
+### Level 10.4 – Negated Character Classes
+Start: `$WORKSPACE/level-10/classes/`
+Task: "Count .txt files NOT starting with a digit using [!0-9]*.txt. Submit the count."
+Files matching: alpha.txt, beta.txt, gamma.txt, delta.txt (4 files)
+NOT matching: 1_report.txt, 2_report.txt, 3_report.txt
+Answer: `4`
 Validation:
--   The file `target.sh` must have `755` permissions.
--   The submitted answer must be the "other" permission string.
+- Integer.
+- Excludes files starting with digits.
 Hints:
-1.  "Use the command `chmod 755 target.sh`."
-2.  "Remember, `755` translates to `rwxr-xr-x`."
-3.  "The last three characters of the permission string are `r-x`."
+1. "Use: ls [!0-9]*.txt | wc -l"
+2. "[!0-9] excludes digits."
+3. "Answer: 4"
+Failure:
+- Includes digit-starting files → "Pattern excludes digits 0-9."
 
-## 7. General Validation Rules
--   Trim whitespace from answers.
--   Permission string answers are case-sensitive.
--   Error message keywords are case-insensitive.
--   Validation logic will use `stat` or `ls -l` parsing to check the actual file modes on the filesystem.
+### Level 10.5 – Batch File Operations
+Start: `$WORKSPACE/level-10/batch/`
+Task: "Copy all .txt files to ../organize/ using cp *.txt ../organize/. Count how many files are now in organize/. Submit the count."
+Files to copy: keep1.txt, keep2.txt (2 files)
+Answer: `2`
+Validation:
+- Files exist in organize/.
+- Count matches.
+Hints:
+1. "Use: cp *.txt ../organize/"
+2. "Then: ls ../organize/ | wc -l"
+3. "Answer: 2"
+Failure:
+- Files not copied → "Did you use cp *.txt?"
+- Wrong count → "Verify with ls ../organize/"
+
+### Level 10.6 – Pattern-Based Cleanup
+Start: `$WORKSPACE/level-10/batch/`
+Task: "Remove all .tmp files using rm *.tmp. Count remaining files in current directory. Submit the count."
+Files to remove: temp1.tmp, temp2.tmp, temp3.tmp (3 files)
+Remaining: keep1.txt, keep2.txt, important.doc (3 files, or 2 if .txt files were copied)
+Answer: `3` (if run before 10.5) or adjust based on state
+Validation:
+- No .tmp files remain.
+- Count correct.
+Hints:
+1. "Use: rm *.tmp"
+2. "Count remaining: ls | wc -l"
+3. "Answer: 3"
+Failure:
+- .tmp files still present → "Use rm *.tmp to remove them."
+
+### Level 10.7 – (Optional) Complex Pattern Combo
+Start: `$WORKSPACE/level-10/advanced/`
+Task: "List files matching [ab][12].dat (first char a or b, second char 1 or 2, extension .dat). Submit comma-separated sorted list of basenames without extensions."
+Files matching: a1.dat, a2.dat, b1.dat, b2.dat
+NOT matching: c1.dat, x.dat, y.dat
+Answer: `a1,a2,b1,b2`
+Validation:
+- Ordered alphabetically.
+- Extensions stripped.
+- All matches included.
+Hints:
+1. "Use: ls [ab][12].dat"
+2. "Pattern has two character classes."
+3. "Answer: a1,a2,b1,b2"
+Optional metadata: `optional=true`
+
+## 7. General Validation Rules (Section 10)
+- Trim whitespace.
+- Integer answers: strict numeric parsing.
+- File basename answers: strip extension.
+- Ordered lists: comma-separated, alphabetically sorted.
+- Verify wildcards expand correctly before validation.
+- Count files after operations to ensure correct behavior.
 
 ## 8. Hint Strategy
-1.  High-level concept reminder (e.g., "Use `chmod`...").
-2.  Specific syntax suggestion (e.g., "`chmod +x ...`").
-3.  Explicit answer or verification command.
+Three hints per level:
+1. Wildcard syntax and example.
+2. Explanation of pattern matching behavior.
+3. Explicit answer or verification command.
+Track `attempts` and `hints_used`.
 
 ## 9. Telemetry / State Logging
 Per completion:
 ```
-"7.n": {
+"10.n": {
   "time_sec": <int>,
   "attempts": <int>,
   "hints": <int>
 }
 ```
-Advancement: Core levels 7.1, 7.2, 7.4 required. 7.3 Extension.
+Advancement: Levels 10.1–10.4 required. 10.5–10.6 Extension. 10.7 Optional.
 
 ## 10. Failure Message Templates
--   "That's not the right permission string. Use `ls -l` to double-check."
--   "The file does not have the correct permissions yet. Try the `chmod` command again."
--   "That's not the keyword from the error message. Make sure you are running the correct command after changing permissions."
+- Wrong count: "Count does not match—verify pattern."
+- Pattern too broad: "Your pattern matched too many files."
+- Pattern too narrow: "Your pattern matched too few files."
+- Files not removed: "Target files still present—verify rm command."
+- Files not copied: "Files not found in destination—verify cp command."
+- List not ordered: "List must be alphabetically sorted."
+- Extension included: "Remove extensions from basenames."
 
-## 11. Implementation Checklist
--   Create the initial directory structure and files.
--   Use `chmod` in the setup script to set the initial permissions for each level.
--   Implement validation helpers that can read and parse file permission strings.
--   Implement a reset mechanism for the Section 7 tree.
+## 11. Edge Cases & Robustness
+- Hidden files: `*` does NOT match files starting with dot (use `.*` explicitly).
+- No matches: behavior varies (some shells pass literal pattern, others error).
+- Quote protection: quoted patterns not expanded (teach: use unquoted).
+- Case sensitivity: patterns are case-sensitive.
+- Space in filenames: wildcards handle spaces (each match treated separately).
 
-## 12. Advancement Criteria
-After Level 7.4 success:
--   `current_level = "8.1"`
+## 12. Implementation Checklist
+- Pre-create all files with predictable names.
+- Provide helpers:
+  - `glob_expand(pattern, directory)` → list of matches
+  - `count_matches(pattern, directory)` → int
+  - `file_exists(path)` → bool
+  - `strip_extension(filename)` → string
+- Validate glob expansion matches expectations.
+- Reset mechanism reconstructs Section 10 tree.
+- Track state changes from operations (cp, mv, rm).
 
-## 13. Sample Instruction Screen (Level 7.2)
+## 13. Advancement Criteria
+After Level 10.4 success:
+- `current_level = "11.1"`
+Optional Level 10.7 accessible post-advancement.
+
+## 14. Sample Instruction Screen (Level 10.3)
 ```
 ══════════════════════════════════════════════════════
-LEVEL 7.2: Make a Script Executable
+LEVEL 10.3: Character Classes
 
-The script `needs_fixing.sh` can't be run because it's
-missing the execute permission.
+Character classes let you match one character from a set.
+[aeiou] matches any single vowel.
 
 Task:
-1. Use `ls -l` to see the current permissions.
-2. Use `chmod +x needs_fixing.sh` to add execute permission.
-3. Use `ls -l` again to see the change.
-4. Submit the owner's new permission string (e.g., `rwx`).
+1. Navigate to level-10/classes/
+2. Count .txt files starting with vowels
+3. Use pattern: [aeiou]*.txt
+4. Command: ls [aeiou]*.txt | wc -l
+5. Submit the count
 
-Submit with: shellgame submit <permission-string>
+Remember: [set] matches ONE character from the set.
+
+Submit with: shellgame submit <count>
 Need help? Type: shellgame hint
 ══════════════════════════════════════════════════════
 ```
 
-## 14. Pedagogical Reinforcement Points
--   Connects the abstract concept of permissions to the practical ability to run a script.
--   Demonstrates how permissions provide a layer of safety (preventing accidental writes).
--   Introduces both symbolic and numeric modes, as both are common in the real world.
+## 15. Pedagogical Reinforcement Points
+- Wildcards enable batch operations without scripting.
+- Pattern precision matters: too broad or narrow affects results.
+- Shell expansion happens before command sees arguments.
+- Character classes provide fine-grained control.
+- Negation ([!...]) teaches inverse matching logic.
+- Practical application: cleanup, organization, filtering at scale.
 
-## 15. Future Cross-References
--   **Section 11 (Search & Discovery)**: Extend with `find . -perm 755` queries.
+## 16. Future Cross-References
+- Section 11 (find): more powerful searching beyond simple globs.
+- Scripting: loops over wildcard matches.
+- Regular expressions (grep): similar but more powerful pattern language.
+- Advanced shells: extended globs, brace expansion.
 
-## 16. Summary (Instructor View)
-Section 7 covers the critical topic of file permissions. Students learn not just the theory but the practical application: making scripts runnable and protecting files. This knowledge is essential for any user in a multi-user environment and is a prerequisite for writing and deploying simple shell scripts.
+## 17. Summary (Instructor View)
+Section 10 transforms students from operating on single files to manipulating file sets with patterns. Wildcard literacy is fundamental to efficient command-line work—enabling rapid filtering, batch processing, and pattern-based organization. By mastering globs, students gain the multiplier effect essential for real-world filesystem management.
 
-Time Note: Teach execute + numeric mode first (7.1, 7.2, 7.4). File protection scenario enriches after basics.
+Pacing Note: Core emphasizes pattern comprehension before batch mutation.
 
-End of Section 7 Specification.
+End of Section 10 Specification.

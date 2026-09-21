@@ -13,8 +13,8 @@ from shellgame.levels.sections.section1 import LsLevel
 from shellgame.levels.sections.section2 import HelpDiscoveryLevel
 from shellgame.levels.sections.section3 import HiddenDirCountLevel, HiddenFilesSummaryChallengeLevel
 from shellgame.levels.sections.section5 import FileDetectiveChallengeLevel
-from shellgame.levels.sections.section7 import MakeExecutableLevel, MakeReadOnlyLevel, PermissionsChallengeLevel
-from shellgame.levels.sections.section8 import WordAndLineCountLevel
+from shellgame.levels.sections.section8 import MakeExecutableLevel, MakeReadOnlyLevel, PermissionsChallengeLevel
+from shellgame.levels.sections.section9 import WordAndLineCountLevel
 from shellgame.levels.sections.section11 import GrepConfigLineToFileLevel, RecursiveGrepFindFileLevel
 from shellgame.levels.solution import RunShell
 from shellgame.state.manager import GameState

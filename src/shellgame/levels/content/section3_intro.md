@@ -2,6 +2,14 @@
 
 V této sekci odhalíte tajemství skrytých souborů a adresářů.
 
+### Proč je to důležité?
+„Smazal jsem si nastavení editoru a teď ho nemůžu najít.“
+„Projekt má fungovat, ale chybí mu `.env`.“
+„Git se chová divně — kde vůbec ta konfigurace je?“
+
+Všechny tři odpovědi leží v souborech, které `ls` záměrně neukáže.
+Dokud o nich nevíte, vypadá adresář prázdně — i když prázdný není.
+
 ### Proč existují skryté soubory?
 V Linuxu soubory začínající tečkou (`.`) jsou "skryté" - nezobrazí se při běžném `ls`.
 Používají se pro konfigurační soubory, které nechcete mít na očích při běžné práci.

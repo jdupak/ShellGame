@@ -16,8 +16,8 @@ from shellgame.levels.sections.section2 import (
     DeepRelativeNavigationLevel,
     PreviousDirectoryToggleLevel,
 )
-from shellgame.levels.sections.section8 import SectionSummaryChallengeLevel
-from shellgame.levels.sections.section9 import DevNullLevel, StreamsChallengeLevel
+from shellgame.levels.sections.section9 import SectionSummaryChallengeLevel
+from shellgame.levels.sections.section10 import DevNullLevel, StreamsChallengeLevel
 from shellgame.levels.sections.section11 import (
     FinalChallengeLevel,
     GrepConfigLineToFileLevel,
@@ -145,7 +145,7 @@ def test_dev_null_level_requires_suppressed_execution(tmp_path: Path, monkeypatc
     level = DevNullLevel()
     level.prepare(workspace)
     state = _state(workspace)
-    script = workspace / "level-9" / "buggy.sh"
+    script = workspace / "level-10" / "buggy.sh"
 
     assert '"$SHELLGAME_FD_HOOK"' in script.read_text()
     level.record_fd_evidence(
@@ -154,7 +154,7 @@ def test_dev_null_level_requires_suppressed_execution(tmp_path: Path, monkeypatc
         state=state,
     )
 
-    monkeypatch.chdir(workspace / "level-9")
+    monkeypatch.chdir(workspace / "level-10")
     assert level.validate("/dev/null", state)[0] is True
 
 
@@ -165,7 +165,7 @@ def test_dev_null_level_rejects_answer_without_execution(tmp_path: Path, monkeyp
     level.prepare(workspace)
     state = _state(workspace)
 
-    monkeypatch.chdir(workspace / "level-9")
+    monkeypatch.chdir(workspace / "level-10")
     assert level.validate("/dev/null", state)[0] is False
 
 
@@ -277,7 +277,7 @@ def test_redirection_challenge_requires_created_content(
     level = SectionSummaryChallengeLevel()
     level.prepare(tmp_path)
     state = _state(tmp_path)
-    challenge = tmp_path / "level-8" / "challenge"
+    challenge = tmp_path / "level-9" / "challenge"
     monkeypatch.chdir(challenge)
 
     assert level.validate("3", state)[0] is False
@@ -293,7 +293,7 @@ def test_streams_challenge_requires_both_output_files(
     level = StreamsChallengeLevel()
     level.prepare(tmp_path)
     state = _state(tmp_path)
-    challenge = tmp_path / "level-9" / "challenge"
+    challenge = tmp_path / "level-10" / "challenge"
     monkeypatch.chdir(challenge)
 
     assert level.validate("2,3", state)[0] is False

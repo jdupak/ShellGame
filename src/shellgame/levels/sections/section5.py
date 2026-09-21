@@ -47,6 +47,7 @@ class FileSizeInBytesLevel(Level):
     start_directory = "sizes"
     fixture = WorkspaceFixture(files=(FileFixture("sizes/database.db", b"x" * 12345),))
     completion = Completion(answer=IntegerAnswer(12345))
+    success_message = "Správně! Pátý sloupec `ls -l` udává velikost v bajtech; `-h` ji převede do čitelnější podoby."
 
 
 @section.level(2)
@@ -71,6 +72,9 @@ class FindFileByExactSizeLevel(Level):
         "Název souboru je na konci příslušného řádku. Odevzdejte ho příkazem 'shellgame submit <soubor>'.",
     ]
     start_directory = "search"
+    #: Extra practice of the 5.1 size column rather than a new skill, so a
+    #: confident player may skip it.
+    optional = True
     fixture = WorkspaceFixture(
         files=(
             FileFixture("search/file_a", b"x" * 1000),
@@ -80,6 +84,7 @@ class FindFileByExactSizeLevel(Level):
         )
     )
     completion = Completion(answer=ExactAnswer("target_file"))
+    success_message = "Správně! Podrobný výpis se čte po sloupcích — stačí porovnat ten jeden, který vás zajímá."
 
 
 @section.level(3)
@@ -99,7 +104,7 @@ class IdentifyJpegAmongFilesLevel(Level):
 
         ## Odevzdání:
         Odevzdejte název souboru, který je obrázkem.
-        `shellgame submit fileX`
+        `shellgame submit <soubor>`
         """
     hints = [
         "Příkaz 'file' zkoumá obsah souboru, ne jeho název. Jak zjistíte typ všech souborů najednou?",
@@ -115,6 +120,7 @@ class IdentifyJpegAmongFilesLevel(Level):
         )
     )
     completion = Completion(answer=ExactAnswer("file3"))
+    success_message = "Správně! O typu souboru rozhoduje jeho obsah, ne název ani přípona."
 
 
 @section.level(4)
@@ -197,7 +203,7 @@ class FindFakeJpgLevel(Level):
 
         ## Odevzdání:
         Odevzdejte název falešného obrázku.
-        `shellgame submit fake.jpg`
+        `shellgame submit <soubor>`
         """
     hints = [
         "Příkaz 'file' určí skutečný typ souboru bez ohledu na jeho příponu.",
@@ -213,6 +219,7 @@ class FindFakeJpgLevel(Level):
         )
     )
     completion = Completion(answer=ExactAnswer("secret.jpg"))
+    success_message = "Správně! Přípona je jen dohoda — `file` čte skutečný obsah, a tak odhalí i zamaskovaný soubor."
 
 
 @section.level(6)
@@ -221,7 +228,7 @@ class IdentifyPythonScriptLevel(Level):
     instructions = """
         Příkaz `file` dokáže podle obsahu rozpoznat Python skript, i když má neobvyklý název.
         Popis `Python script` ale neříká, zda má soubor právo ke spuštění (`x`). Typ zjišťuje `file`,
-        oprávnění zobrazuje `ls -l` a mění `chmod` — tomu se věnuje následující sekce.
+        oprávnění zobrazuje `ls -l` a mění `chmod` — tomu se věnuje Sekce 8.
 
         ## Úkol:
         Najděte v adresáři `bin` soubor, který příkaz `file` označí jako Python skript.
@@ -244,7 +251,21 @@ class IdentifyPythonScriptLevel(Level):
             FileFixture("bin/program", b"\x7fELF"),
         )
     )
-    completion = Completion(answer=ExactAnswer("calc.py"))
+    completion = Completion(
+        answer=ExactAnswer(
+            "calc.py",
+            mistakes={
+                "readme.txt": "To je prostý text, ne skript. Řiďte se přesným popisem z `file *`, ne příponou názvu.",
+                "run.sh": "To je shellový skript (`shell script`), ne Python. Přečtěte popis z `file *` celý.",
+                "program": "To je zkompilovaný program (ELF), ne skript. Porovnejte popisy z `file *`.",
+            },
+            error_message=(
+                "To není Python skript. Rozhoduje přesný popis z `file *`; "
+                "právo `x` z něj nevyčtete — to ukazuje až `ls -l`."
+            ),
+        )
+    )
+    success_message = "Správně! `file` určí typ souboru podle obsahu, ale právo ke spuštění ukáže až `ls -l`."
 
 
 @section.level(7)

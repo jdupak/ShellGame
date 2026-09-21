@@ -90,6 +90,7 @@ class PwdLevel(Level):
         answer=ExactAnswer("level-1"),
         requirements=(Evidence(MarkerManager.PWD_USED, Messages.L1_1_USE_PWD_FIRST),),
     )
+    success_message = "Správně! `pwd` vypisuje celou cestu; poslední část za lomítkem je adresář, ve kterém stojíte."
 
 
 @section.level(2)
@@ -241,6 +242,7 @@ class CdUpLevel(Level):
         ),
     )
     cd_policy = CdPolicy(rules=(RequireExactCommand("..", "Použijte přesně příkaz 'cd ..'."),))
+    success_message = "Správně! `..` neodkazuje na konkrétní jméno, ale vždy na rodiče toho adresáře, kde právě jste."
 
 
 @section.level(5)
@@ -268,6 +270,7 @@ class DeepDiveLevel(Level):
         requirements=(AtDirectory("gamma/deep/a/b/c"),),
     )
     fixture = WorkspaceFixture(directories=("gamma/deep/a/b/c",))
+    success_message = "Správně! Lomítka spojují kroky do jedné relativní cesty — jeden `cd` zvládne celou větev."
 
 
 @section.level(6)
@@ -759,8 +762,12 @@ class HomeCheckLevel(Level):
         answer=ExactAnswer(Path.home().name),
         requirements=(AtHome(),),
     )
+    success_message = "Správně! `~` se rozbalí na váš domovský adresář, ať stojíte kdekoliv v systému."
 
 
+#: The `1.11` suffix is intentionally unused: a level was retired after IDs had
+#: already been persisted in player saves, and renumbering `1.12` would
+#: invalidate them. Suffixes are stable identifiers, not positions.
 @section.level(12)
 class SummaryLevel(Level):
     solution = Solution(

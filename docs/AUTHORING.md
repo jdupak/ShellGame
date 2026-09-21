@@ -94,7 +94,7 @@ fixture = WorkspaceFixture(
 `clean` runs before the fixture is applied, so a level is restored to a known
 state no matter what the previous attempt left behind. Fixtures are idempotent
 and will overwrite a file even if the player removed write permission - section
-7 teaches `chmod`, and `shellgame reset` has to work afterwards.
+8 teaches `chmod`, and `shellgame reset` has to work afterwards.
 
 Fixtures also repair file/directory mixups at declared paths: a directory where
 a file belongs is replaced, and a file blocking a declared directory (including

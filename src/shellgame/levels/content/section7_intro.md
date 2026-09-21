@@ -1,67 +1,52 @@
-# Sekce 7: Oprávnění
+# Sekce 7: Žolíky (Wildcards)
 
-V Linuxu má každý soubor a adresář nastavená oprávnění, která určují, kdo s ním může co dělat.
+V této sekci se naučíte pracovat s více soubory najednou pomocí žolíků (wildcards).
+Žolíky vám umožní definovat vzory názvů souborů.
 
-## Proč je to důležité?
+## Kdy potřebujete Bash?
+Hvězdička `*` funguje v Bashi i ve fish. Levely **7.2–7.4 vyžadují Bash**:
+otazník `?`, množiny `[...]` a znakové třídy nejsou přenositelné do fish.
+Stejnou bashovou syntaxi si znovu procvičíte v souhrnu 7.5.
 
-### Bezpečnost systému
-- **Hesla**: Soubor `/etc/shadow` obsahuje hesla - smí ho číst jen root!
-- **Konfigurace**: Webový server nesmí měnit vlastní konfiguraci (jen číst)
-- **Sdílení**: Spolužáci nevidí vaše soukromé soubory v domovském adresáři
+Pokud hrajete ve fish, každý z těchto levelů nabídne příkaz ve tvaru
+`bash -c 'příkaz'`. Ten spustí pouze daný příkaz v Bashi a vrátí vás do hry.
+Vnější jednoduché uvozovky zachovají žolíky pro Bash.
+`shellgame submit` pak zadejte jako obvykle ve svém herním shellu.
 
-### Běžné situace
-```bash
-# "Permission denied" při spuštění skriptu?
-$ ./muj_skript.sh
-bash: ./muj_skript.sh: Permission denied
-$ chmod u+x muj_skript.sh   # Přidá spuštění pro vlastníka
-$ ./muj_skript.sh
-Hello World!
-
-# Webový server nevidí soubory?
-$ chmod 644 index.html     # Ostatní mohou číst
+## Přehled žolíků v Bashi
+```
+*       Jakýkoliv počet znaků (včetně nuly)
+?       Právě jeden znak
+[...]   Jeden ze znaků v závorkách
+[a-z]   Rozsah znaků (závisí na locale)
+[[:lower:]] Jeden znak klasifikovaný jako malé písmeno
 ```
 
-## Tři typy oprávnění
+## Příklady pro Bash
 ```
-r (read)     → Číst obsah souboru / vypsat obsah adresáře
-w (write)    → Měnit obsah souboru / vytvářet a mazat položky v adresáři
-x (execute)  → Spustit jako program / vstoupit do adresáře
-```
-
-Smazání souboru závisí na právech `w` a `x` nadřazeného adresáře,
-ne na právu `w` samotného souboru.
-
----
-
-## Tři skupiny uživatelů
-```
-u (user)   → Vlastník souboru (vy)
-g (group)  → Členové skupiny vlastníka
-o (other)  → Všichni ostatní
+*.txt         → všechny .txt soubory
+data?.csv     → data1.csv, data2.csv, ale NE data10.csv
+file_[ab].md    → file_a.md, file_b.md, ale NE file_c.md
+[[:lower:]]*.py → soubory začínající malým písmenem
 ```
 
-## Jak číst `ls -l`
-```
--rwxr-xr--  =  vlastník: rwx, skupina: r-x, ostatní: r--
- ││││││││
- │├┴┤├┴┤├┴┤
- │ u  g  o
- │
- └─ typ (- soubor, d adresář)
-```
+> ⚠️ **Pozor na rozsahy:** `[a-z]` a `[A-Z]` vycházejí z pořadí znaků
+> nastaveného locale. Pro význam „mailé písmeno“ proto v levelu 7.4 použijete
+> POSIX třídu `[[:lower:]]`; podobně existují `[[:upper:]]` a `[[:digit:]]`.
 
-## Dva způsoby zápisu chmod
+## Jak to funguje?
 ```
-Symbolický:              Číselný (oktalový):
-chmod u+x soubor         chmod 755 soubor
-chmod g-w soubor         
-chmod o=r soubor         r=4, w=2, x=1
-                         755 = rwx|r-x|r-x
+Vy napíšete:     Shell expanduje na:
+cp *.jpg imgs/   cp foto1.jpg foto2.jpg foto3.jpg imgs/
+       │                    │
+       └── žolík ──────────┘ skutečné soubory
 ```
 
 ## Co se naučíte:
-- Číst oprávnění (`ls -l`)
-- Měnit oprávnění (`chmod`)
-- Používat symbolický zápis (`u+x`) i číselný zápis (`755`)
-- Předvídat a prakticky ověřit, jak `w` a `x` ovlivňují práci s adresáři
+- Vybírat soubory hvězdičkou (`*`)
+- Přesně jeden znak otazníkem (`?`)
+- Množinu znaků hranatými závorkami (`[abc]`)
+- Rozsahy a locale-odolné třídy znaků (`[a-z]`, `[[:lower:]]`, `[[:digit:]]`)
+
+## Pokračování
+Pro zahájení prvního levelu této sekce stiskněte Enter.

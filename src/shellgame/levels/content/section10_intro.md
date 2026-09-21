@@ -1,52 +1,37 @@
-# Sekce 10: Žolíky (Wildcards)
+# Sekce 10: Chybové výstupy
 
-V této sekci se naučíte pracovat s více soubory najednou pomocí žolíků (wildcards).
-Žolíky vám umožní definovat vzory názvů souborů.
+Každý příkaz v Linuxu má dva výstupní kanály:
+1. **stdout** (fd 1) - standardní výstup pro normální výsledky
+2. **stderr** (fd 2) - chybový výstup pro chybové zprávy
 
-## Kdy potřebujete Bash?
-Hvězdička `*` funguje v Bashi i ve fish. Levely **10.2–10.4 vyžadují Bash**:
-otazník `?`, množiny `[...]` a znakové třídy nejsou přenositelné do fish.
-Stejnou bashovou syntaxi si znovu procvičíte v souhrnu 10.5.
-
-Pokud hrajete ve fish, každý z těchto levelů nabídne příkaz ve tvaru
-`bash -c 'příkaz'`. Ten spustí pouze daný příkaz v Bashi a vrátí vás do hry.
-Vnější jednoduché uvozovky zachovají žolíky pro Bash.
-`shellgame submit` pak zadejte jako obvykle ve svém herním shellu.
-
-## Přehled žolíků v Bashi
+## Dva proudy výstupu
 ```
-*       Jakýkoliv počet znaků (včetně nuly)
-?       Právě jeden znak
-[...]   Jeden ze znaků v závorkách
-[a-z]   Rozsah znaků (závisí na locale)
-[[:lower:]] Jeden znak klasifikovaný jako malé písmeno
+┌─────────┐
+│ příkaz  │──── stdout (1) ───▶ Normální výstup
+│         │──── stderr (2) ───▶ Chybové zprávy
+└─────────┘
 ```
 
-## Příklady pro Bash
+## Operátory přesměrování
 ```
-*.txt         → všechny .txt soubory
-data?.csv     → data1.csv, data2.csv, ale NE data10.csv
-file_[ab].md    → file_a.md, file_b.md, ale NE file_c.md
-[[:lower:]]*.py → soubory začínající malým písmenem
+>     Přesměruje stdout (normální výstup)
+2>    Přesměruje stderr (chyby)
+&>    Přesměruje OBOJÍ (stdout + stderr)
+>>    Přidá stdout na konec souboru
+2>>   Přidá stderr na konec souboru
 ```
 
-> ⚠️ **Pozor na rozsahy:** `[a-z]` a `[A-Z]` vycházejí z pořadí znaků
-> nastaveného locale. Pro význam „malé písmeno“ proto v levelu 10.4 použijete
-> POSIX třídu `[[:lower:]]`; podobně existují `[[:upper:]]` a `[[:digit:]]`.
-
-## Jak to funguje?
-```
-Vy napíšete:     Shell expanduje na:
-cp *.jpg imgs/   cp foto1.jpg foto2.jpg foto3.jpg imgs/
-       │                    │
-       └── žolík ──────────┘ skutečné soubory
+## Příklad
+```bash
+./skript.sh           # Obojí na obrazovku
+./skript.sh > out.log        # stdout do souboru, stderr na obrazovku
+./skript.sh 2> err.log       # stderr do souboru, stdout na obrazovku  
+./skript.sh &> all.log       # Všechno do souboru
+./skript.sh &> /dev/null     # Zahodí všechno (ticho)
 ```
 
 ## Co se naučíte:
-- Vybírat soubory hvězdičkou (`*`)
-- Přesně jeden znak otazníkem (`?`)
-- Množinu znaků hranatými závorkami (`[abc]`)
-- Rozsahy a locale-odolné třídy znaků (`[a-z]`, `[[:lower:]]`, `[[:digit:]]`)
-
-## Pokračování
-Pro zahájení prvního levelu této sekce stiskněte Enter.
+- Standardní chybový výstup (stderr)
+- Přesměrování chybových zpráv (`2>`)
+- Přesměrování všeho (`&>`)
+- Zahazování výstupu (`/dev/null`)

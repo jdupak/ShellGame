@@ -1,37 +1,52 @@
-# Sekce 9: Chybové výstupy
+# Sekce 9: Vstup, výstup a stav příkazů
 
-Každý příkaz v Linuxu má dva výstupní kanály:
-1. **stdout** (fd 1) - standardní výstup pro normální výsledky
-2. **stderr** (fd 2) - chybový výstup pro chybové zprávy
+Příkaz obvykle posílá výstup na obrazovku. Tři operátory rozhodnou, kam poteče dál:
 
-## Dva proudy výstupu
-```
-┌─────────┐
-│ příkaz  │──── stdout (1) ───▶ Normální výstup
-│         │──── stderr (2) ───▶ Chybové zprávy
-└─────────┘
+```text
+příkaz > soubor       výstup přepíše soubor
+příkaz >> soubor      výstup se přidá na konec
+příkaz | další        výstup se stane vstupem dalšího příkazu
 ```
 
-## Operátory přesměrování
-```
->     Přesměruje stdout (normální výstup)
-2>    Přesměruje stderr (chyby)
-&>    Přesměruje OBOJÍ (stdout + stderr)
->>    Přidá stdout na konec souboru
-2>>   Přidá stderr na konec souboru
-```
+## Tři mentální modely
 
-## Příklad
+- `>` je **nový zápis**. Starý obsah cílového souboru zmizí.
+- `>>` je **připojení**. Dosavadní obsah zůstane.
+- `|` je **roura mezi příkazy**. Nevytváří soubor, jen předává data dál.
+
 ```bash
-./skript.sh           # Obojí na obrazovku
-./skript.sh > out.log        # stdout do souboru, stderr na obrazovku
-./skript.sh 2> err.log       # stderr do souboru, stdout na obrazovku  
-./skript.sh &> all.log       # Všechno do souboru
-./skript.sh &> /dev/null     # Zahodí všechno (ticho)
+ls > seznam.txt
+echo "další řádek" >> seznam.txt
+grep ERROR access.log | wc -l
 ```
 
-## Co se naučíte:
-- Standardní chybový výstup (stderr)
-- Přesměrování chybových zpráv (`2>`)
-- Přesměrování všeho (`&>`)
-- Zahazování výstupu (`/dev/null`)
+Má-li text nebo název souboru mezery, uzavřete každou takovou část zvlášť:
+
+```bash
+echo "Ahoj svete" > "muj pozdrav.txt"
+```
+
+---
+
+# Klávesnicový vstup a stav příkazu
+
+`cat > soubor` čte řádky z klávesnice. **Ctrl+D** oznámí EOF, tedy konec vstupu,
+a `cat` řádně skončí. **Ctrl+C** je interrupt: běžící příkaz přeruší.
+
+Každý příkaz také vrací stavový neboli návratový kód:
+
+- `0` znamená úspěch,
+- nenulový kód znamená neúspěch,
+- `první && druhý` pokračuje jen po úspěchu,
+- `první || druhý` pokračuje jen po neúspěchu.
+
+`&&` a `||` můžete takto používat přímo v podporovaném Bash i Fish.
+
+## Co se naučíte
+
+- ukládat a přidávat výstup pomocí `>` a `>>`
+- správně citovat víceslovný text i názvy souborů
+- zapisovat interaktivní vstup přes `cat` a ukončit jej pomocí EOF
+- propojovat příkazy pomocí `|`
+- filtrovat a zpracovávat text přes `grep`, `head`, `tail`, `wc`, `sort` a `uniq`
+- reagovat na úspěch či neúspěch příkazu pomocí `&&` a `||`

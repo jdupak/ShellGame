@@ -155,9 +155,23 @@ def test_registered_level_ids_are_unique() -> None:
     assert len({level.id for level in levels}) == len(levels)
 
 
-def test_no_level_is_optional_or_extension() -> None:
+#: Levels deliberately marked as bonus content, with the reason they qualify.
+#: Extra repetition of a skill the preceding level already taught, so a confident
+#: player may `shellgame skip` them. Every other level is core: a level that
+#: becomes skippable by accident would silently drop content from the course.
+#: (1.7's maze is repetition too, but `test_section1_level1_7_validation.py`
+#: deliberately keeps it mandatory.)
+_DELIBERATE_BONUS_LEVELS = {
+    "5.2": "repeats the 5.1 `ls -l` size column, adds only scanning a longer listing",
+}
+
+
+def test_only_deliberate_bonus_levels_are_optional_or_extension() -> None:
     levels = _all_levels()
     for level in levels:
+        if str(level.id) in _DELIBERATE_BONUS_LEVELS:
+            assert level.is_bonus, f"Level {level.id} is listed as bonus but is not marked optional/extension"
+            continue
         assert not level.optional, f"Level {level.id} has optional=True"
         assert not level.extension, f"Level {level.id} has extension=True"
         assert not level.is_bonus, f"Level {level.id} has is_bonus=True"

@@ -39,3 +39,4 @@ class WarmupPasswordLevel(Level):
     ]
     start_directory = ""
     completion = Completion(answer=ExactAnswer("start", case_sensitive=False))
+    success_message = "Správně! Takhle se odevzdává každý úkol: `shellgame submit` a vaše odpověď."

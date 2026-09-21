@@ -73,6 +73,7 @@ class SiblingNavigationLevel(Level):
         requirements=(AtDirectory("finish"),),
         allow_empty=True,
     )
+    success_message = "Správně! K sourozenci se chodí přes společného rodiče — nahoru a hned dolů jiným směrem."
 
 
 @section.level(2)
@@ -114,6 +115,7 @@ class PreviousDirectoryToggleLevel(Level):
         scope=(WithTarget("-"),),
         rules=(RequireSourceDirectory("location-B", "Příkaz 'cd -' použijte až z adresáře location-B."),),
     )
+    success_message = "Správně! Shell si pamatuje předchozí adresář, takže `cd -` přepíná mezi dvěma místy bez cesty."
 
 
 @section.level(3)
@@ -160,6 +162,7 @@ class DeepRelativeNavigationLevel(Level):
             RequireExactCommand("../../other/target", "Použijte ze startu jeden příkaz 'cd ../../other/target'."),
         )
     )
+    success_message = "Správně! Jedna relativní cesta umí obsahovat výstup i sestup — nejdřív `..`, potom jména větve."
 
 
 @section.level(4)
@@ -194,6 +197,7 @@ class ReadFirstWordLevel(Level):
             required_message="Musíte zadat první slovo ze zprávy: shellgame submit <slovo>",
         )
     )
+    success_message = "Správně! `cat` vysype celý obsah souboru do terminálu — ideální na krátké textové soubory."
 
 
 @section.level(5)
@@ -230,6 +234,7 @@ class ChainedClueTraversalLevel(Level):
             required_message="Musíte zadat heslo: shellgame submit <heslo>",
         )
     )
+    success_message = "Správně! Střídat `ls`, `cd` a `cat` stačí k prozkoumání libovolné neznámé struktury."
 
 
 @section.level(6)
@@ -258,62 +263,10 @@ class CreateFileWithTouchLevel(Level):
     start_directory = ""
     fixture = WorkspaceFixture(clean=("my_file.txt",))
     completion = Completion(requirements=(FileExists("my_file.txt"),))
+    success_message = "Správně! `touch` založí prázdný soubor; u existujícího jen posune časové značky."
 
 
 @section.level(7)
-class SectionChallengeLevel(Level):
-    solution = Solution(
-        steps=(Chdir("challenge/room1"), Chdir("challenge/room2")),
-        answer="navigator",
-    )
-    title = "Integrační výzva"
-    instructions = """
-        ### Výzva: Propojte navigaci a čtení souborů
-
-        Tentokrát použijete několik dovedností společně. Sekce pokračuje ještě levelem o hledání nápovědy.
-
-        ### Úkol
-        1. Začínáte v `level-2`. Přejděte do `challenge/room1`.
-        2. Přečtěte soubor `hint.txt`.
-        3. Podle stopy přejděte do `room2`.
-        4. Přečtěte `password.txt` a odevzdejte nalezené heslo.
-
-        ### Odevzdání
-        `shellgame submit <hodnota>`
-        """
-    hints = [
-        "Ze startu přejděte do 'challenge/room1' a přečtěte 'hint.txt'.",
-        "Do sousedního 'room2' se dostanete například příkazem 'cd ../room2'.",
-        "V 'room2' přečtěte soubor 'password.txt' pomocí 'cat'.",
-    ]
-    start_directory = ""
-    fixture = WorkspaceFixture(
-        files=(
-            FileFixture(
-                "challenge/room1/hint.txt",
-                "Heslo je v sousedním adresáři room2.\n",
-            ),
-            FileFixture("challenge/room2/password.txt", "navigator\n"),
-            FileFixture("challenge/room2/decoy.txt", "Toto není heslo.\n"),
-        )
-    )
-    completion = Completion(
-        answer=ExactAnswer(
-            "navigator",
-            case_sensitive=False,
-            mistakes={
-                "toto není heslo": "To je obsah decoy.txt, ne password.txt. Přečtěte správný soubor.",
-                "toto neni heslo": "To je obsah decoy.txt, ne password.txt. Přečtěte správný soubor.",
-            },
-            error_message="Heslo není správné. Hledejte password.txt v room2.",
-            required_message="Musíte zadat heslo: shellgame submit <hodnota>",
-        ),
-        requirements=(AtDirectory("challenge/room2"),),
-    )
-    success_message = "Výborně! Propojili jste navigaci a čtení souborů."
-
-
-@section.level(8)
 class HelpDiscoveryLevel(Level):
     title = "Jak najít pomoc"
     instructions = """
@@ -356,3 +309,56 @@ class HelpDiscoveryLevel(Level):
         )
     )
     success_message = "Správně! Teď víte, jak najít pomoc. Příkaz --help a man jsou vaši nejlepší přátelé!"
+
+
+@section.level(8)
+class SectionChallengeLevel(Level):
+    solution = Solution(
+        steps=(Chdir("challenge/room1"), Chdir("challenge/room2")),
+        answer="navigator",
+    )
+    title = "Integrační výzva"
+    instructions = """
+        ### Výzva: Propojte navigaci a čtení souborů
+
+        Závěrečný úkol sekce: použijete v něm několik dovedností najednou.
+
+        ### Úkol
+        1. Začínáte v `level-2`. Přejděte do `challenge/room1`.
+        2. Přečtěte soubor `hint.txt`.
+        3. Podle stopy přejděte do `room2`.
+        4. Přečtěte `password.txt` a odevzdejte nalezené heslo.
+
+        ### Odevzdání
+        `shellgame submit <hodnota>`
+        """
+    hints = [
+        "Ze startu přejděte do 'challenge/room1' a přečtěte 'hint.txt'.",
+        "Do sousedního 'room2' se dostanete například příkazem 'cd ../room2'.",
+        "V 'room2' přečtěte soubor 'password.txt' pomocí 'cat'.",
+    ]
+    start_directory = ""
+    fixture = WorkspaceFixture(
+        files=(
+            FileFixture(
+                "challenge/room1/hint.txt",
+                "Heslo je v sousedním adresáři room2.\n",
+            ),
+            FileFixture("challenge/room2/password.txt", "navigator\n"),
+            FileFixture("challenge/room2/decoy.txt", "Toto není heslo.\n"),
+        )
+    )
+    completion = Completion(
+        answer=ExactAnswer(
+            "navigator",
+            case_sensitive=False,
+            mistakes={
+                "toto není heslo": "To je obsah decoy.txt, ne password.txt. Přečtěte správný soubor.",
+                "toto neni heslo": "To je obsah decoy.txt, ne password.txt. Přečtěte správný soubor.",
+            },
+            error_message="Heslo není správné. Hledejte password.txt v room2.",
+            required_message="Musíte zadat heslo: shellgame submit <hodnota>",
+        ),
+        requirements=(AtDirectory("challenge/room2"),),
+    )
+    success_message = "Výborně! Dokončili jste Sekci 2 a umíte propojit navigaci se čtením souborů."

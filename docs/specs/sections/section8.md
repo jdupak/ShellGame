@@ -1,164 +1,200 @@
-# Section 8 Specification – "Redirection & Pipes"
+# Section 8 Specification – "Permissions Matter"
+
+> **Renumbered.** This section used to be number 7; wildcards were moved ahead of
+> permissions and redirection so globbing is taught before it is used. Level IDs and
+> `level-7/` workspace paths below still use the old `7.x` numbering, and the
+> Extension/Optional level statuses were never implemented. Treat this file as the
+> original design intent, not as a description of the shipped section.
 
 ## 1. Purpose & Scope
-Section 8 introduces output redirection and pipes, fundamental Unix concepts for combining commands and saving output. Building on prior sections, students learn to:
-- Redirect stdout to files using `>`
-- Append stdout to files using `>>`
-- Connect commands using pipes (`|`)
-- Use `head` and `tail` to view file portions
-- Count lines, words, and characters with `wc`
+Section 7 introduces file permissions, a fundamental concept in Unix-like systems. Building on file inspection skills from Section 5, students will learn to:
+- Read the permission string in `ls -l` output.
+- Understand the meaning of read (`r`), write (`w`), and execute (`x`) for owner, group, and others.
+- Modify file permissions using `chmod`.
+- Make a script executable.
+- Protect a file by removing write permissions.
 
 Deliberate exclusions:
-- No stderr redirection (covered in Section 9)
-- No advanced file descriptors
-- No process substitution
-- No tee command (optional mention only)
+- No advanced permission topics like `setuid`, `setgid`, or sticky bits.
+- No `umask` or default permissions.
+- No file ownership changes (`chown`, `chgrp`).
 
-Allowed commands: All previous commands plus `>`, `>>`, `|`, `head`, `tail`, `wc`
-Estimated Time: 8–10 minutes (core Levels 8.1–8.5) + optional Level 8.6 (~2 minutes)
+Allowed commands: `pwd`, `ls`, `ls -l`, `cd`, `chmod`, `cat`
+Estimated Time: 7 minutes (core Levels 7.1–7.4)
+> Time Calibration: Target 6 minutes average; slow path 5 minutes focusing on 7.1, 7.2, 7.4. Level 7.3 (protect & error) becomes Extension (can revisit after numeric mode).
 
 ## 2. Learning Objectives
-By the end of Section 8 the player will:
-1. Redirect command output to a file using `>`.
-2. Understand that `>` overwrites existing files.
-3. Append output to existing files using `>>`.
-4. View the first N lines of a file with `head`.
-5. View the last N lines of a file with `tail`.
-6. Count lines, words, and characters with `wc`.
-7. Combine commands using pipes (`|`).
-8. Build simple pipelines to filter and process data.
+By the end of Section 7, the player will be able to:
+1.  Identify the owner, group, and other permissions for a file.
+2.  Recognize which files are executable by looking at their permissions.
+3.  Add execute permissions to a file using `chmod +x`.
+4.  Remove write permissions using `chmod -w`.
+5.  Apply permissions using numeric modes (e.g., `chmod 755`).
+6.  Understand the consequence of trying to write to a file without write permission.
 
-## 3. Concept Tutorial (Displayed Before Level 8.1)
+## 3. Concept Tutorial (Displayed Before Level 7.1)
 Key concepts:
-- **Standard output (stdout)**: Where commands normally print their results
-- **Redirection `>`**: Send stdout to a file instead of the screen
-  - `ls > files.txt` saves directory listing to files.txt
-  - WARNING: Overwrites existing file content!
-- **Append `>>`**: Add to end of file without overwriting
-  - `echo "new line" >> log.txt`
-- **Pipes `|`**: Connect output of one command to input of another
-  - `cat file.txt | wc -l` counts lines in file
-  - `ls | head -5` shows first 5 items
-- **`head`**: Show first N lines (default 10)
-  - `head -3 file.txt` shows first 3 lines
-- **`tail`**: Show last N lines (default 10)
-  - `tail -5 file.txt` shows last 5 lines
-- **`wc`**: Word count utility
-  - `wc -l` counts lines
-  - `wc -w` counts words
-  - `wc -c` counts characters/bytes
+-   **Permissions**: Every file and directory has permissions that control who can read, write, or execute it.
+-   **`ls -l` Output**: The first 10 characters show the permissions (e.g., `-rwxr-xr--`).
+    -   The first character is the file type (`-` for file, `d` for directory).
+    -   The next 3 are for the **owner** (`rwx` = read, write, execute).
+    -   The next 3 are for the **group** (`r-x` = read, execute).
+    -   The final 3 are for **others** (`r--` = read only).
+-   **`chmod`**: The command to "change mode" (change permissions).
+    -   **Symbolic mode**: `chmod +x file` (adds execute), `chmod -w file` (removes write). You can specify `u` (user/owner), `g` (group), `o` (other), e.g., `chmod u+x file`.
+    -   **Numeric (octal) mode**: Each permission has a value: `r`=4, `w`=2, `x`=1. Sum them up for each category. `rwx` = 4+2+1=7. `r-x` = 4+0+1=5. `r--` = 4+0+0=4. So, `rwxr-xr--` is `754`.
 
-Visual representation:
+Short prompt:
+"Permissions control who can do what. Use `ls -l` to see them and `chmod` to change them. Make your scripts runnable and your data safe."
+
+## 4. Directory Layout (Initial for Section 7)
+Base: `$WORKSPACE/level-7/`
+
 ```
-Command ──── stdout ───▶ Screen (default)
-
-Command ──── > ────────▶ file.txt (overwrite)
-
-Command ──── >> ───────▶ file.txt (append)
-
-Command1 ──── | ───────▶ Command2 ──── | ───▶ Command3
+level-7/
+├── scripts/
+│   ├── run_me.sh         (permissions: 755, rwxr-xr-x)
+│   └── needs_fixing.sh   (permissions: 644, rw-r--r--)
+├── data/
+│   ├── report.txt        (permissions: 666, rw-rw-rw-)
+│   └── protected.dat     (permissions: 444, r--r--r--)
+└── numeric/
+    └── target.sh         (permissions: 644, rw-r--r--)
 ```
 
-## 4. Level Breakdown
+## 5. Level Index
+| ID   | Title                          | Focus                               | Answer Type          |
+|------|--------------------------------|-------------------------------------|----------------------|
+| 7.1  | Find the Executable            | Reading `x` permission bit          | File basename        |
+| 7.2  | Make a Script Executable       | `chmod +x`                          | Permission string    |
+| 7.3  | Protect a File                 | Extension                         | Error keyword        |
+| 7.4  | Apply Numeric Mode             | `chmod 755`                         | Permission string    |
 
-### Level 8.0 – Section Introduction
-- Type: Intro (non-interactive)
-- Content: Tutorial material from Section 3 above
-- Validation: None (auto-advance on Enter)
+## 6. Detailed Level Specifications
 
-### Level 8.1 – Basic Output Redirection
-- Goal: Save command output to a file
-- Setup: Empty workspace directory
-- Task: "Save the output of `ls /` to a file called `root_contents.txt`"
-- Expected: `ls / > root_contents.txt`
-- Validation: File exists and contains expected content
-- Hints:
-  1. "Use `>` to redirect output to a file"
-  2. "The syntax is: command > filename"
-  3. "Try: `ls / > root_contents.txt`"
+### Level 7.1 – Find the Executable
+Start: `$WORKSPACE/level-7/scripts/`
+Task: "One of the scripts in this directory is already executable. Use `ls -l` to find it. Submit its basename without the extension."
+Target: `run_me.sh`
+Answer: `run_me`
+Validation:
+-   The submitted name must correspond to the file with execute (`x`) permissions.
+Hints:
+1.  "Use `ls -l` to view the permissions for all files."
+2.  "Look for an `x` in the permission string (e.g., `-rwxr-xr-x`)."
+3.  "The executable file is `run_me.sh`."
 
-### Level 8.2 – Overwrite Warning
-- Goal: Understand that `>` overwrites
-- Setup: Directory with existing file `data.txt` containing "original content"
-- Task: "The file `data.txt` exists. Run `echo 'new content' > data.txt`, then check what happened to the original content."
-- Submit: Answer what happened (e.g., "overwritten" or "replaced")
-- Validation: String match for overwrite concept
-- Hints:
-  1. "Use `cat data.txt` to see the file content after redirection"
-  2. "Was the original content preserved or replaced?"
+### Level 7.2 – Make a Script Executable
+Start: `$WORKSPACE/level-7/scripts/`
+Task: "The script `needs_fixing.sh` is not executable. Add execute permission for the owner (`u`), group (`g`), and others (`o`). After you run the command, submit the new permission string for the owner (the first three letters after the initial dash)."
+Action: `chmod +x needs_fixing.sh` or `chmod 755 needs_fixing.sh`.
+Initial permissions: `rw-r--r--`. Final permissions: `rwxr-xr-x`.
+Owner's permission trio: `rwx`.
+Answer: `rwx`
+Validation:
+-   The file `needs_fixing.sh` must have execute permissions for all.
+-   The submitted answer must be the owner's permission string.
+Hints:
+1.  "Use `chmod +x <filename>` to add execute permission for everyone."
+2.  "After running `chmod`, use `ls -l` again to see the new permissions."
+3.  "The owner's permissions will be `rwx`."
 
-### Level 8.3 – Append to File
-- Goal: Use `>>` to preserve existing content
-- Setup: File `log.txt` with some entries
-- Task: "Add a new line 'Entry 4' to the end of `log.txt` without losing existing entries"
-- Expected: `echo "Entry 4" >> log.txt`
-- Validation: File contains original content plus new line
-- Hints:
-  1. "Use `>>` instead of `>` to append"
-  2. "Syntax: echo 'text' >> filename"
+### Level 7.3 – Protect a File
+Start: `$WORKSPACE/level-7/data/`
+Task: "The file `report.txt` can be written to by anyone. Remove the write permission (`w`) for the 'other' users. Then, try to append text to it with `echo 'test' >> report.txt`. The command will fail. Submit the key word from the error message."
+Action: `chmod o-w report.txt`. Then `echo 'test' >> report.txt`.
+Error message: `bash: report.txt: Permission denied`
+Answer: `denied`
+Validation:
+-   The file `report.txt` must have `o-w` permissions.
+-   The submitted word must be `denied` (case-insensitive).
+Hints:
+1.  "Use `chmod o-w report.txt` to remove write permission for 'others'."
+2.  "After changing the permission, try to append to the file: `echo 'test' >> report.txt`."
+3.  "The error message contains the word `denied`."
 
-### Level 8.4 – Head and Tail
-- Goal: View portions of files
-- Setup: File `numbers.txt` with lines 1-20
-- Task: "How many is the sum of the first number and last number in `numbers.txt`?"
-- Expected: Use `head -1` and `tail -1` to find first and last
-- Validation: Integer answer (1 + 20 = 21)
-- Hints:
-  1. "Use `head -1 numbers.txt` to see the first line"
-  2. "Use `tail -1 numbers.txt` to see the last line"
-  3. "Add the two numbers together"
+### Level 7.4 – Apply Numeric Mode
+Start: `$WORKSPACE/level-7/numeric/`
+Task: "Use the numeric mode to set the permissions of `target.sh` to `755` (owner can read/write/execute, group and others can read/execute). After setting it, submit the new permission string for 'other' users (the last three characters)."
+Action: `chmod 755 target.sh`.
+Final permissions: `rwxr-xr-x`.
+"Other" permissions: `r-x`.
+Answer: `r-x`
+Validation:
+-   The file `target.sh` must have `755` permissions.
+-   The submitted answer must be the "other" permission string.
+Hints:
+1.  "Use the command `chmod 755 target.sh`."
+2.  "Remember, `755` translates to `rwxr-xr-x`."
+3.  "The last three characters of the permission string are `r-x`."
 
-### Level 8.5 – Word Count
-- Goal: Use wc to count lines/words/characters
-- Setup: File `article.txt` with known line count
-- Task: "How many lines are in `article.txt`?"
-- Expected: `wc -l article.txt`
-- Validation: Integer match
-- Hints:
-  1. "The `wc` command counts things in files"
-  2. "Use `wc -l` to count lines specifically"
-  3. "Try: `wc -l article.txt`"
+## 7. General Validation Rules
+-   Trim whitespace from answers.
+-   Permission string answers are case-sensitive.
+-   Error message keywords are case-insensitive.
+-   Validation logic will use `stat` or `ls -l` parsing to check the actual file modes on the filesystem.
 
-### Level 8.6 – Simple Pipeline
-- Goal: Combine commands with pipes
-- Setup: Directory with many files (15+)
-- Task: "Count how many items are in the current directory using `ls` and `wc`"
-- Expected: `ls | wc -l`
-- Validation: Integer match
-- Hints:
-  1. "Pipes (`|`) connect the output of one command to the input of another"
-  2. "First, `ls` lists items. Then `wc -l` counts lines."
-  3. "Try: `ls | wc -l`"
+## 8. Hint Strategy
+1.  High-level concept reminder (e.g., "Use `chmod`...").
+2.  Specific syntax suggestion (e.g., "`chmod +x ...`").
+3.  Explicit answer or verification command.
 
-### Level 8.7 – Multi-stage Pipeline (Extension)
-- Goal: Build longer pipelines
-- Setup: File with data to filter
-- Task: "Find how many unique words start with 'a' in `words.txt`"
-- Expected: `grep '^a' words.txt | wc -l` or similar
-- Validation: Integer match
-- Hints:
-  1. "You can chain multiple pipes: cmd1 | cmd2 | cmd3"
-  2. "Use `grep '^a'` to find lines starting with 'a'"
-  3. "Pipe the result to `wc -l` to count"
+## 9. Telemetry / State Logging
+Per completion:
+```
+"7.n": {
+  "time_sec": <int>,
+  "attempts": <int>,
+  "hints": <int>
+}
+```
+Advancement: Core levels 7.1, 7.2, 7.4 required. 7.3 Extension.
 
-## 5. Common Mistakes & Guardrails
-- Confusing `>` (overwrite) with `>>` (append)
-- Forgetting that `>` destroys existing file content
-- Putting the filename before `>` instead of after
-- Using `|` when `>` is needed (or vice versa)
+## 10. Failure Message Templates
+-   "That's not the right permission string. Use `ls -l` to double-check."
+-   "The file does not have the correct permissions yet. Try the `chmod` command again."
+-   "That's not the keyword from the error message. Make sure you are running the correct command after changing permissions."
 
-## 6. Time Budget
-- Level 8.1: ~1 minute
-- Level 8.2: ~1 minute
-- Level 8.3: ~1 minute
-- Level 8.4: ~2 minutes
-- Level 8.5: ~1 minute
-- Level 8.6: ~2 minutes
-- Level 8.7: ~2 minutes (extension)
+## 11. Implementation Checklist
+-   Create the initial directory structure and files.
+-   Use `chmod` in the setup script to set the initial permissions for each level.
+-   Implement validation helpers that can read and parse file permission strings.
+-   Implement a reset mechanism for the Section 7 tree.
 
-**Core path (8.1–8.6): ~8 minutes**
-**Full section: ~10 minutes**
+## 12. Advancement Criteria
+After Level 7.4 success:
+-   `current_level = "8.1"`
 
-## 7. Dependencies
-- Requires: Sections 1–5 (navigation, file inspection, cat)
-- Leads to: Section 9 (stderr and advanced redirection)
+## 13. Sample Instruction Screen (Level 7.2)
+```
+══════════════════════════════════════════════════════
+LEVEL 7.2: Make a Script Executable
+
+The script `needs_fixing.sh` can't be run because it's
+missing the execute permission.
+
+Task:
+1. Use `ls -l` to see the current permissions.
+2. Use `chmod +x needs_fixing.sh` to add execute permission.
+3. Use `ls -l` again to see the change.
+4. Submit the owner's new permission string (e.g., `rwx`).
+
+Submit with: shellgame submit <permission-string>
+Need help? Type: shellgame hint
+══════════════════════════════════════════════════════
+```
+
+## 14. Pedagogical Reinforcement Points
+-   Connects the abstract concept of permissions to the practical ability to run a script.
+-   Demonstrates how permissions provide a layer of safety (preventing accidental writes).
+-   Introduces both symbolic and numeric modes, as both are common in the real world.
+
+## 15. Future Cross-References
+-   **Section 11 (Search & Discovery)**: Extend with `find . -perm 755` queries.
+
+## 16. Summary (Instructor View)
+Section 7 covers the critical topic of file permissions. Students learn not just the theory but the practical application: making scripts runnable and protecting files. This knowledge is essential for any user in a multi-user environment and is a prerequisite for writing and deploying simple shell scripts.
+
+Time Note: Teach execute + numeric mode first (7.1, 7.2, 7.4). File protection scenario enriches after basics.
+
+End of Section 7 Specification.

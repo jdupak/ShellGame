@@ -65,6 +65,7 @@ class CreateFileLevel(Level):
             ),
         ),
     )
+    success_message = "Správně! Soubor může vzniknout úplně prázdný a obsah do něj doplníte až později."
 
 
 @section.level(2)
@@ -82,7 +83,7 @@ class CreateDirectoryLevel(Level):
 
         ## Odevzdání
         Odevzdejte název vytvořeného adresáře.
-        `shellgame submit data`
+        `shellgame submit <název>`
         """
     hints = [
         "Příkaz 'mkdir' slouží k vytvoření nového adresáře.",
@@ -96,8 +97,17 @@ class CreateDirectoryLevel(Level):
     )
     completion = Completion(
         answer=ExactAnswer("data"),
-        requirements=(DirectoryExists("creation/data"),),
+        requirements=(
+            DirectoryExists(
+                "creation/data",
+                error_message=(
+                    "Požadovaný adresář zatím neexistuje. Ověřte pomocí 'ls -l', "
+                    "že jste ho založili v aktuálním adresáři a bez překlepu v názvu."
+                ),
+            ),
+        ),
     )
+    success_message = "Správně! Nový adresář vznikne jediným příkazem a hned do něj můžete vstoupit."
 
 
 @section.level(3)
@@ -131,7 +141,19 @@ class NestedDirectoryCreationLevel(Level):
         directories=("nested",),
         clean=("nested/projekt",),
     )
-    completion = Completion(requirements=(DirectoryExists("nested/projekt/src/tests"),))
+    completion = Completion(
+        requirements=(
+            DirectoryExists(
+                "nested/projekt/src/tests",
+                error_message=(
+                    "Struktura projekt/src/tests zatím není celá. Zkontrolujte ji pomocí 'ls -R projekt': "
+                    "bez přepínače -p vytvoří mkdir jen poslední článek cesty, a to jen když jeho rodič už existuje. "
+                    "S -p vzniknou chybějící rodičovské adresáře zároveň s ním."
+                ),
+            ),
+        )
+    )
+    success_message = "Správně! Přepínač -p vytvoří celou cestu naráz, takže rodiče nemusíte zakládat po jednom."
 
 
 @section.level(4)
@@ -156,7 +178,7 @@ class DeleteFileLevel(Level):
 
         ## Odevzdání
         Odevzdejte název smazaného souboru.
-        `shellgame submit stary_log.txt`
+        `shellgame submit <název>`
         """
     hints = [
         "Příkaz rm permanentně maže soubory. Jaký soubor máte smazat?",
@@ -169,8 +191,18 @@ class DeleteFileLevel(Level):
     )
     completion = Completion(
         answer=ExactAnswer("stary_log.txt"),
-        requirements=(FileExists("cleanup/stary_log.txt", should_exist=False),),
+        requirements=(
+            FileExists(
+                "cleanup/stary_log.txt",
+                should_exist=False,
+                error_message=(
+                    "Soubor stary_log.txt tu pořád je. Zkontrolujte pomocí 'ls', že mažete ve správném "
+                    "adresáři a že jste název napsali bez překlepu."
+                ),
+            ),
+        ),
     )
+    success_message = "Správně! Mazání v shellu je okamžité a nevratné, proto se vyplatí nejdřív ověřit, co mažete."
 
 
 @section.level(5)
@@ -192,7 +224,7 @@ class DeleteDirectoryLevel(Level):
 
         ## Odevzdání
         Odevzdejte název smazaného adresáře.
-        `shellgame submit temp`
+        `shellgame submit <název>`
         """
     hints = [
         "Zkuste nejdřív 'rmdir temp'. Co se stane?",
@@ -203,8 +235,19 @@ class DeleteDirectoryLevel(Level):
     fixture = WorkspaceFixture(files=(FileFixture("cleanup/temp/junk.txt", "junk"),))
     completion = Completion(
         answer=ExactAnswer("temp"),
-        requirements=(DirectoryExists("cleanup/temp", should_exist=False),),
+        requirements=(
+            DirectoryExists(
+                "cleanup/temp",
+                should_exist=False,
+                error_message=(
+                    "Zadaný adresář tu pořád je. Pokud rmdir skončil hláškou 'Directory not empty', "
+                    "pracoval přesně podle očekávání: umí odstranit jen prázdný adresář a nesmí se dotknout obsahu. "
+                    "Adresář s obsahem proto smažte až rekurzivní variantou příkazu rm."
+                ),
+            ),
+        ),
     )
+    success_message = "Správně! Prázdný adresář zvládne rmdir, na adresář s obsahem je potřeba rekurzivní mazání."
 
 
 @section.level(6)
@@ -226,7 +269,7 @@ class ProjectScaffoldLevel(Level):
 
         ## Odevzdání
         Odevzdejte název kořenového adresáře projektu.
-        `shellgame submit web`
+        `shellgame submit <název>`
         """
     hints = [
         "Nejdřív si rozdělte úkol na adresáře a soubory. Všechny potřebné adresáře lze vytvořit jedním příkazem.",
@@ -241,11 +284,24 @@ class ProjectScaffoldLevel(Level):
     completion = Completion(
         answer=ExactAnswer("web"),
         requirements=(
-            FileExists("project/web/index.html"),
-            FileExists("project/web/css/style.css"),
-            DirectoryExists("project/web/js"),
+            FileExists(
+                "project/web/index.html",
+                error_message="Chybí soubor web/index.html. Prázdný soubor založí 'touch'.",
+            ),
+            FileExists(
+                "project/web/css/style.css",
+                error_message=(
+                    "Chybí soubor web/css/style.css. Nejdřív musí existovat podadresář css, "
+                    "teprve potom do něj lze soubor založit."
+                ),
+            ),
+            DirectoryExists(
+                "project/web/js",
+                error_message="Chybí adresář web/js. Má zůstat prázdný, ale existovat musí.",
+            ),
         ),
     )
+    success_message = "Správně! Kostru projektu připravíte předem: adresáře jedním příkazem, prázdné soubory druhým."
 
 
 @section.level(7)
@@ -285,9 +341,17 @@ class CleanupMultipleFilesLevel(Level):
             FileExists("mess/error.log", should_exist=False),
             FileExists("mess/temp.dat", should_exist=False),
             FileExists("mess/junk.tmp", should_exist=False),
-            FileExists("mess/keep_me.txt"),
+            FileExists(
+                "mess/keep_me.txt",
+                error_message=(
+                    "Soubor keep_me.txt zmizel, a ten měl zůstat. Typická příčina je příliš široký "
+                    "argument jako 'rm *', který smaže všechno v adresáři. Příště si nejdřív vypište, "
+                    "co by takový příkaz zasáhl. Level obnovíte příkazem 'shellgame reset'."
+                ),
+            ),
         ),
     )
+    success_message = "Správně! Jeden příkaz zvládne víc cest, ale odpovídáte za to, které soubory zasáhne."
 
 
 @section.level(8)

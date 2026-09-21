@@ -3,12 +3,25 @@
 import json
 import os
 import tempfile
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
 from pydantic import BaseModel, Field, ValidationError
 
-CURRENT_STATE_VERSION = "2.0"
+CURRENT_STATE_VERSION = "2.1"
+
+#: Section numbers changed in state 2.1: wildcards moved ahead of permissions and
+#: redirection, so globbing is taught before the earlier sections rely on it.
+_SECTION_ROTATION_2_1 = {7: 8, 8: 9, 9: 10, 10: 7}
+
+#: Levels swapped inside their section in 2.1 so every section ends on its
+#: challenge: the help lesson moved ahead of 2's challenge, the alias aside ahead
+#: of 6's. Both directions are listed, which makes the mapping its own inverse.
+_LEVEL_SWAPS_2_1 = {"2.7": "2.8", "2.8": "2.7", "6.7": "6.8", "6.8": "6.7"}
+
+#: Keys in a saved state whose values are keyed by level ID.
+_LEVEL_KEYED_FIELDS = ("levels_complete", "level_attempts", "level_hints_used", "level_started_at")
 
 
 class StatePersistenceError(RuntimeError):
@@ -131,9 +144,43 @@ class StateManager:
         migrated = dict(data)
         version = str(migrated.get("version", "1.0"))
 
-        if version == "1.0":
+        if version in {"1.0", "2.0"}:
+            # Both predate the section reordering, so their level IDs point at
+            # whatever now happens to carry that number. Remap them explicitly:
+            # without this the registry's nearest-match fallback would silently
+            # resume a player on unrelated content and keep their completed
+            # levels credited to the wrong section.
+            migrated = _remap_level_ids(migrated, _migrate_level_id_to_2_1)
             migrated["version"] = CURRENT_STATE_VERSION
         elif version != CURRENT_STATE_VERSION:
             raise ValueError(f"Nepodporovaná verze stavu: {version}")
 
         return migrated
+
+
+def _migrate_level_id_to_2_1(level_id: str) -> str:
+    """Map a pre-reorder level ID onto the level that now holds the same content."""
+    if level_id in _LEVEL_SWAPS_2_1:
+        return _LEVEL_SWAPS_2_1[level_id]
+
+    section, separator, number = level_id.partition(".")
+    if not separator or not section.isdigit():
+        return level_id
+
+    rotated = _SECTION_ROTATION_2_1.get(int(section))
+    return f"{rotated}.{number}" if rotated is not None else level_id
+
+
+def _remap_level_ids(data: dict[str, object], remap: Callable[[str], str]) -> dict[str, object]:
+    migrated = dict(data)
+
+    current = migrated.get("current_level")
+    if isinstance(current, str):
+        migrated["current_level"] = remap(current)
+
+    for field in _LEVEL_KEYED_FIELDS:
+        value = migrated.get(field)
+        if isinstance(value, dict):
+            migrated[field] = {remap(str(key)): item for key, item in value.items()}
+
+    return migrated

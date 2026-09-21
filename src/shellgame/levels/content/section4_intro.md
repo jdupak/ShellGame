@@ -1,6 +1,12 @@
 # Sekce 4: Vytváření a mazání
 
-V této sekci se naučíte, jak vytvářet nové soubory a adresáře a jak po sobě uklízet.
+V této sekci se naučíte, jak vytvářet nové soubory a adresáře a jak po sobě uklidit.
+
+## Proč je to důležité?
+Zatím jste se pohybovali po struktuře, kterou někdo připravil za vás.
+Každý nový projekt ale začíná prázdným adresářem, který si musíte založit sami —
+a na serveru, kde není žádné grafické rozhraní, je příkazová řádka jediná možnost.
+S úklidem přichází i odpovědnost: mazání v terminálu je okamžité a konečné.
 
 ## Životní cyklus souborů
 ```

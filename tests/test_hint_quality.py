@@ -121,7 +121,7 @@ def test_error_message_never_contains_the_expected_answer(levels: list) -> None:
     assert not leaks, "Feedback must not contain the expected answer:\n" + "\n".join(leaks)
 
 
-@pytest.mark.parametrize("level_id", ["1.1", "2.1", "2.4", "8.8"])
+@pytest.mark.parametrize("level_id", ["1.1", "2.1", "2.4", "9.8"])
 def test_discovery_final_hint_does_not_give_the_answer(levels: list[Level], level_id: str) -> None:
     level = next(level for level in levels if level.id == level_id)
     assert level.completion is not None
@@ -191,7 +191,7 @@ def test_discovery_submit_line_does_not_include_the_path(levels: list) -> None:
     assert not leaks, "Discovery submit examples must use a placeholder:\n" + "\n".join(leaks)
 
 
-@pytest.mark.parametrize("level_id", ["5.1", "7.1", "8.6"])
+@pytest.mark.parametrize("level_id", ["5.1", "8.1", "9.6"])
 def test_discovery_submit_examples_do_not_reveal_values(levels: list[Level], level_id: str) -> None:
     level = next(level for level in levels if level.id == level_id)
     assert level.completion is not None
@@ -244,17 +244,22 @@ def test_hint_progression_scaffolding(levels: list[Level]) -> None:
         "6.5",
         "6.6",
         "7.1",
-        "7.3",
-        "7.4",
-        "8.2",
+        "7.5",
+        "8.1",
         "8.3",
         "8.4",
-        "8.9",
-        "9.5",
-        "10.1",
+        "9.2",
+        "9.3",
+        "9.4",
+        "9.9",
         "10.5",
         "11.1",
     }
+    # A listed ID that no longer exists would silently stop being checked, so the
+    # set is verified against the registry before it is used.
+    registered = {level.id for level in levels}
+    assert checked_levels <= registered, f"Unknown level IDs listed: {sorted(checked_levels - registered)}"
+
     for level in levels:
         if level.id in checked_levels:
             assert len(level.hints) >= 2, f"{level.id} should have at least 2 hints"

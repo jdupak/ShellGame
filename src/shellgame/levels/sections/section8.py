@@ -1,579 +1,443 @@
 from __future__ import annotations
 
+import stat
+
 from shellgame.levels.base import Level
 from shellgame.levels.collector import Section
 from shellgame.levels.completion import (
+    AtDirectory,
+    ChoiceAnswer,
     Completion,
+    DirectoryPermissionMode,
     ExactAnswer,
-    IntegerAnswer,
-    TextFileContent,
-    TupleAnswer,
+    PathsMatch,
+    PermissionBits,
+    PermissionMode,
 )
-from shellgame.levels.fixture import FileFixture, WorkspaceFixture
-from shellgame.levels.solution import RunShell, Solution
+from shellgame.levels.fixture import DirectoryFixture, FileFixture, WorkspaceFixture
+from shellgame.levels.solution import Chdir, Chmod, RunShell, Solution
 
 section = Section(8, root="level-8")
 
 
-_ACCESS_LOG = """2024-01-01 10:00:00 INFO Server started
-2024-01-01 10:05:23 ERROR Connection refused
-2024-01-01 10:10:45 INFO User logged in
-2024-01-01 10:15:00 WARNING Low memory
-2024-01-01 10:20:12 ERROR Database timeout
-2024-01-01 10:25:00 INFO Request processed
-2024-01-01 10:30:33 ERROR File not found
-2024-01-01 10:35:00 INFO Cache cleared
-2024-01-01 10:40:55 ERROR Permission denied
-2024-01-01 10:45:00 DEBUG Verbose output
-2024-01-01 10:50:18 ERROR Network unreachable
-2024-01-01 10:55:00 INFO Backup completed
-2024-01-01 11:00:00 ERROR Disk full
-2024-01-01 11:05:00 INFO Server shutdown
-2024-01-01 11:10:42 ERROR Service unavailable
-"""
-_LONG_FILE = "\n".join(
-    [
-        "START of the file - this is line 1",
-        *(f"Line number {index} with some content" for index in range(2, 50)),
-        "END of the file - this is line 50",
-        "",
-    ]
-)
-_ARTICLE = """Linux je svobodný operační systém.
-Byl vytvořen Linusem Torvaldsem v roce 1991.
-Dnes pohání většinu serverů na internetu.
-Je základem systému Android a mnoha dalších.
-Open source komunita ho neustále vylepšuje.
-"""
-_VISITORS = """Alice
-Bob
-Charlie
-Alice
-David
-Bob
-Eve
-Alice
-"""
-
-
 @section.level(0)
-class SectionIntro(Level):
+class SectionIntroLevel(Level):
     is_intro = True
-    title = "Sekce 8: Vstup, výstup a stav příkazů"
+    title = "Sekce 8: Oprávnění"
     instructions_file = "section8_intro.md"
     hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
     success_message = "Jdeme na to!"
 
 
 @section.level(1)
-class RedirectLsToFileLevel(Level):
-    solution = Solution(steps=(RunShell("ls > seznam.txt"),), answer="seznam.txt")
-    title = "Uložení výstupu"
-    instructions = """\
-        # Uložení výstupu
+class FindExecutableLevel(Level):
+    title = "Hledání spustitelného souboru"
+    instructions = """
+        Příkaz `ls -l` zobrazuje oprávnění v prvním sloupci (např. `-rw-r--r--`).
+        První trojice práv po znaku typu patří vlastníkovi souboru.
 
-        Operátor `>` přesměruje výstup příkazu do souboru. Pokud soubor neexistuje, vytvoří se.
-        Pokud existuje, **přepíše se**.
+        ## Úkol:
+        V adresáři je několik skriptů. Najděte jediný, který má právo spuštění (`x`)
+        nastavené pro vlastníka. `x` u skupiny nebo ostatních nestačí.
 
-        ## Úkol
-        Uložte seznam souborů v aktuálním adresáři (výstup `ls`) do souboru `seznam.txt`.
+        ## Příkazy:
+        - `ls -l`: Zobrazí oprávnění
 
-        ## Příkazy
-        - `ls > seznam.txt`
-
-        ## Odevzdání
-        Odevzdejte název vytvořeného souboru.
-        `shellgame submit seznam.txt`
+        ## Odevzdání:
+        Odevzdejte název spustitelného souboru.
+        `shellgame submit <soubor>`
         """
     hints = [
-        "Použijte operátor '>' pro přesměrování výstupu.",
-        "Příkaz 'ls' vypíše obsah adresáře.",
-        "Zkuste: 'ls > seznam.txt'.",
+        "Podrobný výpis souborů včetně sloupců s oprávněními získáte přepínačem '-l'.",
+        "Spusťte 'ls -l' a rozdělte práva po znaku typu na trojice pro vlastníka, skupinu a ostatní.",
+        "Hledejte 'x' v první trojici (pozice vlastníka), ne v trojici skupiny nebo ostatních.",
     ]
-    start_directory = "redirection"
+    start_directory = "executables"
     fixture = WorkspaceFixture(
         files=(
-            FileFixture("redirection/file1"),
-            FileFixture("redirection/file2"),
-        ),
-        clean=("redirection/seznam.txt",),
-    )
-    completion = Completion(
-        answer=ExactAnswer("seznam.txt"),
-        requirements=(
-            TextFileContent(
-                "redirection/seznam.txt",
-                contains=("file1", "file2"),
-                error_message="Soubor neobsahuje očekávaný výstup příkazu ls.",
-                missing_message="Soubor neexistuje.",
+            FileFixture("executables/test.sh", "#!/bin/bash", mode=0o654),
+            FileFixture("executables/data.sh", "#!/bin/bash", mode=0o645),
+            FileFixture(
+                "executables/script.sh",
+                "#!/bin/bash\necho Hi",
+                mode=0o744,
             ),
-        ),
-    )
-
-
-@section.level(2)
-class AppendWithRedirectLevel(Level):
-    solution = Solution(steps=(RunShell("echo 'Konec logu' >> log.txt"),), answer="log.txt")
-    title = "Přidání na konec"
-    instructions = """\
-        # Přidání na konec
-
-        Operátor `>>` (append) přidá výstup na konec souboru, aniž by smazal původní obsah.
-
-        ## Úkol
-        Máte soubor `log.txt` s nějakým obsahem. Přidejte na jeho konec text "Konec logu"
-        pomocí příkazu `echo`.
-
-        ## Příkazy
-        - `echo "Text" >> soubor`
-
-        ## Odevzdání
-        Odevzdejte název souboru.
-        `shellgame submit log.txt`
-        """
-    hints = [
-        "Dvě šipky '>>' znamenají append (připojení na konec souboru bez přepsání obsahu).",
-        "Spusťte 'echo \"Konec logu\" >> log.txt'.",
-    ]
-    start_directory = "redirection"
-    fixture = WorkspaceFixture(files=(FileFixture("redirection/log.txt", "Start logu\nZaznam 1\n"),))
-    completion = Completion(
-        answer=ExactAnswer("log.txt"),
-        requirements=(
-            TextFileContent(
-                "redirection/log.txt",
-                exact="Start logu\nZaznam 1\nKonec logu\n",
-                error_message="Soubor musí zachovat původní obsah a přidat nový řádek přesně na konec.",
-                missing_message="Soubor neexistuje.",
-            ),
-        ),
-    )
-
-
-@section.level(3)
-class ConcatenatePartsLevel(Level):
-    solution = Solution(steps=(RunShell("cat part1.txt part2.txt > full.txt"),), answer="full.txt")
-    title = "Spojování souborů"
-    instructions = """\
-        # Spojování souborů
-
-        Příkaz `cat` (concatenate) umí vypsat obsah více souborů za sebou.
-        Když to zkombinujete s přesměrováním, můžete spojit více souborů do jednoho.
-
-        ## Úkol
-        Spojte obsah souborů `part1.txt` a `part2.txt` do nového souboru `full.txt`.
-
-        ## Příkazy
-        - `cat soubor1 soubor2 > novy_soubor`
-
-        ## Odevzdání
-        Odevzdejte název nového souboru.
-        `shellgame submit full.txt`
-        """
-    hints = [
-        "Příkaz 'cat' umí přijmout více souborů najednou a vypsat jejich obsahy za sebou.",
-        "Výstup více souborů z 'cat' můžete přesměrovat pomocí '>' do cílového souboru.",
-        "Spusťte 'cat part1.txt part2.txt > full.txt'. Pořadí argumentů určuje pořadí v souboru.",
-    ]
-    start_directory = "concat"
-    fixture = WorkspaceFixture(
-        files=(
-            FileFixture("concat/part1.txt", "First part.\n"),
-            FileFixture("concat/part2.txt", "Second part.\n"),
-        ),
-        clean=("concat/full.txt",),
-    )
-    completion = Completion(
-        answer=ExactAnswer("full.txt"),
-        requirements=(
-            TextFileContent(
-                "concat/full.txt",
-                exact="First part.\nSecond part.\n",
-                error_message="Soubor musí obsahovat obě části přesně v zadaném pořadí.",
-                missing_message="Soubor neexistuje.",
-            ),
-        ),
-    )
-
-
-@section.level(4)
-class EchoCreateFileLevel(Level):
-    solution = Solution(
-        steps=(RunShell('echo "Ahoj svete" > "muj pozdrav.txt"'),),
-        answer="muj pozdrav.txt",
-    )
-    title = "Uvozovky v textu i názvu"
-    instructions = """\
-        # Uvozovky v textu i názvu souboru
-
-        Shell dělí příkaz podle mezer. Uvozovky proto chrání víceslovný text i název
-        souboru s mezerami — každou část uzavřete zvlášť.
-
-        ## Úkol
-        Pomocí `echo` vytvořte soubor `muj pozdrav.txt` s jediným řádkem `Ahoj svete`.
-
-        ## Příkaz
-        - `echo "Ahoj svete" > "muj pozdrav.txt"`
-
-        První dvojice uvozovek chrání text, druhá název výstupního souboru.
-
-        ## Odevzdání
-        Uvozovky potřebuje i název předaný příkazu `shellgame`:
-        `shellgame submit "muj pozdrav.txt"`
-        """
-    hints = [
-        "Mezery oddělují argumenty. Uvozovky udrží více slov pohromadě jako jeden text nebo jednu cestu.",
-        "Uzavřete do uvozovek text za `echo` a zvlášť také název za `>`.",
-        'Spusťte `echo "Ahoj svete" > "muj pozdrav.txt"` a název v uvozovkách také odevzdejte.',
-    ]
-    start_directory = "echo"
-    fixture = WorkspaceFixture(
-        clean=("echo/pozdrav.txt", "echo/muj pozdrav.txt"),
-        directories=("echo",),
+        )
     )
     completion = Completion(
         answer=ExactAnswer(
-            "muj pozdrav.txt",
-            required_message='Odevzdejte název v uvozovkách: shellgame submit "muj pozdrav.txt"',
-        ),
+            "script.sh",
+            error_message=(
+                "Tenhle soubor nemá 'x' v první trojici. Ve výpisu 'ls -l' čtěte práva po znaku typu "
+                "po trojicích: vlastník, skupina, ostatní. 'x' u skupiny nebo ostatních se nepočítá."
+            ),
+        )
+    )
+    success_message = "Správně! Práva se čtou po trojicích a rozhoduje ta, která odpovídá vaší roli."
+
+
+@section.level(2)
+class MakeExecutableLevel(Level):
+    solution = Solution(steps=(RunShell("chmod u+x run_me.sh"),), answer="run_me.sh")
+    title = "Nastavení spustitelnosti"
+    instructions = """
+        Aby šel skript spustit (např. `./script.sh`), musí mít nastavené právo `x`.
+        Příkaz `chmod` (change mode) mění oprávnění.
+
+        ### Proč je to důležité?
+        Když napíšete skript nebo stáhnete program, často není automaticky spustitelný.
+        Musíte mu explicitně dát právo ke spuštění - je to bezpečnostní opatření.
+
+        ### Běžný pracovní postup
+        1. Napíšete skript: `nano muj_skript.sh`
+        2. Pokusíte se spustit: `./muj_skript.sh` → "Permission denied"
+        3. Přidáte právo: `chmod u+x muj_skript.sh`
+        4. Nyní funguje: `./muj_skript.sh` ✓
+
+        ## Úkol:
+        Soubor `run_me.sh` nejde spustit. Přidejte mu právo pro spuštění pro vlastníka (`u`).
+
+        ## Příkazy:
+        - `chmod u+x <soubor>`: Přidá právo execute pro usera
+
+        ## Odevzdání:
+        Odevzdejte název souboru.
+        `shellgame submit run_me.sh`
+        """
+    hints = [
+        "Právo 'x' (execute) je potřeba pro spuštění. Jak ho přidáte pro vlastníka (user)?",
+        "Syntaxe chmod: chmod kdo+co soubor. 'u' = user, 'x' = execute.",
+        "Použijte 'chmod u+x run_me.sh'.",
+    ]
+    start_directory = "permissions"
+    fixture = WorkspaceFixture(files=(FileFixture("permissions/run_me.sh", "#!/bin/bash\necho Run me", mode=0o644),))
+    completion = Completion(
+        answer=ExactAnswer("run_me.sh"),
         requirements=(
-            TextFileContent(
-                "echo/muj pozdrav.txt",
-                exact="Ahoj svete\n",
-                error_message="Soubor nemá přesně požadovaný jeden řádek.",
-                missing_message="Chybí soubor s požadovaným názvem obsahujícím mezeru.",
+            PermissionBits(
+                "permissions/run_me.sh",
+                required=stat.S_IXUSR,
+                error_message=(
+                    "Vlastník stále nemá právo 'x'. Zkontrolujte 'ls -l run_me.sh': rozhoduje první trojice "
+                    "po znaku typu, ne trojice skupiny ani ostatních."
+                ),
             ),
         ),
     )
+    success_message = "Správně! Symbolický chmod se skládá ze tří částí: kdo, operace a které právo."
+
+
+@section.level(3)
+class MakeReadOnlyLevel(Level):
+    solution = Solution(steps=(RunShell("chmod a-w config.readonly"),), answer=None)
+    title = "Odebrání práva zápisu"
+    instructions = """
+        Někdy chcete zabránit nechtěnému přepsání souboru. Můžete mu odebrat právo pro zápis (`w`).
+
+        ## Úkol:
+        Odeberte souboru `config.readonly` právo zápisu pro všechny: vlastníka, skupinu i ostatní.
+
+        ## Příkazy:
+        - `chmod a-w <soubor>`: Odeberte write pro all (všechny)
+
+        Písmeno `a` nevynechávejte: bez něj výsledek ovlivňuje výchozí maska práv (`umask`).
+
+        ## Odevzdání:
+        Po odebrání všech práv zápisu spusťte:
+        `shellgame submit`
+        """
+    hints = [
+        "'a' znamená all (všechny: vlastníka, skupinu i ostatní), '-w' odebírá právo zápisu.",
+        "Tvar je 'chmod <kdo><operace><právo> <soubor>': tady je kdo = všichni, operace = odebrat a právo = zápis.",
+        "Spusťte 'chmod a-w config.readonly'.",
+    ]
+    start_directory = "permissions"
+    fixture = WorkspaceFixture(files=(FileFixture("permissions/config.readonly", "Do not touch", mode=0o644),))
+    completion = Completion(
+        requirements=(
+            PermissionBits(
+                "permissions/config.readonly",
+                forbidden=stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH,
+                error_message=(
+                    "Někde právo zápisu zůstalo. V 'ls -l config.readonly' projděte všechny tři trojice po řadě: "
+                    "'w' nesmí být ani u vlastníka, ani u skupiny, ani u ostatních."
+                ),
+            ),
+        ),
+    )
+    success_message = "Správně! Symbolický zápis mění právo jen vybraným trojicím a zbytek nechává být."
+
+
+@section.level(4)
+class NumericPermissionsLevel(Level):
+    solution = Solution(steps=(RunShell("chmod 755 deploy.sh"),), answer=None)
+    title = "Číselný zápis"
+    instructions = """
+        Oprávnění lze nastavit i číselně (oktalově).
+        - 4 = read (r)
+        - 2 = write (w)
+        - 1 = execute (x)
+
+        Součet dává kombinaci (např. 7 = 4+2+1 = rwx, 5 = 4+1 = r-x).
+        Zadávají se tři čísla: pro vlastníka, skupinu a ostatní.
+        Např. `755` znamená `rwx` pro vlastníka, `r-x` pro skupinu, `r-x` pro ostatní.
+
+        ## Úkol:
+        Nastavte spouštěcímu skriptu `deploy.sh` oprávnění `755` (`rwxr-xr-x`).
+
+        ## Příkazy:
+        - `chmod 755 <soubor>`
+
+        ## Odevzdání:
+        Po nastavení přesného režimu spusťte:
+        `shellgame submit`
+        """
+    hints = [
+        "Oktalový zápis: 7 = 4+2+1 (rwx) pro vlastníka, 5 = 4+1 (r-x) pro skupinu a ostatní.",
+        "Tvar je 'chmod <tři číslice> <soubor>': každá číslice patří jedné trojici v pořadí "
+        "vlastník, skupina, ostatní a je součtem 4 (r), 2 (w) a 1 (x).",
+        "Spusťte 'chmod 755 deploy.sh' a výsledek zkontrolujte pomocí 'ls -l deploy.sh'.",
+    ]
+    start_directory = "permissions"
+    fixture = WorkspaceFixture(
+        files=(FileFixture("permissions/deploy.sh", "#!/bin/sh\necho 'Nasazuji aplikaci'\n", mode=0o600),)
+    )
+    completion = Completion(
+        requirements=(
+            PermissionMode(
+                "permissions/deploy.sh",
+                0o755,
+                error_message=(
+                    "Režim zatím nesedí. Přečtěte si aktuální stav příkazem 'ls -l deploy.sh' a přeložte "
+                    "každou trojici zpět na číslici (r=4, w=2, x=1, '-'=0). "
+                    "Nejčastější chybou je právo zápisu navíc u skupiny nebo ostatních."
+                ),
+            ),
+        )
+    )
+    success_message = "Správně! Číselný režim nastavuje všechny tři trojice najednou na přesnou hodnotu."
 
 
 @section.level(5)
-class PipeGrepAndCountLevel(Level):
-    title = "Propojení příkazů (Pipes)"
-    instructions = """\
-        # Propojení příkazů pomocí rour (pipes)
-
-        Znak `|` (pipe/roura) pošle výstup jednoho příkazu jako vstup druhému.
-
-        ## Úkol
-        V aktuálním adresáři je soubor `access.log` s mnoha řádky.
-        Spočítejte, kolik řádků obsahuje slovo "ERROR".
-
-        Použijte: `grep "ERROR" access.log | wc -l`
-
-        ## Odevzdání
-        Odevzdejte nalezený počet (číslo).
-        `shellgame submit <číslo>`
-        """
-    hints = [
-        "Pipe (|) propojuje výstup prvního příkazu se vstupem druhého.",
-        "grep najde řádky s 'ERROR', wc -l je spočítá. Spojte je pomocí |.",
-        'Použijte: grep "ERROR" access.log | wc -l',
-    ]
-    start_directory = "pipes"
-    fixture = WorkspaceFixture(files=(FileFixture("pipes/access.log", _ACCESS_LOG),))
-    completion = Completion(
-        answer=IntegerAnswer(
-            7,
-            mistakes={
-                15: "Spočítali jste všechny řádky. Potřebujete jen ty s 'ERROR'. Použijte grep před wc.",
-            },
-        )
-    )
-
-
-@section.level(6)
-class HeadTailFirstAndLastWordLevel(Level):
-    title = "Začátek a konec souboru"
-    instructions = """\
-        # Head a Tail - prohlížení částí souboru
-
-        ## Úkol
-        V souboru `long_file.txt` je 50 řádků.
-        1. Zjistěte první slovo na 1. řádku (pomocí `head -n 1`)
-        2. Zjistěte první slovo na posledním řádku (pomocí `tail -n 1`)
-
-        ## Odevzdání
-        Odevzdejte obě slova oddělená čárkou: `první,poslední`
-        `shellgame submit <první>,<poslední>`
-        """
-    hints = [
-        "head -n 1 zobrazí první řádek, tail -n 1 zobrazí poslední.",
-        "Odevzdejte první slovo z každého z těchto dvou řádků.",
-        "Formát odpovědi je `prvni,posledni` - dvě slova oddělená čárkou, bez mezery.",
-    ]
-    start_directory = "headtail"
-    success_message = "Správně! Head a tail jsou skvělé pro rychlý náhled do souborů."
-    fixture = WorkspaceFixture(files=(FileFixture("headtail/long_file.txt", _LONG_FILE),))
-    completion = Completion(
-        answer=TupleAnswer(
-            (
-                ExactAnswer(
-                    "START",
-                    error_message="První slovo není správně. Použijte 'head -n 1 long_file.txt'.",
-                ),
-                ExactAnswer(
-                    "END",
-                    error_message="Poslední slovo není správně. Použijte 'tail -n 1 long_file.txt'.",
-                ),
-            ),
-            format_message="Formát: první_slovo,poslední_slovo (např. AHOJ,SVET)",
-            required_message="Zadejte odpověď ve formátu: první_slovo,poslední_slovo",
-        )
-    )
-
-
-@section.level(7)
-class WordAndLineCountLevel(Level):
-    title = "Počítání (wc)"
-    instructions = """\
-        # Příkaz wc (word count)
-
-        ## Úkol
-        Zjistěte o souboru `article.txt`:
-        1. Kolik má řádků? (`wc -l`)
-        2. Kolik má slov? (`wc -w`)
-
-        ## Odevzdání
-        Odevzdejte: `řádky,slova` (např. `10,50`)
-        `shellgame submit <řádky>,<slova>`
-        """
-    hints = [
-        "wc -l počítá řádky, wc -w počítá slova.",
-        "Spusťte oba příkazy na `article.txt` a zapište si obě čísla.",
-        "Odevzdejte je v pořadí řádky,slova — bez mezery za čárkou.",
-    ]
-    start_directory = "wc"
-    success_message = "Správně! Příkaz wc je nepostradatelný pro rychlou analýzu souborů."
-    fixture = WorkspaceFixture(files=(FileFixture("wc/article.txt", _ARTICLE),))
-    completion = Completion(
-        answer=TupleAnswer(
-            (
-                IntegerAnswer(
-                    5,
-                    error_message="Počet řádků není správně. Použijte 'wc -l article.txt'.",
-                    invalid_message="Obě hodnoty musí být čísla.",
-                ),
-                IntegerAnswer(
-                    31,
-                    error_message="Počet slov není správně. Použijte 'wc -w article.txt'.",
-                    invalid_message="Obě hodnoty musí být čísla.",
-                ),
-            ),
-            format_message="Formát: řádky,slova (např. 10,50)",
-            required_message="Zadejte odpověď ve formátu: řádky,slova",
-        )
-    )
-
-
-@section.level(8)
-class SortUniqCountUniqueLevel(Level):
-    title = "Řazení a odstranění duplicit"
-    instructions = """\
-        # Sort a Uniq - řazení a deduplikace
-
-        Příkazy `sort` a `uniq` jsou mocné nástroje pro zpracování textových dat.
-
-        ## Úkol
-        V souboru `visitors.txt` jsou jména návštěvníků (někteří přišli vícekrát).
-        Zjistěte, kolik je UNIKÁTNÍCH návštěvníků.
-
-        Použijte: `sort visitors.txt | uniq | wc -l`
-
-        ## Odevzdání
-        Odevzdejte počet unikátních návštěvníků.
-        `shellgame submit <číslo>`
-        """
-    hints = [
-        "Příkaz uniq odstraní duplikáty, ale jen sousedící! Proto nejdřív sort.",
-        "Řetězec: sort → uniq → wc -l spočítá unikátní řádky.",
-        "Spusťte 'sort visitors.txt | uniq | wc -l' a odevzdejte číslo z výstupu.",
-    ]
-    start_directory = "sort"
-    success_message = "Správně! Sort | uniq je klasická kombinace pro práci s daty."
-    fixture = WorkspaceFixture(files=(FileFixture("sort/visitors.txt", _VISITORS),))
-    completion = Completion(
-        answer=IntegerAnswer(
-            5,
-            mistakes={
-                8: "Spočítali jste všechny řádky, ne unikátní. Zkuste: sort visitors.txt | uniq | wc -l",
-                3: "Možná jste spočítali jen duplikáty. Hledáme počet unikátních jmen.",
-            },
-        )
-    )
-
-
-@section.level(9)
-class SectionSummaryChallengeLevel(Level):
+class PermissionsChallengeLevel(Level):
     solution = Solution(
-        steps=(
-            RunShell('echo "Hello World" > message.txt'),
-            RunShell('echo "Goodbye" >> message.txt'),
-            RunShell("ls | wc -l"),
-        ),
-        answer="3",
+        steps=(RunShell("chmod u+x script.sh && chmod a-w secret.txt && chmod 644 shared.txt && chmod g+r team.txt"),),
+        answer=None,
     )
-    title = "Výzva: Přesměrování a roury"
-    instructions = """\
-        ### Výzva: Přesměrování a roury
+    title = "Výzva: Oprávnění souborů"
+    instructions = """
+        ### Výzva: Oprávnění souborů
+
+        Ukažte, že rozumíte oprávněním!
 
         ### Úkol
-        V aktuálním adresáři:
+        V `level-8/challenge` jsou 4 soubory:
 
-        1. Vytvořte `message.txt` s prvním řádkem `Hello World`.
-        2. Přidejte na konec druhý řádek `Goodbye`, aniž by první zmizel.
-        3. Propojte výpis obsahu adresáře s počítáním řádků a zjistěte počet položek.
+        1. `script.sh` - potřebuje být **spustitelný** vlastníkem
+        2. `secret.txt` - odeberte **právo zápisu všem**
+        3. `shared.txt` - nastavte oprávnění **644** (rw-r--r--)
+        4. `team.txt` - přidejte skupině právo čtení, ostatní práva neměňte
 
-        Vystačíte si s `echo`, `>`, `>>`, `ls`, `|` a `wc -l`.
-        Odevzdejte zjištěný počet položek.
+        ### Shrnutí příkazů Sekce 8
+        ```
+        ls -l            → Zobrazí oprávnění
+        chmod u+x soubor → Přidá vlastníkovi právo spuštění
+        chmod a-w soubor → Odebere všem právo zápisu
+        chmod g+r soubor → Přidá skupině právo čtení
+        chmod 755 soubor → Nastaví rwxr-xr-x
+        chmod 644 soubor → Nastaví rw-r--r--
+        ```
+
+        ### Oktalové oprávnění
+        ```
+        4 = read    2 = write    1 = execute
+        7 = rwx     6 = rw-      5 = r-x     4 = r--
+        ```
 
         ### Odevzdání
-        `shellgame submit <počet>`
+        Po splnění všech bodů spusťte `shellgame submit`.
         """
     hints = [
-        "První přesměrování má soubor vytvořit, druhé musí zachovat jeho obsah. "
-        "Výpis pak pošlete rourou do počítadla řádků.",
-        'Soubor vytvoříte pomocí `echo "Hello World" > message.txt` a druhý řádek přidáte přes `>>`.',
-        "Počet položek zjistíte příkazem `ls | wc -l`.",
+        "U každého souboru určete skupinu uživatelů (u, g, o nebo a), operaci (+, - nebo =) a požadované právo.",
+        "První, druhý a čtvrtý úkol lze vyřešit symbolicky; u shared.txt nastavte přesný číselný režim.",
+        "Použijte 'chmod u+x script.sh', 'chmod a-w secret.txt', 'chmod 644 shared.txt' a 'chmod g+r team.txt'.",
     ]
     start_directory = "challenge"
     fixture = WorkspaceFixture(
         files=(
-            FileFixture("challenge/sample1.txt", "sample"),
-            FileFixture("challenge/sample2.txt", "sample"),
+            FileFixture(
+                "challenge/script.sh",
+                "#!/bin/bash\necho 'Hello'\n",
+                mode=0o600,
+            ),
+            FileFixture("challenge/secret.txt", "Top secret!\n", mode=0o666),
+            FileFixture("challenge/shared.txt", "Shared content\n", mode=0o777),
+            FileFixture("challenge/team.txt", "Team notes\n", mode=0o600),
         ),
         clean=("challenge",),
     )
     completion = Completion(
-        answer=IntegerAnswer(
-            3,
-            mistakes={
-                2: "Spočítali jste jen sample1.txt a sample2.txt. Vytvořili jste message.txt?",
-            },
-        ),
         requirements=(
-            TextFileContent(
-                "challenge/message.txt",
-                exact="Hello World\nGoodbye",
-                strip=True,
-                error_message=("message.txt musí obsahovat řádky 'Hello World' a 'Goodbye' v tomto pořadí."),
-                missing_message=("Chybí message.txt. Vytvořte pomocí 'echo \"Hello World\" > message.txt'."),
+            PermissionBits(
+                "challenge/script.sh",
+                required=stat.S_IXUSR,
+                error_message="Vlastník stále nemůže spustit script.sh.",
+            ),
+            PermissionBits(
+                "challenge/secret.txt",
+                forbidden=stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH,
+                error_message="secret.txt má stále alespoň jedno právo zápisu.",
+            ),
+            PermissionMode(
+                "challenge/shared.txt",
+                0o644,
+                error_message="shared.txt nemá přesně oprávnění rw-r--r--.",
+            ),
+            PermissionMode(
+                "challenge/team.txt",
+                0o640,
+                error_message="team.txt nemá právo čtení pro skupinu při zachování ostatních práv.",
             ),
         ),
     )
-    success_message = "Skvělé! Přesměrování i roury máte v malíku!"
+    success_message = "Výborně! Oprávnění běžných souborů máte pod kontrolou."
 
 
-@section.level(10)
-class InteractiveCatInputLevel(Level):
-    solution = Solution(
-        steps=(RunShell("printf '%s\\n' 'První řádek' 'Druhý řádek' | cat > poznamka.txt"),),
-        answer="poznamka.txt",
-    )
-    title = "Interaktivní vstup a EOF"
-    instructions = """\
-        # Interaktivní vstup a EOF
-
-        Když spustíte `cat > soubor`, příkaz čte řádky z klávesnice a zapisuje je do souboru.
-        Na prázdném řádku stiskněte **Ctrl+D**: terminál tím oznámí EOF (konec vstupu) a `cat`
-        řádně skončí. **Ctrl+C** místo toho běžící příkaz přeruší (interrupt).
-
-        ## Úkol
-        Spusťte `cat > poznamka.txt` a zadejte přesně tyto dva řádky:
-
-        ```text
-        První řádek
-        Druhý řádek
-        ```
-
-        Po druhém řádku stiskněte Enter a potom na prázdném řádku Ctrl+D.
-
-        ## Odevzdání
-        `shellgame submit poznamka.txt`
-        """
-    hints = [
-        "`cat` bez názvu vstupního souboru čte standardní vstup; EOF mu oznámí, že už žádná data nepřijdou.",
-        "Po `cat > poznamka.txt` napište oba řádky. Ctrl+D použijte až na novém prázdném řádku.",
-        "Jestli jste použili Ctrl+C nebo udělali překlep, spusťte `shellgame reset` a zopakujte zápis s Ctrl+D.",
-    ]
-    start_directory = "stdin"
-    fixture = WorkspaceFixture(
-        directories=("stdin",),
-        clean=("stdin/poznamka.txt",),
-    )
-    completion = Completion(
-        answer=ExactAnswer(
-            "poznamka.txt",
-            required_message="Odevzdejte název souboru: shellgame submit poznamka.txt",
-        ),
-        requirements=(
-            TextFileContent(
-                "stdin/poznamka.txt",
-                exact="První řádek\nDruhý řádek\n",
-                error_message="Soubor musí obsahovat přesně oba zadané řádky.",
-                missing_message="Soubor chybí. Začněte příkazem `cat > poznamka.txt`.",
-            ),
-        ),
-    )
-    success_message = "Správně! EOF ukončilo vstup a `cat` soubor uzavřel."
-
-
-@section.level(11)
-class CommandStatusLevel(Level):
+@section.level(6)
+class DirectoryWritePermissionLevel(Level):
     solution = Solution(
         steps=(
-            RunShell('true && echo "stav: uspech" > status.txt'),
-            RunShell('false || echo "stav: neuspech" >> status.txt'),
+            RunShell("cp locked/report.txt recovered.txt"),
+            Chmod("directory-write/locked", 0o750),
+            RunShell("cp source.txt locked/"),
         ),
-        answer="status.txt",
+        answer="adresář",
     )
-    title = "Návratový kód: && a ||"
-    instructions = """\
-        # Návratový kód: `&&` a `||`
+    title = "Kdo dovoluje zápis do adresáře?"
+    instructions = """
+        ### Cíl
+        Prakticky ověřte, že vytvoření nové položky řídí oprávnění **adresáře**,
+        ne oprávnění kopírovaného souboru.
 
-        Každý příkaz skončí návratovým kódem (exit code): **0 znamená úspěch**, nenulová
-        hodnota neúspěch. V interaktivním Bash i Fish podle něj můžete spojovat příkazy:
+        Adresář `locked` má režim `550`: lze ho číst a procházet, ale nelze do něj zapisovat.
 
-        - `první && druhý` spustí druhý jen po úspěchu prvního,
-        - `první || druhý` spustí druhý jen po neúspěchu prvního.
+        ### Předpověď a pozorování
+        **Nejdřív předpověď:** než cokoli spustíte, řekněte nahlas nebo si zapište, zda `cp source.txt locked/`
+        projde, nebo selže - a proč. Chybová hláška není překážka, ale hlavní výsledek pokusu; přečtěte si ji celou.
 
-        Příkazy `true` a `false` vracejí právě stav 0 a nenulový stav.
+        1. Spusťte `cp source.txt locked/` a porovnejte hlášku se svou předpovědí.
+        2. Ověřte, že čtení ven funguje: `cp locked/report.txt recovered.txt`.
+        3. Přidejte vlastníkovi adresáře právo zápisu: `chmod u+w locked`.
+        4. Zopakujte `cp source.txt locked/`; tentokrát musí uspět.
 
-        ## Úkol
-        Spusťte postupně:
+        ### Vysvětlení
+        Co rozhodovalo o možnosti vytvořit `locked/source.txt` — oprávnění
+        zdrojového **souboru**, nebo cílového **adresáře**?
 
-        ```bash
-        true && echo "stav: uspech" > status.txt
-        false || echo "stav: neuspech" >> status.txt
-        ```
-
-        Výsledný soubor musí mít dva řádky v tomto pořadí.
-
-        ## Odevzdání
-        `shellgame submit status.txt`
+        ### Odevzdání
+        `shellgame submit adresář`
         """
     hints = [
-        "Návratový kód 0 značí úspěch, nenulový kód neúspěch. Operátory sledují právě tento stav.",
-        "Za `&&` pokračuje úspěšný příkaz; za `||` pokračuje neúspěšný příkaz.",
-        "Nejdřív přepište `status.txt` větví za `true &&`, potom přidejte řádek větví za `false ||`.",
+        "Právo 'w' na soubor řídí změnu jeho obsahu. Vytvoření nového jména je operace nad adresářem.",
+        "Režim 550 nedává vlastníkovi adresáře právo 'w'; příkaz 'chmod u+w locked' ho přidá.",
+        "Zkopírujte report ven, přidejte 'w' adresáři locked, zopakujte kopii dovnitř a odevzdejte 'adresář'.",
     ]
-    start_directory = "status"
+    start_directory = "directory-write"
     fixture = WorkspaceFixture(
-        directories=("status",),
-        clean=("status/status.txt",),
+        clean=("directory-write",),
+        directory_fixtures=(DirectoryFixture("directory-write/locked", mode=0o550),),
+        files=(
+            FileFixture("directory-write/source.txt", "nová data\n"),
+            FileFixture("directory-write/locked/report.txt", "existující zpráva\n"),
+        ),
     )
     completion = Completion(
-        answer=ExactAnswer(
-            "status.txt",
-            required_message="Odevzdejte název souboru: shellgame submit status.txt",
+        answer=ChoiceAnswer(
+            ("adresář", "adresar", "directory"),
+            case_sensitive=False,
+            error_message="Zaměřte se na objekt, ve kterém vzniká nové jméno souboru.",
+            required_message="Odevzdejte odpověď: shellgame submit <soubor|adresář>",
         ),
         requirements=(
-            TextFileContent(
-                "status/status.txt",
-                exact="stav: uspech\nstav: neuspech\n",
-                error_message="status.txt musí obsahovat přesně oba řádky ve správném pořadí.",
-                missing_message="Chybí status.txt. Spusťte oba zadané řetězce příkazů.",
+            PathsMatch(
+                "directory-write/locked/report.txt",
+                "directory-write/recovered.txt",
+                destination_error="Nejdřív zkopírujte existující report z locked ven.",
+            ),
+            PathsMatch(
+                "directory-write/source.txt",
+                "directory-write/locked/source.txt",
+                destination_error="Po přidání práva zápisu zkopírujte source.txt do locked/.",
+            ),
+            DirectoryPermissionMode(
+                "directory-write/locked",
+                0o750,
+                error_message="Adresář locked nemá očekávaná práva po příkazu 'chmod u+w locked'.",
             ),
         ),
     )
-    success_message = "Výborně! Dokončili jste Sekci 8 a umíte reagovat na stav příkazu."
+    success_message = "Správně! Vytváření a mazání jmen řídí zapisovatelnost nadřazeného adresáře."
+
+
+@section.level(7)
+class DirectoryTraversePermissionLevel(Level):
+    solution = Solution(
+        steps=(
+            Chmod("directory-traverse/parent", 0o644),
+            Chmod("directory-traverse/parent", 0o744),
+            Chdir("directory-traverse/parent"),
+        ),
+        answer="x",
+    )
+    title = "Právo x u adresáře"
+    instructions = """
+        ### Cíl
+        Zažijte rozdíl mezi čtením názvů a **průchodem** adresářem.
+
+        Začínáte v `parent/child`. Nadřazený adresář má běžná práva `755`.
+
+        ### Předpověď a pozorování
+        **Nejdřív předpověď:** po `chmod a-x ..` si zapište nebo řekněte nahlas, co udělá `cd ..` - a proč.
+        Hlášku, kterou shell vypíše, čtěte pozorně: právě ona je odpovědí, ne překážkou.
+
+        1. Odeberte všem právo průchodu nadřazeným adresářem: `chmod a-x ..`.
+        2. Zkuste `cd ..` a porovnejte výsledek se svou předpovědí.
+        3. Vraťte vlastníkovi průchod: `chmod u+x ..`.
+        4. Zopakujte `cd ..`; nyní musí uspět.
+
+        ### Vysvětlení
+        Které písmeno oprávnění umožňuje vstoupit do adresáře a procházet přes něj?
+
+        ### Odevzdání
+        Z adresáře `parent` spusťte `shellgame submit x`.
+        """
+    hints = [
+        "U adresáře neznamená 'x' spuštění programu, ale možnost průchodu cestou.",
+        "Po 'chmod a-x ..' nadřazený adresář stále může mít 'r', ale cesta přes něj nefunguje.",
+        "Obnovte vlastníkovi průchod příkazem 'chmod u+x ..', přejděte do parent a odevzdejte 'x'.",
+    ]
+    start_directory = "directory-traverse/parent/child"
+    fixture = WorkspaceFixture(
+        clean=("directory-traverse",),
+        directory_fixtures=(
+            DirectoryFixture("directory-traverse/parent", mode=0o755),
+            DirectoryFixture("directory-traverse/parent/child", mode=0o755),
+        ),
+    )
+    completion = Completion(
+        answer=ChoiceAnswer(
+            ("x", "execute", "průchod", "pruchod"),
+            case_sensitive=False,
+            error_message="Hledejte právo, které u adresáře znamená průchod cestou.",
+            required_message="Odevzdejte označení práva: shellgame submit <písmeno>",
+        ),
+        requirements=(
+            AtDirectory("directory-traverse/parent"),
+            DirectoryPermissionMode(
+                "directory-traverse/parent",
+                0o744,
+                error_message="Obnovte právo průchodu pouze vlastníkovi nadřazeného adresáře.",
+            ),
+        ),
+    )
+    success_message = "Výborně! Dokončili jste Sekci 8 a rozumíte právům souborů i adresářů."

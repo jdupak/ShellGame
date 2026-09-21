@@ -74,6 +74,7 @@ class HiddenDirCountLevel(Level):
             },
         )
     )
+    success_message = "Správně! Skryté položky zobrazí `ls -a` a typ položky poznáte podle prvního znaku řádku `ls -l`."
 
 
 @section.level(2)
@@ -100,6 +101,7 @@ class HiddenFileReadLevel(Level):
     start_directory = ""
     fixture = WorkspaceFixture(files=(FileFixture(".secret_config", "mode=stealth\n"),))
     completion = Completion(answer=ExactAnswer("mode=stealth"))
+    success_message = "Správně! Tečka na začátku názvu soubor jen skryje ve výpisu, práci s ním nijak neomezuje."
 
 
 @section.level(3)
@@ -130,6 +132,7 @@ class HiddenVaultKeyLevel(Level):
         answer=ExactAnswer("platinum", case_sensitive=False),
         requirements=(AtDirectory("hub/.vault"),),
     )
+    success_message = "Správně! Do skrytého adresáře se vstupuje příkazem `cd` úplně stejně jako do viditelného."
 
 
 @section.level(4)
@@ -161,6 +164,7 @@ class HiddenBackupSuffixLevel(Level):
         )
     )
     completion = Completion(answer=ExactAnswer(".data.bak"))
+    success_message = "Správně! Úvodní tečka i přípona jsou součástí názvu, takže se soubor odevzdává celým jménem."
 
 
 @section.level(5)
@@ -278,6 +282,7 @@ class SelfReflectionCheckpointLevel(Level):
             required_message="Odevzdejte číslo od 1 do 5.",
         ),
     )
+    success_message = "Díky za sebehodnocení! Vědomí toho, co vám ještě nesedí, je základ dalšího učení."
 
     @override
     def validate(self, answer: str | None, state: GameStateProtocol) -> ValidationResult:

@@ -1,4 +1,10 @@
-"""Replay the displayed Bash-only recipes from both supported game shells."""
+"""Replay the displayed Bash-only recipes from both supported game shells.
+
+Section 10 teaches wildcard *construction*, so the task text deliberately shows
+only the shape of the command (`cp VZOR short_data/`). The ready-made pattern
+lives in the final hint, which is the surface this module replays: a recipe the
+game prints must actually work, fresh and after `reset()`, in bash and in fish.
+"""
 
 import os
 import re
@@ -10,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from shellgame.levels.base import Level
-from shellgame.levels.sections.section10 import (
+from shellgame.levels.sections.section7 import (
     CharacterClassWildcardCopyLevel,
     QuestionMarkWildcardCopyLevel,
     RangeWildcardCopyLevel,
@@ -25,9 +31,8 @@ BASH_LEVELS = (QuestionMarkWildcardCopyLevel, CharacterClassWildcardCopyLevel, R
 
 @pytest.mark.parametrize("level_type", BASH_LEVELS, ids=lambda level: level.id)
 @pytest.mark.parametrize("shell", ["bash", "fish"])
-@pytest.mark.parametrize("source", ["instructions", "hint"])
 def test_displayed_recipe_completes_fresh_and_reset_levels(
-    level_type: type[Level], shell: str, source: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    level_type: type[Level], shell: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     if not shutil.which(shell) or not shutil.which("bash"):
         pytest.skip(f"{shell} and bash are required")
@@ -49,7 +54,7 @@ def test_displayed_recipe_completes_fresh_and_reset_levels(
     )
     level = level_type()
     assert "vyžaduje **Bash**" in level.instructions
-    text = level.instructions if source == "instructions" else level.hints[-1]
+    text = level.hints[-1]
     prefix = "cp " if shell == "bash" else "bash -c "
     commands = re.findall(rf"`({re.escape(prefix)}[^`]+)`", text)
     assert len(commands) == 1
@@ -76,9 +81,26 @@ def test_displayed_recipe_completes_fresh_and_reset_levels(
         assert success, message
 
 
+@pytest.mark.parametrize("level_type", BASH_LEVELS, ids=lambda level: level.id)
+def test_task_text_shows_the_shape_not_the_finished_pattern(level_type: type[Level]) -> None:
+    """Constructing the glob is the whole lesson, so the task must not hand it over.
+
+    Without this, section 10 degrades into transcription: the learner copies the
+    pattern out of the instructions and never has to reason about `?`, `[...]`
+    or a character class at all.
+    """
+    level = level_type()
+    solution_step = level.solution.steps[0]
+    pattern = str(solution_step.command).split()[1]
+
+    assert "VZOR" in level.instructions, f"{level.id}: task text must show the placeholder shape"
+    assert pattern not in level.instructions, f"{level.id}: task text reveals the finished pattern {pattern!r}"
+    assert pattern in level.hints[-1], f"{level.id}: final hint must still carry the finished pattern"
+
+
 def test_intro_scopes_bash_requirement_and_preserves_game_shell() -> None:
     instructions = SectionIntro().instructions
-    assert "10.2–10.4 vyžadují Bash" in instructions
+    assert "7.2–7.4 vyžadují Bash" in instructions
     assert "bash -c" in instructions
     assert "shellgame submit" in instructions
     assert "stiskněte Enter" in instructions

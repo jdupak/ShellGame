@@ -1,52 +1,67 @@
-# Sekce 8: Vstup, výstup a stav příkazů
+# Sekce 8: Oprávnění
 
-Příkaz obvykle posílá výstup na obrazovku. Tři operátory rozhodnou, kam poteče dál:
+V Linuxu má každý soubor a adresář nastavená oprávnění, která určují, kdo s ním může co dělat.
 
-```text
-příkaz > soubor       výstup přepíše soubor
-příkaz >> soubor      výstup se přidá na konec
-příkaz | další        výstup se stane vstupem dalšího příkazu
-```
+## Proč je to důležité?
 
-## Tři mentální modely
+### Bezpečnost systému
+- **Hesla**: Soubor `/etc/shadow` obsahuje hesla - smí ho číst jen root!
+- **Konfigurace**: Webový server nesmí měnit vlastní konfiguraci (jen číst)
+- **Sdílení**: Spolužáci nevidí vaše soukromé soubory v domovském adresáři
 
-- `>` je **nový zápis**. Starý obsah cílového souboru zmizí.
-- `>>` je **připojení**. Dosavadní obsah zůstane.
-- `|` je **roura mezi příkazy**. Nevytváří soubor, jen předává data dál.
-
+### Běžné situace
 ```bash
-ls > seznam.txt
-echo "další řádek" >> seznam.txt
-grep ERROR access.log | wc -l
+# "Permission denied" při spuštění skriptu?
+$ ./muj_skript.sh
+bash: ./muj_skript.sh: Permission denied
+$ chmod u+x muj_skript.sh   # Přidá spuštění pro vlastníka
+$ ./muj_skript.sh
+Hello World!
+
+# Webový server nevidí soubory?
+$ chmod 644 index.html     # Ostatní mohou číst
 ```
 
-Má-li text nebo název souboru mezery, uzavřete každou takovou část zvlášť:
-
-```bash
-echo "Ahoj svete" > "muj pozdrav.txt"
+## Tři typy oprávnění
 ```
+r (read)     → Číst obsah souboru / vypsat obsah adresáře
+w (write)    → Měnit obsah souboru / vytvářet a mazat položky v adresáři
+x (execute)  → Spustit jako program / vstoupit do adresáře
+```
+
+Smazání souboru závisí na právech `w` a `x` nadřazeného adresáře,
+ne na právu `w` samotného souboru.
 
 ---
 
-# Klávesnicový vstup a stav příkazu
+## Tři skupiny uživatelů
+```
+u (user)   → Vlastník souboru (vy)
+g (group)  → Členové skupiny vlastníka
+o (other)  → Všichni ostatní
+```
 
-`cat > soubor` čte řádky z klávesnice. **Ctrl+D** oznámí EOF, tedy konec vstupu,
-a `cat` řádně skončí. **Ctrl+C** je interrupt: běžící příkaz přeruší.
+## Jak číst `ls -l`
+```
+-rwxr-xr--  =  vlastník: rwx, skupina: r-x, ostatní: r--
+ ││││││││
+ │├┴┤├┴┤├┴┤
+ │ u  g  o
+ │
+ └─ typ (- soubor, d adresář)
+```
 
-Každý příkaz také vrací stavový neboli návratový kód:
+## Dva způsoby zápisu chmod
+```
+Symbolický:              Číselný (oktalový):
+chmod u+x soubor         chmod 755 soubor
+chmod g-w soubor         
+chmod o=r soubor         r=4, w=2, x=1
+                         755 = rwx|r-x|r-x
+```
 
-- `0` znamená úspěch,
-- nenulový kód znamená neúspěch,
-- `první && druhý` pokračuje jen po úspěchu,
-- `první || druhý` pokračuje jen po neúspěchu.
-
-`&&` a `||` můžete takto používat přímo v podporovaném Bash i Fish.
-
-## Co se naučíte
-
-- ukládat a přidávat výstup pomocí `>` a `>>`
-- správně citovat víceslovný text i názvy souborů
-- zapisovat interaktivní vstup přes `cat` a ukončit jej pomocí EOF
-- propojovat příkazy pomocí `|`
-- filtrovat a zpracovávat text přes `grep`, `head`, `tail`, `wc`, `sort` a `uniq`
-- reagovat na úspěch či neúspěch příkazu pomocí `&&` a `||`
+## Co se naučíte:
+- Číst oprávnění (`ls -l`)
+- Měnit oprávnění (`chmod`)
+- Používat symbolický zápis (`u+x`) i číselný zápis (`755`)
+- Předvídat a prakticky ověřit, jak `w` a `x` ovlivňují práci s adresáři

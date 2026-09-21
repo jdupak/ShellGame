@@ -125,6 +125,13 @@ Students can:
 
 ## 5. Full Section Breakdown (Updated & Re-ordered)
 
+> **Stale.** This breakdown is the original design intent and has drifted from the
+> shipped game (it still lists bonus sections and extension levels that were never
+> built). The shipped order is Navigation, Files, Hidden, Create/Delete, Inspect,
+> Copy/Move, **Wildcards**, **Permissions**, **Redirection & Pipes**, **Error
+> streams**, Search. The authoritative source is
+> `src/shellgame/levels/sections/`; `docs/AUTHORING.md` describes how to change it.
+
 ### Section 1: Where Am I? (7 min)
 Tools: `pwd`, `ls`, `cd`, `cd ~`
 Sublevels: Find current directory, list contents, enter a directory, go home, use an absolute path.
