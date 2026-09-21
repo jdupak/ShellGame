@@ -45,17 +45,18 @@ def _safe_rmtree(path: Path) -> None:
     shutil.rmtree(path)
 
 
-def _ensure_directory(root: Path, relative: str) -> None:
+def _ensure_directory(root: Path, relative: str, *, repair_symlinks: bool = False) -> None:
+    path = _safe_relative_path(relative)
     if root.exists() and root.is_dir():
         with contextlib.suppress(OSError):
             root.chmod(stat.S_IRWXU)
-    _fixture_path(root, relative)
+    _fixture_path(root, "" if repair_symlinks else relative)
     root.mkdir(parents=True, exist_ok=True)
     current = Path()
-    for part in _safe_relative_path(relative).parts:
+    for part in path.parts:
         current /= part
-        directory = _fixture_path(root, str(current))
-        if directory.exists():
+        directory = _fixture_path(root, str(current), allow_leaf_symlink=repair_symlinks)
+        if directory.exists() or directory.is_symlink():
             if directory.is_symlink():
                 directory.unlink(missing_ok=True)
             elif not directory.is_dir():
@@ -66,6 +67,22 @@ def _ensure_directory(root: Path, relative: str) -> None:
                 with contextlib.suppress(OSError):
                     directory.chmod(stat.S_IRWXU)
         directory.mkdir(exist_ok=True)
+
+
+@dataclass(frozen=True, slots=True)
+class DirectoryFixture:
+    path: str
+    mode: int
+
+    def __post_init__(self) -> None:
+        if not _safe_relative_path(self.path).parts:
+            raise ValueError("Directory fixture cannot target its root")
+        if not 0 <= self.mode <= 0o7777:
+            raise ValueError("Directory fixture mode must be between 0o0000 and 0o7777")
+
+    def apply(self, root: Path) -> None:
+        _ensure_directory(root, self.path, repair_symlinks=True)
+        _fixture_path(root, self.path).chmod(self.mode)
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +131,7 @@ class WorkspaceFixture:
     directories: tuple[str, ...] = ()
     files: tuple[FileFixture, ...] = ()
     clean: tuple[str, ...] = ()
+    directory_fixtures: tuple[DirectoryFixture, ...] = ()
 
     def __post_init__(self) -> None:
         for relative in self.directories:
@@ -140,5 +158,16 @@ class WorkspaceFixture:
         for relative in self.directories:
             _ensure_directory(root, relative)
 
+        for directory_fixture in self.directory_fixtures:
+            _ensure_directory(root, directory_fixture.path, repair_symlinks=True)
+
         for file_fixture in self.files:
             file_fixture.apply(root)
+
+        mode_fixtures = sorted(
+            self.directory_fixtures,
+            key=lambda fixture: len(_safe_relative_path(fixture.path).parts),
+            reverse=True,
+        )
+        for directory_fixture in mode_fixtures:
+            directory_fixture.apply(root)

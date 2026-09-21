@@ -59,7 +59,7 @@ Alice
 @section.level(0)
 class SectionIntro(Level):
     is_intro = True
-    title = "Sekce 8: Přesměrování výstupu"
+    title = "Sekce 8: Vstup, výstup a stav příkazů"
     instructions_file = "section8_intro.md"
     hints = ["Přečtěte si úvod a pokračujte stisknutím Enter."]
     success_message = "Jdeme na to!"
@@ -142,14 +142,9 @@ class AppendWithRedirectLevel(Level):
         requirements=(
             TextFileContent(
                 "redirection/log.txt",
-                contains=("Start logu",),
-                error_message="Zdá se, že jste přepsali původní obsah (použili jste > místo >>?).",
+                exact="Start logu\nZaznam 1\nKonec logu\n",
+                error_message="Soubor musí zachovat původní obsah a přidat nový řádek přesně na konec.",
                 missing_message="Soubor neexistuje.",
-            ),
-            TextFileContent(
-                "redirection/log.txt",
-                contains=("Konec logu",),
-                error_message="Soubor neobsahuje nový text.",
             ),
         ),
     )
@@ -193,8 +188,8 @@ class ConcatenatePartsLevel(Level):
         requirements=(
             TextFileContent(
                 "concat/full.txt",
-                contains=("First part.", "Second part."),
-                error_message="Soubor neobsahuje text z obou částí.",
+                exact="First part.\nSecond part.\n",
+                error_message="Soubor musí obsahovat obě části přesně v zadaném pořadí.",
                 missing_message="Soubor neexistuje.",
             ),
         ),
@@ -203,39 +198,50 @@ class ConcatenatePartsLevel(Level):
 
 @section.level(4)
 class EchoCreateFileLevel(Level):
-    solution = Solution(steps=(RunShell("echo 'Ahoj svete' > pozdrav.txt"),), answer="pozdrav.txt")
-    title = "Vytvoření souboru s obsahem"
+    solution = Solution(
+        steps=(RunShell('echo "Ahoj svete" > "muj pozdrav.txt"'),),
+        answer="muj pozdrav.txt",
+    )
+    title = "Uvozovky v textu i názvu"
     instructions = """\
-        # Vytvoření souboru s obsahem
+        # Uvozovky v textu i názvu souboru
 
-        Místo editoru můžete pro vytvoření krátkého souboru použít `echo` a přesměrování.
+        Shell dělí příkaz podle mezer. Uvozovky proto chrání víceslovný text i název
+        souboru s mezerami — každou část uzavřete zvlášť.
 
         ## Úkol
-        Vytvořte soubor `pozdrav.txt`, který bude obsahovat text "Ahoj svete".
+        Pomocí `echo` vytvořte soubor `muj pozdrav.txt` s jediným řádkem `Ahoj svete`.
 
-        ## Příkazy
-        - `echo "Ahoj svete" > pozdrav.txt`
+        ## Příkaz
+        - `echo "Ahoj svete" > "muj pozdrav.txt"`
+
+        První dvojice uvozovek chrání text, druhá název výstupního souboru.
 
         ## Odevzdání
-        Odevzdejte název souboru.
-        `shellgame submit pozdrav.txt`
+        Uvozovky potřebuje i název předaný příkazu `shellgame`:
+        `shellgame submit "muj pozdrav.txt"`
         """
     hints = [
-        "Příkaz 'echo' vypisuje zadaný text. Pomocí operátoru '>' můžete výstup přesměrovat do souboru.",
-        "Text obsahující mezery uzavřete do uvozovek, aby se předal jako jeden argument.",
-        "Spusťte 'echo \"Ahoj svete\" > pozdrav.txt' a odevzdejte 'pozdrav.txt'.",
+        "Mezery oddělují argumenty. Uvozovky udrží více slov pohromadě jako jeden text nebo jednu cestu.",
+        "Uzavřete do uvozovek text za `echo` a zvlášť také název za `>`.",
+        'Spusťte `echo "Ahoj svete" > "muj pozdrav.txt"` a název v uvozovkách také odevzdejte.',
     ]
     start_directory = "echo"
-    fixture = WorkspaceFixture(clean=("echo/pozdrav.txt",), directories=("echo",))
+    fixture = WorkspaceFixture(
+        clean=("echo/pozdrav.txt", "echo/muj pozdrav.txt"),
+        directories=("echo",),
+    )
     completion = Completion(
-        answer=ExactAnswer("pozdrav.txt"),
+        answer=ExactAnswer(
+            "muj pozdrav.txt",
+            required_message='Odevzdejte název v uvozovkách: shellgame submit "muj pozdrav.txt"',
+        ),
         requirements=(
             TextFileContent(
-                "echo/pozdrav.txt",
-                exact="Ahoj svete",
-                strip=True,
-                error_message="Soubor neobsahuje přesně text 'Ahoj svete'.",
-                missing_message="Soubor neexistuje.",
+                "echo/muj pozdrav.txt",
+                exact="Ahoj svete\n",
+                error_message="Soubor nemá přesně požadovaný jeden řádek.",
+                missing_message="Chybí soubor s požadovaným názvem obsahujícím mezeru.",
             ),
         ),
     )
@@ -403,31 +409,32 @@ class SectionSummaryChallengeLevel(Level):
         steps=(
             RunShell('echo "Hello World" > message.txt'),
             RunShell('echo "Goodbye" >> message.txt'),
+            RunShell("ls | wc -l"),
         ),
         answer="3",
     )
-    title = "Souhrn Sekce 8"
+    title = "Výzva: Přesměrování a roury"
     instructions = """\
-        ### Výzva: Mistr přesměrování a pipes
-
-        Ukažte, že ovládáte přesměrování i roury!
+        ### Výzva: Přesměrování a roury
 
         ### Úkol
-        V `level-8/challenge`:
+        V aktuálním adresáři:
 
-        1. Vytvořte `message.txt` s textem "Hello World" pomocí echo
-        2. Přidejte na konec souboru další řádek "Goodbye" (append)
-        3. Spočítejte, kolik `.txt` souborů je v adresáři pomocí `ls *.txt | wc -l`
+        1. Vytvořte `message.txt` s prvním řádkem `Hello World`.
+        2. Přidejte na konec druhý řádek `Goodbye`, aniž by první zmizel.
+        3. Propojte výpis obsahu adresáře s počítáním řádků a zjistěte počet položek.
 
-        Odevzdejte: **<počet_txt_souborů>**
+        Vystačíte si s `echo`, `>`, `>>`, `ls`, `|` a `wc -l`.
+        Odevzdejte zjištěný počet položek.
 
         ### Odevzdání
         `shellgame submit <počet>`
         """
     hints = [
-        "Nejprve vytvořte soubor přesměrováním '>' a další řádek přidejte přes append '>>'.",
-        "Použijte 'echo \"Hello World\" > message.txt' a pak 'echo \"Goodbye\" >> message.txt'.",
-        "Spočítejte všechny .txt soubory (včetně nového message.txt) příkazem 'ls *.txt | wc -l'.",
+        "První přesměrování má soubor vytvořit, druhé musí zachovat jeho obsah. "
+        "Výpis pak pošlete rourou do počítadla řádků.",
+        'Soubor vytvoříte pomocí `echo "Hello World" > message.txt` a druhý řádek přidáte přes `>>`.',
+        "Počet položek zjistíte příkazem `ls | wc -l`.",
     ]
     start_directory = "challenge"
     fixture = WorkspaceFixture(
@@ -454,4 +461,119 @@ class SectionSummaryChallengeLevel(Level):
             ),
         ),
     )
-    success_message = "Skvělé! Dokončili jste Sekci 8. Přesměrování i pipes máte v malíku!"
+    success_message = "Skvělé! Přesměrování i roury máte v malíku!"
+
+
+@section.level(10)
+class InteractiveCatInputLevel(Level):
+    solution = Solution(
+        steps=(RunShell("printf '%s\\n' 'První řádek' 'Druhý řádek' | cat > poznamka.txt"),),
+        answer="poznamka.txt",
+    )
+    title = "Interaktivní vstup a EOF"
+    instructions = """\
+        # Interaktivní vstup a EOF
+
+        Když spustíte `cat > soubor`, příkaz čte řádky z klávesnice a zapisuje je do souboru.
+        Na prázdném řádku stiskněte **Ctrl+D**: terminál tím oznámí EOF (konec vstupu) a `cat`
+        řádně skončí. **Ctrl+C** místo toho běžící příkaz přeruší (interrupt).
+
+        ## Úkol
+        Spusťte `cat > poznamka.txt` a zadejte přesně tyto dva řádky:
+
+        ```text
+        První řádek
+        Druhý řádek
+        ```
+
+        Po druhém řádku stiskněte Enter a potom na prázdném řádku Ctrl+D.
+
+        ## Odevzdání
+        `shellgame submit poznamka.txt`
+        """
+    hints = [
+        "`cat` bez názvu vstupního souboru čte standardní vstup; EOF mu oznámí, že už žádná data nepřijdou.",
+        "Po `cat > poznamka.txt` napište oba řádky. Ctrl+D použijte až na novém prázdném řádku.",
+        "Jestli jste použili Ctrl+C nebo udělali překlep, spusťte `shellgame reset` a zopakujte zápis s Ctrl+D.",
+    ]
+    start_directory = "stdin"
+    fixture = WorkspaceFixture(
+        directories=("stdin",),
+        clean=("stdin/poznamka.txt",),
+    )
+    completion = Completion(
+        answer=ExactAnswer(
+            "poznamka.txt",
+            required_message="Odevzdejte název souboru: shellgame submit poznamka.txt",
+        ),
+        requirements=(
+            TextFileContent(
+                "stdin/poznamka.txt",
+                exact="První řádek\nDruhý řádek\n",
+                error_message="Soubor musí obsahovat přesně oba zadané řádky.",
+                missing_message="Soubor chybí. Začněte příkazem `cat > poznamka.txt`.",
+            ),
+        ),
+    )
+    success_message = "Správně! EOF ukončilo vstup a `cat` soubor uzavřel."
+
+
+@section.level(11)
+class CommandStatusLevel(Level):
+    solution = Solution(
+        steps=(
+            RunShell('true && echo "stav: uspech" > status.txt'),
+            RunShell('false || echo "stav: neuspech" >> status.txt'),
+        ),
+        answer="status.txt",
+    )
+    title = "Návratový kód: && a ||"
+    instructions = """\
+        # Návratový kód: `&&` a `||`
+
+        Každý příkaz skončí návratovým kódem (exit code): **0 znamená úspěch**, nenulová
+        hodnota neúspěch. V interaktivním Bash i Fish podle něj můžete spojovat příkazy:
+
+        - `první && druhý` spustí druhý jen po úspěchu prvního,
+        - `první || druhý` spustí druhý jen po neúspěchu prvního.
+
+        Příkazy `true` a `false` vracejí právě stav 0 a nenulový stav.
+
+        ## Úkol
+        Spusťte postupně:
+
+        ```bash
+        true && echo "stav: uspech" > status.txt
+        false || echo "stav: neuspech" >> status.txt
+        ```
+
+        Výsledný soubor musí mít dva řádky v tomto pořadí.
+
+        ## Odevzdání
+        `shellgame submit status.txt`
+        """
+    hints = [
+        "Návratový kód 0 značí úspěch, nenulový kód neúspěch. Operátory sledují právě tento stav.",
+        "Za `&&` pokračuje úspěšný příkaz; za `||` pokračuje neúspěšný příkaz.",
+        "Nejdřív přepište `status.txt` větví za `true &&`, potom přidejte řádek větví za `false ||`.",
+    ]
+    start_directory = "status"
+    fixture = WorkspaceFixture(
+        directories=("status",),
+        clean=("status/status.txt",),
+    )
+    completion = Completion(
+        answer=ExactAnswer(
+            "status.txt",
+            required_message="Odevzdejte název souboru: shellgame submit status.txt",
+        ),
+        requirements=(
+            TextFileContent(
+                "status/status.txt",
+                exact="stav: uspech\nstav: neuspech\n",
+                error_message="status.txt musí obsahovat přesně oba řádky ve správném pořadí.",
+                missing_message="Chybí status.txt. Spusťte oba zadané řetězce příkazů.",
+            ),
+        ),
+    )
+    success_message = "Výborně! Dokončili jste Sekci 8 a umíte reagovat na stav příkazu."

@@ -100,7 +100,9 @@ Your job is to make changes that preserve existing UX and gameplay rules. Prefer
 - **Safe fixtures**: Fixture paths are relative to the section root. Absolute
   paths, `..`, cleanup of the fixture root, and symlink escapes are rejected.
   All containment goes through `paths.resolve_within()`; do not add a second
-  implementation.
+  implementation. Declare exact directory modes with `DirectoryFixture` in
+  `WorkspaceFixture.directory_fixtures`; modes are applied after child files so
+  parent permission recovery cannot overwrite the requested final mode.
 - **Declarative movement rules**: strict navigation levels declare a
   `cd_policy` (`levels/cdpolicy.py`) instead of writing `_handle_cd`. The
   engine then applies the anti-soft-lock contract structurally. Write a custom
@@ -324,8 +326,9 @@ Avoid instructions that tell the user to manually correct state the game can gua
 - Confirm discovery answers using the actual tool taught by the lesson.
   Binary signatures alone do not guarantee that `file` recognizes an image.
   Define whether text counts exclude scripts containing `ASCII text`.
-- Teach type markers when counting directories (for example `ls -aF`).
-  Counting fixtures must remove extra entries on reset so their answers stay
+- Teach directory types through the first character of a long listing (`ls -l`
+  or `ls -la` for hidden entries); `d` denotes a directory. Counting fixtures
+  must remove extra entries on reset so their answers stay
   consistent, and decoy counts should differ from the correct count.
 
 ---
@@ -384,10 +387,16 @@ When implementing a change:
   never write into an existing read-only one.
 - Fixtures repair file/directory mixups at declared paths, including parent
   directories, without replacing their root or following symlinks.
+  `DirectoryFixture` may unlink and rebuild a symlink at one of its declared
+  path components, but must never target the fixture root or follow or modify
+  the symlink target.
   `overwrite=False` preserves existing regular files, not incorrect types.
   Custom generated files should also use `FileFixture` for this recovery.
   Fixture cleanup and replacement recursively recover traverse/write permissions
   so `reset()` succeeds even after `chmod 000` or read-only directories.
+- Use `DirectoryPermissionMode` for an exact directory mode. Like every
+  filesystem requirement, its path is section-root-relative and the level must
+  declare a `Solution`; `Chmod` works for directory solution steps.
 - `Level.prepare()` cleans up accidental non-directory files and restores
   `stat.S_IRWXU` on the section root directory if damaged, ensuring `shellgame reset`
   works even if the player damages the section root itself.

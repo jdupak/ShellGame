@@ -78,9 +78,15 @@ Do **not** use `""` for that. `""` means the section root.
 ## 3. Building the workspace: `WorkspaceFixture`
 
 ```python
+from shellgame.levels.fixture import DirectoryFixture
+
 fixture = WorkspaceFixture(
     directories=("logs",),
-    files=(FileFixture("logs/app.log", content="log1"),),
+    directory_fixtures=(DirectoryFixture("private", mode=0o750),),
+    files=(
+        FileFixture("logs/app.log", content="log1"),
+        FileFixture("private/config", content="secret"),
+    ),
     clean=("logs/archive",),
 )
 ```
@@ -97,6 +103,16 @@ preserves existing **regular files**, not an incorrect type. Repair never
 replaces the fixture root or follows a symlink; file fixtures cannot name `""`
 or `"."`. Repair recursively restores traverse and write permissions so cleanup
 succeeds even after `chmod 000` or read-only directory mistakes.
+
+Use `directory_fixtures` with `DirectoryFixture(path, mode)` when a directory
+must start with an exact mode. These declarations safely replace files or
+symlinks at every declared path component without following the symlink; the
+symlink target remains untouched. Like file fixtures, they cannot target the
+fixture root itself. `WorkspaceFixture` creates all directories
+and child files first, then applies exact directory modes, because creating a
+child may temporarily restore its parent's traverse/write bits. Both fixture
+and mode paths use the same section-root-relative vocabulary. Modes range from
+`0o0000` through `0o7777`, including special permission bits.
 
 For discovery tasks, verify fixtures using the command the student is taught.
 Magic bytes alone may not produce an image recognized by `file`; distinguish
@@ -157,10 +173,15 @@ let a `None` answer reach the player as text.
 
 `AtDirectory`, `AtHome`, `Evidence`, `FileExists`, `DirectoryExists`,
 `TextFileContent`, `FileLineCount`, `PathsMatch`, `PathMoved`,
-`PermissionBits`, `PermissionMode`.
+`PermissionBits`, `PermissionMode`, `DirectoryPermissionMode`.
 
 `FileExists` and `DirectoryExists` with `should_exist=False` require that no entry
-(file, directory, or symlink) remains at the path.
+(file, directory, or symlink) remains at the path. `PermissionMode` checks an
+exact regular-file mode; `DirectoryPermissionMode` is its directory-only
+counterpart. Both validate paths relative to the section root and compare all
+permission and special bits (`0o7777`). A directory-mode requirement is a
+filesystem requirement, so the level must also declare a `Solution`; use the
+existing `Chmod` step when appropriate.
 
 Navigation levels must use `AtDirectory` with a section-root-relative path.
 Checking `Path.cwd().name` would accept a same-named directory elsewhere on the

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from shellgame.levels.base import Level
 from shellgame.levels.collector import Section
-from shellgame.levels.completion import Completion, ExactAnswer, FileExists, IntegerAnswer, TupleAnswer
+from shellgame.levels.completion import Completion, FileExists, IntegerAnswer, TupleAnswer
 from shellgame.levels.fixture import FileFixture, WorkspaceFixture
 from shellgame.levels.solution import RunShell, Solution
 
@@ -174,19 +174,16 @@ class CharacterClassWildcardCopyLevel(Level):
 
 @section.level(4)
 class RangeWildcardCopyLevel(Level):
-    solution = Solution(steps=(RunShell("cp [a-z]*.txt lowercase/"),), answer=None)
-    title = "Rozsahy [a-z]"
+    solution = Solution(steps=(RunShell("cp [[:lower:]]*.txt lowercase/"),), answer=None)
+    title = "Třídy znaků [[:lower:]]"
     instructions = """
-        # Rozsahy znaků [a-z]
+        # Třídy znaků [[:lower:]]
 
-        Uvnitř hranatých závorek můžete zadat rozsah znaků pomocí pomlčky `-`.
-        - `[a-z]` odpovídá jakémukoliv malému písmenu
-        - `[0-9]` odpovídá jakékoliv číslici
-        - `[A-Z]` odpovídá jakémukoliv velkému písmenu
+        Rozsahy jako `[a-z]` závisejí na řazení nastaveného jazyka (locale).
+        POSIX třída `[[:lower:]]` místo pořadí vybírá jeden znak klasifikovaný
+        jako malé písmeno. Pro tento úkol je proto spolehlivější napříč locale.
 
-        ### Příklady
-        - `[a-c]` = a, b, nebo c
-        - `[0-5]` = 0, 1, 2, 3, 4, nebo 5
+        Podobně existují `[[:upper:]]` pro velká písmena a `[[:digit:]]` pro číslice.
 
         ### Požadavek: Bash
         Tento level vyžaduje **Bash**. Ve fish použijte variantu s `bash -c` níže.
@@ -197,8 +194,8 @@ class RangeWildcardCopyLevel(Level):
         NEKOPÍRUJTE soubory začínající velkým písmenem.
 
         ### Příkazy
-        - V Bashi: `cp [a-z]*.txt lowercase/`
-        - Z fish: `bash -c 'cp [a-z]*.txt lowercase/'` - uvozovky ponechte
+        - V Bashi: `cp [[:lower:]]*.txt lowercase/`
+        - Z fish: `bash -c 'cp [[:lower:]]*.txt lowercase/'` - uvozovky ponechte
 
         Přípona `.txt` vyloučí cílový adresář `lowercase`, který také začíná malým písmenem.
 
@@ -206,9 +203,9 @@ class RangeWildcardCopyLevel(Level):
         Po splnění úkolu odevzdejte: `shellgame submit`
         """
     hints = [
-        "Rozsah [a-z] vybere všechna malá písmena od 'a' do 'z'.",
-        "Vzor [a-z]*.txt vybere názvy začínající malým písmenem a končící příponou .txt.",
-        "V Bashi použijte `cp [a-z]*.txt lowercase/`. Z fish: `bash -c 'cp [a-z]*.txt lowercase/'`.",
+        "Třída [[:lower:]] vybere na dané pozici právě jedno malé písmeno bez závislosti na pořadí znaků v locale.",
+        "Vzor [[:lower:]]*.txt vybere názvy začínající malým písmenem a končící příponou .txt.",
+        "V Bashi použijte `cp [[:lower:]]*.txt lowercase/`. Z fish: `bash -c 'cp [[:lower:]]*.txt lowercase/'`.",
     ]
     start_directory = "ranges"
     fixture = WorkspaceFixture(
@@ -233,56 +230,59 @@ class RangeWildcardCopyLevel(Level):
 
 @section.level(5)
 class WildcardsChallengeLevel(Level):
-    solution = Solution(answer="3,4,report_final.csv")
+    solution = Solution(
+        steps=(
+            RunShell("cp *.log logs/"),
+            RunShell("cp data?.txt short_data/"),
+            RunShell("cp report_[ab].csv selected_reports/"),
+        ),
+        answer="3,2,2",
+    )
     title = "Souhrn Sekce 10"
     instructions = """
-        ### Výzva: Mistr wildcardů
-
-        Ukažte, že ovládáte zástupné znaky!
+        ### Výzva: Tři druhy žolíků
 
         ### Úkol
-        V `level-10/challenge`:
+        V aktuálním adresáři použijte pro každý výběr jiný druh vzoru.
+        Než začnete kopírovat, nejprve si předpovězte odpovídající názvy a vzor ověřte pomocí `ls VZOR`.
 
-        1. Vypište **pouze** soubory končící na `.log` pomocí `ls *.log`
-        2. Spočítejte, kolik je `.txt` souborů
-        3. Najděte soubor, který začíná na `report` a má příponu `.csv`
+        1. Pomocí `*` zkopírujte všechny `.log` soubory do `logs/`.
+        2. Pomocí `?` zkopírujte do `short_data/` jen názvy `data`, jeden znak a `.txt`.
+        3. Pomocí znakové třídy zkopírujte do `selected_reports/` reporty s písmenem `a` nebo `b`.
 
-        ### Formát odpovědi
-        `<pocet_log>,<pocet_txt>,<nazev_csv>`
+        Nakonec odevzdejte počty souborů v těchto třech cílových adresářích.
+        Formát: `<logy>,<kratka_data>,<vybrane_reporty>`
 
-        Příklad: `5,3,report_2024.csv`
-
-        ### Shrnutí příkazů Sekce 10 (Bash)
-        ```
-        *           → libovolné znaky (i žádné)
-        ?           → právě jeden znak
-        [abc]       → jeden znak z množiny
-        [a-z]       → jeden znak z rozsahu
-        ls *.txt    → soubory končící na .txt
-        rm temp*    → smaže vše začínající na temp
-        ```
+        `?` a `[...]` zde používají syntaxi Bashe. Ve fish spusťte kopírování přes `bash -c`.
 
         ### Odevzdání
-        `shellgame submit <log>,<txt>,<csv>`
+        `shellgame submit <logy>,<data>,<reporty>`
         """
     hints = [
-        "Zástupný znak '*' vybere všechny soubory s danou příponou (např. *.log nebo *.txt).",
-        "Příkazy 'ls *.log' a 'ls *.txt' vypíší hledané soubory. Spočítat je můžete i přes '| wc -l'.",
-        "Hledaný CSV soubor najdete přes 'ls report*.csv'. Odpověď odevzdejte jako tři hodnoty oddělené čárkou.",
+        "Každý krok má procvičit jiný vzor. Nejdřív si pomocí 'ls' ověřte, zda vzor nevybírá některý z decoy souborů.",
+        "Sestavte vzory `*.log`, `data?.txt` a `report_[ab].csv`; každý použijte jako zdroj pro `cp`.",
+        "Bash: `cp *.log logs/; cp data?.txt short_data/; cp report_[ab].csv selected_reports/`. "
+        "Fish: `bash -c 'cp *.log logs/; cp data?.txt short_data/; cp report_[ab].csv selected_reports/'`.",
     ]
     start_directory = "challenge"
     fixture = WorkspaceFixture(
+        directories=(
+            "challenge/logs",
+            "challenge/short_data",
+            "challenge/selected_reports",
+        ),
         files=(
             FileFixture("challenge/app.log", "log1"),
             FileFixture("challenge/error.log", "log2"),
             FileFixture("challenge/debug.log", "log3"),
-            FileFixture("challenge/notes.txt", "txt1"),
-            FileFixture("challenge/readme.txt", "txt2"),
-            FileFixture("challenge/todo.txt", "txt3"),
-            FileFixture("challenge/data.txt", "txt4"),
-            FileFixture("challenge/report_final.csv", "col1,col2\n"),
+            FileFixture("challenge/notes.txt", "txt"),
+            FileFixture("challenge/data1.txt", "short1"),
+            FileFixture("challenge/data2.txt", "short2"),
+            FileFixture("challenge/data10.txt", "long"),
+            FileFixture("challenge/report_a.csv", "a\n"),
+            FileFixture("challenge/report_b.csv", "b\n"),
+            FileFixture("challenge/report_c.csv", "c\n"),
             FileFixture("challenge/script.sh", "#!/bin/bash\n"),
-            FileFixture("challenge/config.json", "{}"),
         ),
         clean=("challenge",),
     )
@@ -291,21 +291,32 @@ class WildcardsChallengeLevel(Level):
             (
                 IntegerAnswer(
                     3,
-                    error_message="Počet .log souborů není správně. Použijte 'ls *.log'.",
-                    invalid_message="První dvě hodnoty musí být čísla.",
+                    error_message="Počet zkopírovaných logů není správně. Zkontrolujte vzor s `*`.",
+                    invalid_message="Všechny tři hodnoty musí být čísla.",
                 ),
                 IntegerAnswer(
-                    4,
-                    error_message="Počet .txt souborů není správně. Použijte 'ls *.txt | wc -l'.",
-                    invalid_message="První dvě hodnoty musí být čísla.",
+                    2,
+                    error_message="Počet krátkých datových názvů není správně. Zkontrolujte vzor s `?`.",
+                    invalid_message="Všechny tři hodnoty musí být čísla.",
                 ),
-                ExactAnswer(
-                    "report_final.csv",
-                    case_sensitive=False,
-                    error_message="CSV soubor není správně. Použijte 'ls report*.csv'.",
+                IntegerAnswer(
+                    2,
+                    error_message="Počet vybraných reportů není správně. Zkontrolujte znakovou třídu.",
+                    invalid_message="Všechny tři hodnoty musí být čísla.",
                 ),
             ),
-            format_message="Formát: počet_log,počet_txt,název_csv (např. 5,3,report.csv)",
-        )
+            format_message="Formát: logy,data,reporty (tři čísla oddělená čárkou)",
+        ),
+        requirements=(
+            FileExists("challenge/logs/app.log"),
+            FileExists("challenge/logs/error.log"),
+            FileExists("challenge/logs/debug.log"),
+            FileExists("challenge/short_data/data1.txt"),
+            FileExists("challenge/short_data/data2.txt"),
+            FileExists("challenge/short_data/data10.txt", should_exist=False),
+            FileExists("challenge/selected_reports/report_a.csv"),
+            FileExists("challenge/selected_reports/report_b.csv"),
+            FileExists("challenge/selected_reports/report_c.csv", should_exist=False),
+        ),
     )
     success_message = "Výborně! Dokončili jste Sekci 10. Wildcards jsou váš nejlepší přítel!"

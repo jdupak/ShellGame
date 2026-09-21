@@ -121,7 +121,7 @@ def test_error_message_never_contains_the_expected_answer(levels: list) -> None:
     assert not leaks, "Feedback must not contain the expected answer:\n" + "\n".join(leaks)
 
 
-@pytest.mark.parametrize("level_id", ["1.1", "2.1", "2.2", "2.3", "2.4", "8.8"])
+@pytest.mark.parametrize("level_id", ["1.1", "2.1", "2.4", "8.8"])
 def test_discovery_final_hint_does_not_give_the_answer(levels: list[Level], level_id: str) -> None:
     level = next(level for level in levels if level.id == level_id)
     assert level.completion is not None

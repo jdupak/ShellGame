@@ -20,7 +20,7 @@ from shellgame.levels.sections.section8 import SectionSummaryChallengeLevel
 from shellgame.levels.sections.section9 import DevNullLevel, StreamsChallengeLevel
 from shellgame.levels.sections.section11 import (
     FinalChallengeLevel,
-    GrepPasswordLineToFileLevel,
+    GrepConfigLineToFileLevel,
 )
 from shellgame.markers import MarkerManager
 from shellgame.messages import Messages
@@ -42,7 +42,7 @@ class _NavigationCase:
     source: str
     destination: str
     target: str
-    answer: str
+    answer: str | None
     marker_name: str
     needs_pwd: bool = False
 
@@ -68,7 +68,7 @@ class _ExpectedAnswerLevel(Level):
             source="level-1/gamma/deep/a/b/c",
             destination="level-1/gamma/deep",
             target="../../..",
-            answer="deep",
+            answer=None,
             marker_name=cd_marker("1.6"),
         ),
         _NavigationCase(
@@ -76,7 +76,7 @@ class _ExpectedAnswerLevel(Level):
             source="level-2/location-B",
             destination="level-2/location-A",
             target="-",
-            answer="location-A",
+            answer=None,
             marker_name=cd_marker("2.2"),
         ),
         _NavigationCase(
@@ -84,7 +84,7 @@ class _ExpectedAnswerLevel(Level):
             source="level-2/deep/structure/start",
             destination="level-2/deep/other/target",
             target="../../other/target",
-            answer="target",
+            answer=None,
             marker_name=cd_marker("2.3"),
         ),
         _NavigationCase(
@@ -92,7 +92,7 @@ class _ExpectedAnswerLevel(Level):
             source="level-1/gamma/deep/a/b/c",
             destination="level-1/gamma",
             target="../../../..",
-            answer="gamma",
+            answer=None,
             marker_name=cd_marker("1.12"),
             needs_pwd=True,
         ),
@@ -172,53 +172,56 @@ def test_dev_null_level_rejects_answer_without_execution(tmp_path: Path, monkeyp
 def test_grep_level_requires_exact_matching_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    level = GrepPasswordLineToFileLevel()
+    level = GrepConfigLineToFileLevel()
     level.prepare(workspace)
     state = _state(workspace)
     level_dir = workspace / "level-11" / "grep"
     config_lines = (level_dir / "config.txt").read_text(encoding="utf-8").splitlines()
-    expected_line = next(line for line in config_lines if "PASSWORD" in line)
-    target = level_dir / "pass.txt"
+    expected_line = next(line for line in config_lines if "ACTIVE_PROFILE" in line)
+    target = level_dir / "profile.txt"
     target.write_text(expected_line + "\n", encoding="utf-8")
 
     monkeypatch.chdir(level_dir)
-    assert level.validate("pass.txt", state)[0] is True
+    assert level.validate("profile.txt", state)[0] is True
 
     target.write_text(expected_line.split("=", 1)[-1], encoding="utf-8")
-    assert level.validate("pass.txt", state)[0] is False
+    assert level.validate("profile.txt", state)[0] is False
 
 
 def test_grep_level_reports_missing_source_without_crashing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    level = GrepPasswordLineToFileLevel()
+    level = GrepConfigLineToFileLevel()
     level.prepare(workspace)
     state = _state(workspace)
     level_dir = workspace / "level-11" / "grep"
-    (level_dir / "pass.txt").write_text("anything", encoding="utf-8")
+    (level_dir / "profile.txt").write_text("anything", encoding="utf-8")
     (level_dir / "config.txt").unlink()
 
     monkeypatch.chdir(level_dir)
-    success, message = level.validate("pass.txt", state)
+    success, message = level.validate("profile.txt", state)
 
     assert success is False
     assert "shellgame reset" in message
 
 
-@pytest.mark.parametrize("path", ["pass.txt", "config.txt"])
+@pytest.mark.parametrize("path", ["profile.txt", "config.txt"])
 @pytest.mark.parametrize("damage", ["directory", "invalid-utf8", "symlink"])
 def test_grep_level_rejects_malformed_files_and_reset_restores_them(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, path: str, damage: str
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    level = GrepPasswordLineToFileLevel()
+    level = GrepConfigLineToFileLevel()
     level.prepare(workspace)
     level_dir = level.section_path(workspace) / "grep"
     state = _state(workspace)
     source = level_dir / "config.txt"
-    output = level_dir / "pass.txt"
-    output.write_text(next(line for line in source.read_text().splitlines() if "PASSWORD" in line), encoding="utf-8")
+    output = level_dir / "profile.txt"
+    output.write_text(
+        next(line for line in source.read_text().splitlines() if "ACTIVE_PROFILE" in line),
+        encoding="utf-8",
+    )
     target = level_dir / path
     target.unlink()
     outside = tmp_path / "untouched.txt"
@@ -232,7 +235,7 @@ def test_grep_level_rejects_malformed_files_and_reset_restores_them(
         target.symlink_to(outside)
     monkeypatch.chdir(level_dir)
 
-    success, message = level.validate("pass.txt", state)
+    success, message = level.validate("profile.txt", state)
     assert not success
     assert Messages.CWD_MISSING not in message
     assert "shellgame reset" in message or message == Messages.PATH_ESCAPES_WORKSPACE
@@ -241,17 +244,17 @@ def test_grep_level_rejects_malformed_files_and_reset_restores_them(
     assert source.is_file() and not source.is_symlink()
     assert not output.exists()
     assert outside.read_text() == "keep"
-    assert not level.validate("pass.txt", state)[0]
+    assert not level.validate("profile.txt", state)[0]
     assert level.solution is not None
     level.solution.perform(level, state)
-    assert level.validate("pass.txt", state)[0]
+    assert level.validate("profile.txt", state)[0]
 
 
 def test_grep_level_handles_unreadable_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    level = GrepPasswordLineToFileLevel()
+    level = GrepConfigLineToFileLevel()
     level.prepare(tmp_path)
     state = _state(tmp_path)
-    output = level.section_path(tmp_path) / "grep" / "pass.txt"
+    output = level.section_path(tmp_path) / "grep" / "profile.txt"
     output.write_text("anything", encoding="utf-8")
     original_read = Path.read_text
 
@@ -261,7 +264,7 @@ def test_grep_level_handles_unreadable_output(tmp_path: Path, monkeypatch: pytes
         return original_read(path, encoding=encoding, errors=errors)
 
     monkeypatch.setattr(Path, "read_text", read_text)
-    success, message = level.validate("pass.txt", state)
+    success, message = level.validate("profile.txt", state)
     assert not success
     assert "shellgame reset" in message
     assert Messages.CWD_MISSING not in message
@@ -313,5 +316,5 @@ def test_final_challenge_requires_secret_script_copy(
     assert level.validate("4,NINJA2024", state)[0] is False
 
     source = final / "hidden" / "secret.sh"
-    (final / "found" / "secret.sh").write_bytes(source.read_bytes())
+    (final / "found" / "secret.txt").write_bytes(source.read_bytes())
     assert level.validate("4,NINJA2024", state)[0] is True

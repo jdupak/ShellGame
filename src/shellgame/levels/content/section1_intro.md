@@ -39,8 +39,10 @@ V této sekci se zaměříme na tři klíčové dovednosti:
 
 ### Příkazy, které si osvojíte
 
-- `pwd` (Print Working Directory) - "Kde jsem?"
-- `ls` (List) - "Co tu je?"
-- `cd` (Change Directory) - "Jdi tam!"
+- `pwd` (Print Working Directory) - „Kde jsem?“
+- `ls` (List) - „Co tu je?“
+- `<příkaz> --help` - stručná nápověda k příkazu
+- `man <příkaz>` - podrobný manuál
+- `cd` (Change Directory) - „Jdi tam!“
 
 Jste připraveni začít svou cestu?

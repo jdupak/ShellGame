@@ -8,6 +8,8 @@ from pathlib import Path
 from stat import S_IMODE
 from typing import Protocol
 
+from typing_extensions import override
+
 from shellgame.markers import MarkerManager
 from shellgame.messages import Messages
 from shellgame.paths import ContainedPathError, current_directory, relative_path, resolve_within
@@ -447,6 +449,20 @@ class PermissionMode:
         target = _resolve(root, self.path)
         if not target.is_file():
             return False, Messages.FILE_NOT_EXISTS.format(path=self.path)
+        actual = S_IMODE(target.stat().st_mode)
+        if actual == self.expected:
+            return True, Messages.PERMISSION_CORRECT
+        return False, self.error_message or Messages.PERMISSION_WRONG
+
+
+@dataclass(frozen=True, slots=True)
+class DirectoryPermissionMode(PermissionMode):
+    @override
+    def check(self, state: GameStateProtocol, root: Path) -> ValidationResult:
+        del state
+        target = _resolve(root, self.path)
+        if not target.is_dir():
+            return False, Messages.DIR_NOT_EXISTS.format(path=self.path)
         actual = S_IMODE(target.stat().st_mode)
         if actual == self.expected:
             return True, Messages.PERMISSION_CORRECT

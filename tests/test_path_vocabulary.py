@@ -63,6 +63,7 @@ def _declared_paths(level: Level) -> list[tuple[str, str]]:
     for name, fixture in (("section_fixture", level.section_fixture), ("fixture", level.fixture)):
         if isinstance(fixture, WorkspaceFixture):
             declared.extend((name, value) for value in fixture.directories)
+            declared.extend((name, directory.path) for directory in fixture.directory_fixtures)
             declared.extend((name, file.path) for file in fixture.files)
             declared.extend((name, value) for value in fixture.clean)
 

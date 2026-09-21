@@ -2,7 +2,7 @@
 
 V Linuxu má každý soubor a adresář nastavená oprávnění, která určují, kdo s ním může co dělat.
 
-## 🎯 Proč je to důležité?
+## Proč je to důležité?
 
 ### Bezpečnost systému
 - **Hesla**: Soubor `/etc/shadow` obsahuje hesla - smí ho číst jen root!
@@ -31,6 +31,8 @@ x (execute)  → Spustit jako program / vstoupit do adresáře
 
 Smazání souboru závisí na právech `w` a `x` nadřazeného adresáře,
 ne na právu `w` samotného souboru.
+
+---
 
 ## Tři skupiny uživatelů
 ```
@@ -62,3 +64,4 @@ chmod o=r soubor         r=4, w=2, x=1
 - Číst oprávnění (`ls -l`)
 - Měnit oprávnění (`chmod`)
 - Používat symbolický zápis (`u+x`) i číselný zápis (`755`)
+- Předvídat a prakticky ověřit, jak `w` a `x` ovlivňují práci s adresáři

@@ -120,10 +120,10 @@ class IdentifyJpegAmongFilesLevel(Level):
 @section.level(4)
 class FindCriticalCodeInLogLevel(Level):
     solution = Solution(answer="42")
-    title = "Prohlížení velkých souborů (less)"
+    title = "Hledání ve velkém souboru"
     instructions = """
-        Příkaz `cat` vypíše celý soubor najednou. U velkých souborů to není praktické!
-        Příkaz `less` umožňuje procházet soubor interaktivně.
+        Příkaz `cat` vypíše celý soubor najednou, což je u velkých souborů nepraktické.
+        Pro procházení a hledání informací ve velkém souboru se hodí interaktivní nástroj `less`.
 
         ### Ovládání less
         ```
@@ -138,11 +138,13 @@ class FindCriticalCodeInLogLevel(Level):
         ```
 
         ## Úkol
-        Soubor `server.log` má 200 řádků. Najděte řádek, který obsahuje "CRITICAL".
+        Soubor `server.log` má 200 řádků. Najděte v něm informaci o chybovém kódu
+        na řádku obsahujícím `CRITICAL`. Doporučený nástroj je `less`.
 
         1. Otevřete soubor: `less server.log`
-        2. Hledejte: stiskněte `/`, napište `CRITICAL`, Enter
-        3. Zjistěte, jaký chybový kód (číslo za "Code") je na konci nalezeného řádku
+        2. Hledejte: stiskněte `/`, napište `CRITICAL` a potvrďte Enterem
+        3. Přečtěte chybový kód (číslo za `Code`) na konci nalezeného řádku
+        4. Stisknutím `q` ukončete `less` a teprve potom odešlete odpověď
 
         ## Odevzdání
         Odevzdejte chybový kód z CRITICAL řádku.
@@ -162,7 +164,7 @@ class FindCriticalCodeInLogLevel(Level):
             invalid_message="Odpověď musí být číslo.",
         )
     )
-    success_message = "Správně! Less je nezbytný pro práci s velkými soubory."
+    success_message = "Správně! Less usnadňuje hledání ve velkých souborech."
 
     @override
     def setup(self, workspace: Path) -> None:
@@ -215,22 +217,23 @@ class FindFakeJpgLevel(Level):
 
 @section.level(6)
 class IdentifyPythonScriptLevel(Level):
-    title = "Spustitelný skript"
+    title = "Rozpoznání Python skriptu"
     instructions = """
-        Některé textové soubory jsou skripty, které lze spustit.
-        Poznáte je podle toho, že příkaz `file` o nich řekne např. "Python script" nebo "Bourne-Again shell script".
+        Příkaz `file` dokáže podle obsahu rozpoznat Python skript, i když má neobvyklý název.
+        Popis `Python script` ale neříká, zda má soubor právo ke spuštění (`x`). Typ zjišťuje `file`,
+        oprávnění zobrazuje `ls -l` a mění `chmod` — tomu se věnuje následující sekce.
 
         ## Úkol:
-        Najděte v adresáři `bin` soubor, který je Python skriptem.
+        Najděte v adresáři `bin` soubor, který příkaz `file` označí jako Python skript.
 
         ## Odevzdání:
         Odevzdejte název skriptu.
-        `shellgame submit script.py`
+        `shellgame submit <soubor>`
         """
     hints = [
         "Příkaz 'file *' vypíše typ pro všechny soubory v aktuálním adresáři.",
         "Spusťte 'file *' a hledejte soubor, u kterého výstup uvádí 'Python script'.",
-        "Vypište si nalezený název Python skriptu a zadejte ho do 'shellgame submit <skript>'.",
+        "Odevzdejte název souboru označeného jako 'Python script'; samotný popis neověřuje právo x.",
     ]
     start_directory = "bin"
     fixture = WorkspaceFixture(

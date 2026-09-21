@@ -139,7 +139,12 @@ ShellGame teaches you to:
 - Understand absolute vs relative paths
 - Use `pwd`, `ls`, `cd` fluently
 - Read and follow file-based instructions
-- Build mental models of directory trees
+- Create, inspect, copy, move, and remove filesystem entries safely
+- Understand file and directory permissions, redirection, stdin, stdout, and stderr
+- Quote paths containing spaces and react to command success with `&&` and `||`
+- Select files with glob patterns and search with `grep` and `find`
+- Work efficiently with built-in help, manuals, and short aliases
+- Build mental models of directory trees and shell data flow
 
 ## Install (development)
 
@@ -187,7 +192,7 @@ Protocol reference:
 
 ## License
 
-Copyright (C) 2025 Jakub Dupak <dev@jakubdupak.com>
+Copyright (C) 2025-2026 Jakub Dupak <dev@jakubdupak.com>
 
 This project is licensed under the GNU General Public License v3.0 (GPL-3.0-only).
 See `LICENSE`.

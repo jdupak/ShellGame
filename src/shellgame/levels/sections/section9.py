@@ -248,45 +248,46 @@ class DevNullLevel(Level):
 @section.level(5)
 class StreamsChallengeLevel(Level):
     solution = Solution(
-        steps=(
-            RunShell("./mixed.sh 2> errors.log"),
-            RunShell("./mixed.sh > output.log"),
-        ),
+        steps=(RunShell("./mixed.sh > output.log 2> errors.log"),),
         answer="2,3",
     )
     title = "Souhrn Sekce 9"
     instructions = """
-        ### Výzva: Mistr streamů
+        ### Výzva: Oddělení streamů
 
-        Ukažte, že rozumíte stdout, stderr a /dev/null!
+        Ukažte, že umíte uložit stdout a stderr odděleně.
 
         ### Úkol
         V `level-9/challenge` je skript `mixed.sh` který vypisuje:
         - normální výstup na stdout
         - chyby na stderr
 
-        1. Spusťte skript a uložte **pouze chyby** do `errors.log`
-        2. Spusťte znovu a uložte **pouze normální výstup** do `output.log`
+        Spusťte skript **jednou** a současně uložte:
+        1. pouze normální výstup do `output.log`
+        2. pouze chyby do `errors.log`
 
         Odpovězte: kolik řádků má errors.log a kolik output.log?
         Formát: `chyby,výstup` (např. `3,5`)
 
-        ### Shrnutí příkazů Sekce 9
-        ```
-        ./skript > out.txt       → stdout do souboru
-        ./skript 2> err.txt      → stderr do souboru
-        ./skript &> all.txt      → vše do souboru
-        ./skript 2>&1            → stderr do stdout
-        ./skript > /dev/null     → zahodit stdout
-        ```
+        ### Připomenutí
+        - `>` přesměruje standardní výstup.
+        - `2>` přesměruje chybový výstup.
+
+        V této výzvě potřebujete oba proudy zachytit zvlášť.
 
         ### Odevzdání
         `shellgame submit <chyby>,<výstup>`
         """
     hints = [
-        "Chyby se zapisují na chybový výstup (stderr, descriptor 2), standardní výstup na stdout (descriptor 1).",
-        "Spusťte './mixed.sh 2> errors.log' pro uložení chyb a './mixed.sh > output.log' pro běžný výstup.",
-        "Počet řádků spočítejte pomocí 'wc -l errors.log output.log' a odevzdejte dvě čísla oddělená čárkou.",
+        (
+            "Chyby se zapisují na stderr (descriptor 2), standardní výstup na stdout (descriptor 1). "
+            "Každý proud může mít vlastní cíl."
+        ),
+        (
+            "Za jeden příkaz lze zapsat přesměrování '>' i '2>'; pořadí zde nevadí, "
+            "protože oba proudy míří do různých souborů."
+        ),
+        "Spusťte './mixed.sh > output.log 2> errors.log'. Počty zjistěte pomocí 'wc -l errors.log output.log'.",
     ]
     start_directory = "challenge"
     fixture = WorkspaceFixture(
@@ -299,7 +300,7 @@ class StreamsChallengeLevel(Level):
                 IntegerAnswer(
                     2,
                     error_message=(
-                        "Počet chyb není správně. Spusťte './mixed.sh 2> errors.log' a pak 'wc -l errors.log'."
+                        "Počet chyb není správně. Zkontrolujte, že do errors.log směřuje pouze descriptor 2."
                     ),
                     invalid_message="Obě hodnoty musí být čísla.",
                 ),
@@ -307,7 +308,7 @@ class StreamsChallengeLevel(Level):
                     3,
                     error_message=(
                         "Počet normálních řádků není správně. "
-                        "Spusťte './mixed.sh > output.log' a pak 'wc -l output.log'."
+                        "Zkontrolujte, že do output.log směřuje pouze standardní výstup."
                     ),
                     invalid_message="Obě hodnoty musí být čísla.",
                 ),
@@ -318,12 +319,12 @@ class StreamsChallengeLevel(Level):
             FileLineCount(
                 "challenge/errors.log",
                 2,
-                "errors.log nemá přesně dva řádky chyb.",
+                "errors.log neobsahuje přesně pouze chybový výstup skriptu.",
             ),
             FileLineCount(
                 "challenge/output.log",
                 3,
-                "output.log nemá přesně tři řádky normálního výstupu.",
+                "output.log neobsahuje přesně pouze standardní výstup skriptu.",
             ),
         ),
     )

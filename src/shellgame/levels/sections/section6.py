@@ -8,6 +8,7 @@ from shellgame.levels.completion import (
     FileExists,
     PathMoved,
     PathsMatch,
+    TextFileContent,
 )
 from shellgame.levels.fixture import FileFixture, WorkspaceFixture
 from shellgame.levels.solution import RunShell, Solution
@@ -185,37 +186,42 @@ class MoveReportToDocumentsLevel(Level):
 
 
 @section.level(5)
-class RenameDirectoryLevel(Level):
-    solution = Solution(steps=(RunShell("mv tmp_data data"),), answer="data")
-    title = "Přejmenování adresáře"
+class MoveDirectoryLevel(Level):
+    solution = Solution(steps=(RunShell("mv projekt archiv/"),), answer=None)
+    title = "Přesun adresáře"
     instructions = """
-        Stejně jako soubory, i adresáře se přejmenovávají pomocí `mv`.
+        Příkaz `mv` přesouvá celé adresáře včetně jejich obsahu; přepínač `-r` nepotřebuje.
 
         ## Úkol:
-        Adresář `tmp_data` už není dočasný. Přejmenujte ho na `data`.
+        Přesuňte celý adresář `projekt` do existujícího adresáře `archiv`.
 
         ## Příkazy:
-        - `mv <starý_adresář> <nový_adresář>`
+        - `mv <adresář> <cílový_adresář>/`
 
         ## Odevzdání:
-        Odevzdejte nový název adresáře.
-        `shellgame submit data`
+        Až bude `projekt` uvnitř `archiv`, spusťte:
+        `shellgame submit`
         """
     hints = [
-        "Přejmenování adresáře funguje stejně jako u souborů: 'mv <starý_název> <nový_název>'.",
-        "Spusťte 'mv tmp_data data'.",
+        "Při přesunu adresáře do jiného rodiče zadejte příkazu mv zdroj a existující cílový adresář.",
+        "Spusťte 'mv projekt archiv/' a ověřte výsledek pomocí 'ls archiv/'.",
     ]
-    start_directory = "renaming"
+    start_directory = "moving"
     fixture = WorkspaceFixture(
-        files=(FileFixture("renaming/tmp_data/file.txt", "content"),),
-        clean=("renaming/data",),
+        directories=("moving/archiv",),
+        files=(FileFixture("moving/projekt/data/file.txt", "content"),),
+        clean=("moving/projekt", "moving/archiv/projekt"),
     )
     completion = Completion(
-        answer=ExactAnswer("data"),
         requirements=(
             PathMoved(
-                "renaming/tmp_data",
-                "renaming/data",
+                "moving/projekt",
+                "moving/archiv/projekt",
+            ),
+            TextFileContent(
+                "moving/archiv/projekt/data/file.txt",
+                exact="content",
+                error_message="Přesunutý adresář nemá původní obsah.",
             ),
         ),
     )
@@ -274,24 +280,20 @@ class OrganizeLogsLevel(Level):
 class FileOrganizerChallengeLevel(Level):
     solution = Solution(
         steps=(RunShell("cp original.txt backup/ && mv temp_data.csv data.csv && mv misplaced.log logs/"),),
-        answer="organizer",
+        answer=None,
     )
-    title = "Souhrn Sekce 6"
+    title = "Výzva: Organizátor souborů"
     instructions = """
-        ### Výzva: Organizátor souborů
-
         Ukažte, že ovládáte kopírování a přesouvání!
 
         ### Úkol
-        V `level-6/final_test`:
+        V aktuálním adresáři:
 
         1. **Zkopírujte** `original.txt` do složky `backup/` (zachovejte originál)
         2. **Přejmenujte** `temp_data.csv` na `data.csv`
         3. **Přesuňte** `misplaced.log` do složky `logs/`
 
-        Pak odevzdejte heslo: **organizer**
-
-        ### Shrnutí příkazů Sekce 6
+        ### Přehled příkazů
         ```
         cp zdroj cíl       → Kopíruje soubor
         cp zdroj dir/      → Kopíruje do adresáře
@@ -301,15 +303,12 @@ class FileOrganizerChallengeLevel(Level):
         ```
 
         ### Odevzdání
-        `shellgame submit organizer`
+        Po splnění všech bodů spusťte `shellgame submit`.
         """
     hints = [
-        "Kopírování: 'cp original.txt backup/'. Přejmenování: 'mv temp_data.csv data.csv'.",
-        "Přesun do složky: 'mv misplaced.log logs/'.",
-        (
-            "Zkontrolujte: 'ls backup/' (je tam original.txt?), "
-            "'ls' (je tam data.csv?), 'ls logs/' (je tam misplaced.log?)."
-        ),
+        "Rozhodněte u každého souboru, zda musí původní cesta zůstat zachovaná. Podle toho zvolte 'cp' nebo 'mv'.",
+        "Přejmenování i přesun používají 'mv'; rozdíl určuje podoba cíle. Kopie do adresáře zachová původní soubor.",
+        "Použijte 'cp original.txt backup/', 'mv temp_data.csv data.csv' a 'mv misplaced.log logs/'.",
     ]
     start_directory = "final_test"
     fixture = WorkspaceFixture(
@@ -325,7 +324,6 @@ class FileOrganizerChallengeLevel(Level):
         clean=("final_test",),
     )
     completion = Completion(
-        answer=ExactAnswer("organizer"),
         requirements=(
             FileExists(
                 "final_test/original.txt",
@@ -335,20 +333,56 @@ class FileOrganizerChallengeLevel(Level):
                 "final_test/original.txt",
                 "final_test/backup/original.txt",
                 error_message="Kopie v backup/ neodpovídá originálu.",
-                destination_error="Chybí kopie v backup/. Použijte 'cp original.txt backup/'.",
+                destination_error="Chybí kopie original.txt v adresáři backup/.",
             ),
             PathMoved(
                 "final_test/temp_data.csv",
                 "final_test/data.csv",
                 source_error="temp_data.csv stále existuje. Přejmenujte ho na data.csv pomocí 'mv'.",
-                destination_error="Chybí data.csv. Přejmenujte temp_data.csv pomocí 'mv temp_data.csv data.csv'.",
+                destination_error="Chybí data.csv. Zkontrolujte, zda jste soubor přejmenovali místo kopírování.",
             ),
             PathMoved(
                 "final_test/misplaced.log",
                 "final_test/logs/misplaced.log",
                 source_error="misplaced.log stále v hlavní složce. Přesuňte do logs/ pomocí 'mv'.",
-                destination_error="Chybí misplaced.log v logs/. Přesuňte pomocí 'mv misplaced.log logs/'.",
+                destination_error="Chybí misplaced.log v adresáři logs/.",
             ),
         ),
     )
-    success_message = "Výborně! Dokončili jste Sekci 6. Umíte kopírovat, přesouvat i přejmenovávat!"
+    success_message = "Výborně! Zvládli jste výzvu s kopírováním, přesouváním a přejmenováním."
+
+
+@section.level(8)
+class ShellgameAliasLevel(Level):
+    title = "Rychlejší práce: alias"
+    instructions = """
+        ### Cíl
+        Zkraťte si časté psaní příkazu `shellgame` pomocí aliasu `sg`.
+
+        ### Nastavení
+        Použijte příkaz pro svůj shell:
+        - **Bash:** `alias sg='shellgame'`
+        - **Fish:** `alias sg shellgame`
+
+        Alias ověřte příkazem `type sg`.
+        Platí jen v aktuálním herním shellu; po jeho ukončení zmizí.
+
+        ### Odevzdání
+        Dokončete level přes vytvořený alias:
+        `sg submit alias-ready`
+
+        V dalších levelech můžete místo dlouhého `shellgame` používat kratší `sg`.
+        Samotné použití `sg` je součást tohoto cvičení.
+        """
+    hints = [
+        "Alias dává dlouhému příkazu kratší jméno. Vyberte syntaxi pro svůj shell.",
+        "Po nastavení spusťte 'type sg' a ověřte, že sg odkazuje na shellgame.",
+        "Level dokončete přes alias příkazem 'sg submit alias-ready'.",
+    ]
+    completion = Completion(
+        answer=ExactAnswer(
+            "alias-ready",
+            required_message="Nejprve nastavte a ověřte alias, potom spusťte: sg submit alias-ready",
+        )
+    )
+    success_message = "Výborně! Dokončili jste Sekci 6 a umíte si práci v shellu zrychlit aliasem."

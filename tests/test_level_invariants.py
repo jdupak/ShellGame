@@ -1,5 +1,6 @@
 """Cross-section invariants for declarative level configuration."""
 
+import stat
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -54,6 +55,7 @@ def test_reset_repairs_declared_files_replaced_by_directories(level: Level, tmp_
     }
     for target in paths:
         assert target.is_file()
+        target.parent.chmod(stat.S_IRWXU)
         target.unlink()
         target.mkdir()
         (target / "mistake.txt").write_text("wrong type", encoding="utf-8")

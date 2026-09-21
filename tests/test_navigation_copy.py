@@ -7,21 +7,21 @@ from pathlib import Path
 
 import pytest
 
-from shellgame.levels.sections.section1 import AbsoluteCdLevel, StructureLevel, SummaryLevel
+from shellgame.levels.sections.section1 import AbsoluteCdLevel, SummaryLevel
 from shellgame.levels.sections.section2 import SectionChallengeLevel
 from shellgame.state.manager import GameState
 
 
 @pytest.mark.parametrize("reset", [False, True], ids=["fresh", "reset"])
-def test_summary_hint_path_is_reachable_from_start(tmp_path: Path, reset: bool) -> None:
+def test_summary_final_hint_path_is_reachable_from_start(tmp_path: Path, reset: bool) -> None:
     level = SummaryLevel()
     level.prepare(tmp_path)
     if reset:
         level.reset(tmp_path)
     start = level.get_start_directory(tmp_path)
     assert start is not None
-    commands = re.findall(r"`(cd [^`]+)`", level.hints[0])
-    assert len(commands) == 1
+    commands = re.findall(r"`(cd [^`]+)`", level.hints[-1])
+    assert len(commands) == 2
 
     result = subprocess.run(
         ["bash", "-c", f"{commands[0]} && pwd -P"],
@@ -66,39 +66,23 @@ def test_absolute_hint_uses_actual_start_not_example_username(tmp_path: Path, mo
     assert level.validate(None, state)[0]
 
 
-def test_structure_instructions_start_in_place_and_explain_slashes(tmp_path: Path) -> None:
-    level = StructureLevel()
-    level.prepare(tmp_path)
-    start = level.get_start_directory(tmp_path)
-    assert start == level.section_path(tmp_path)
-    assert "Začínáte v `level-1`" in level.instructions
-    assert "bez lomítek" in level.instructions
-    assert "Jděte do level-1" not in " ".join(level.hints)
-    state = GameState(username="tester", workspace=tmp_path, current_level=level.id, start_time=datetime.now())
-    answer = ",".join(sorted(entry.name for entry in start.iterdir() if entry.is_dir()))
-    assert level.validate(answer, state)[0]
-
-
 @pytest.mark.parametrize("reset", [False, True], ids=["fresh", "reset"])
-def test_section_two_instructions_establish_previous_directory(tmp_path: Path, reset: bool) -> None:
+def test_section_two_challenge_clues_lead_to_required_destination(tmp_path: Path, reset: bool) -> None:
     level = SectionChallengeLevel()
     level.prepare(tmp_path)
     if reset:
         level.reset(tmp_path)
     start = level.get_start_directory(tmp_path)
-    assert start is not None
-    commands = re.findall(r"`(cd [^`]+)`", level.instructions)
-    assert commands == ["cd challenge", "cd room1", "cd -"]
+    assert start == level.section_path(tmp_path)
+    assert "challenge/room1" in level.instructions
+    assert "room2" in level.instructions
+    assert "password.txt" in level.instructions
+    assert "`cd -`" not in level.instructions
 
-    result = subprocess.run(
-        ["bash", "-c", " && ".join([*commands, "pwd -P", "cd room2", "cat password.txt"])],
-        cwd=start,
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=10,
-    )
-    lines = result.stdout.splitlines()
-    assert Path(lines[-2]) == level.section_path(tmp_path) / "challenge"
+    destination = level.section_path(tmp_path) / "challenge/room2"
     state = GameState(username="tester", workspace=tmp_path, current_level=level.id, start_time=datetime.now())
-    assert level.validate(lines[-1], state)[0]
+    assert not level.validate("navigator", state)[0]
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.chdir(destination)
+        assert level.validate("navigator", state)[0]

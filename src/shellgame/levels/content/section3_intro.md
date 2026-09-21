@@ -18,11 +18,12 @@ Používají se pro konfigurační soubory, které nechcete mít na očích při
 
 Příkaz 'ls' zobrazí pouze: dokumenty/
 Příkaz 'ls -a' zobrazí VŠE včetně skrytých!
+Příkaz 'ls -la' přidá podrobnosti; adresář poznáte podle 'd' na začátku řádku.
 ```
 
 ### Co se naučíte
 - Co jsou skryté soubory (začínají tečkou)
-- Jak je zobrazit (`ls -a`)
+- Jak je zobrazit a rozlišit jejich typ (`ls -a`, `ls -la`)
 - Jak s nimi pracovat (čtení, navigace)
 
 ### Pokračování

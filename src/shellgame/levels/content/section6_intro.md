@@ -14,6 +14,10 @@ cp a.txt b.txt                 mv a.txt b.txt
 └── b.txt  ← nový
 ```
 
+## Pozor na existující cíl
+`cp` i `mv` mohou bez dalšího dotazu přepsat existující cílový soubor.
+Předem zkontrolujte cíl pomocí `ls`, případně použijte `cp -i` nebo `mv -i`.
+
 ## Přejmenování = přesun na stejném místě
 ```
 mv stary_nazev.txt novy_nazev.txt

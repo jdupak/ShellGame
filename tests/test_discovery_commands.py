@@ -15,7 +15,7 @@ from shellgame.levels.sections.section3 import HiddenDirCountLevel, HiddenFilesS
 from shellgame.levels.sections.section5 import FileDetectiveChallengeLevel
 from shellgame.levels.sections.section7 import MakeExecutableLevel, MakeReadOnlyLevel, PermissionsChallengeLevel
 from shellgame.levels.sections.section8 import WordAndLineCountLevel
-from shellgame.levels.sections.section11 import GrepPasswordLineToFileLevel, RecursiveGrepFindFileLevel
+from shellgame.levels.sections.section11 import GrepConfigLineToFileLevel, RecursiveGrepFindFileLevel
 from shellgame.levels.solution import RunShell
 from shellgame.state.manager import GameState
 
@@ -96,16 +96,17 @@ def test_hidden_counts_are_distinguishable_and_resettable(
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     state = _state(workspace, level)
-    assert "`ls -aF`" in level.instructions
+    assert "`ls -la`" in level.instructions
 
     for prepare in (level.prepare, level.reset):
         prepare(workspace)
         start = level.get_start_directory(workspace)
         assert start is not None
         monkeypatch.chdir(start)
-        entries = _run(["ls", "-aF"], start, command_env).splitlines()
-        hidden = [entry for entry in entries if entry.startswith(".") and entry not in {"./", "../"}]
-        directories = sum(entry.endswith("/") for entry in hidden)
+        listing = _run(["ls", "-la"], start, command_env).splitlines()
+        entries = [parts for line in listing if len(parts := line.split(maxsplit=8)) == 9]
+        hidden = [parts for parts in entries if parts[8].startswith(".") and parts[8] not in {".", ".."}]
+        directories = sum(parts[0].startswith("d") for parts in hidden)
         files = len(hidden) - directories
         suffix = ""
         if isinstance(level, HiddenFilesSummaryChallengeLevel):
@@ -190,14 +191,16 @@ def test_recursive_grep_accepts_paths_printed_from_either_directory(
 
 
 def test_grep_hints_do_not_reveal_the_matching_line(tmp_path: Path) -> None:
-    level = GrepPasswordLineToFileLevel()
+    level = GrepConfigLineToFileLevel()
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     level.prepare(workspace)
     start = level.get_start_directory(workspace)
     assert start is not None
     matching_line = next(
-        line for line in (start / "config.txt").read_text(encoding="utf-8").splitlines() if "PASSWORD" in line
+        line
+        for line in (start / "config.txt").read_text(encoding="utf-8").splitlines()
+        if "ACTIVE_PROFILE" in line
     )
 
     assert all(matching_line not in hint for hint in level.hints)

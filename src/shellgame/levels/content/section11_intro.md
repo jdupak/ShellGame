@@ -17,14 +17,18 @@ grep -i "warning" *.log        Ignoruje velikost písmen
 
 ## find - hledání souborů
 ```
-find . -name "*.py"            Všechny .py soubory
-find /home -name "config*"     Soubory začínající na "config"
-find . -type d -name "test*"   Pouze adresáře
+find . -type f -name "*.py"          Všechny běžné .py soubory
+find /home -type f -name "config*"   Soubory začínající na "config"
+find . -type d -name "test*"         Pouze adresáře
 ```
+
+Uvozovky kolem `"*.py"` jsou důležité: zabrání shellu, aby hvězdičku
+rozbalil předem. Doslovný vzor tak dostane příkaz `find`, který ho vyhodnotí
+v každém prohledávaném adresáři.
 
 ## Proč je to důležité?
 ```
-Ztratili jste soubor?          → find . -name "soubor.txt"
+Ztratili jste soubor?          → find . -type f -name "soubor.txt"
 Hledáte kde je chyba v kódu?   → grep -r "ERROR" src/
 Kolik TODOs máte v projektu?   → grep -r "TODO" . | wc -l
 ```
@@ -32,5 +36,5 @@ Kolik TODOs máte v projektu?   → grep -r "TODO" . | wc -l
 ## Co se naučíte:
 - Hledat text v souborech (`grep`)
 - Rekurzivní hledání (`grep -r`)
-- Hledat soubory podle názvu (`find -name`)
+- Hledat soubory podle typu a názvu (`find -type f -name`)
 - Kombinovat nástroje

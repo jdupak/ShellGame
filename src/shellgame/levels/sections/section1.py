@@ -24,7 +24,6 @@ from shellgame.levels.completion import (
     Completion,
     Evidence,
     ExactAnswer,
-    OrderedListAnswer,
 )
 from shellgame.levels.fixture import FileFixture, WorkspaceFixture
 from shellgame.levels.solution import Chdir, GoHome, PerformCd, RecordEvidence, Solution, WalkHome
@@ -96,37 +95,48 @@ class PwdLevel(Level):
 @section.level(2)
 class LsLevel(Level):
     solution = Solution(answer="delta")
-    title = "Výpis a rozpoznávání vzorů"
+    title = "Soubory, nebo adresáře?"
     instructions = """
         ### Cíl
-        Najděte adresář odpovídající vzoru.
+        Nejprve si prohlédněte běžný výpis. Potom v nápovědě zjistěte, jak zobrazit
+        podrobnosti, a rozlište soubor od adresáře bez spoléhání na barvy terminálu.
 
         ### Příkazy
-        - `ls` - vypíše obsah adresáře
+        - `ls` - vypíše názvy položek v aktuálním adresáři
+        - `ls --help` - zobrazí stručnou nápovědu k příkazu `ls`
+        - `man ls` - otevře podrobný manuál; ukončíte ho klávesou `q`
 
         ### Úkol
-        1. Vypište obsah (`ls`)
-        2. Najděte **ADRESÁŘ** začínající na `d` a končící na `a`
-        3. Odevzdejte jeho název
+        1. Spusťte nejprve obyčejné `ls`
+        2. V nápovědě najděte přepínač pro dlouhý (podrobný) výpis a použijte ho
+        3. V podrobném výpisu značí první znak `d` adresář a `-` běžný soubor
+        4. Najděte **adresář**, jehož název začíná na `d` a končí na `a`
+        5. Odevzdejte jeho název
+
+        ### Odevzdání
+        `shellgame submit <hodnota>`
         """
     hints = [
-        "Použijte 'ls' pro výpis položek v aktuálním adresáři.",
-        "Hledejte adresář začínající na 'd' a končící na 'a'.",
-        "Ujistěte se, že odevzdáváte název adresáře, ne souboru.",
-        "Adresáře jsou ve výpisu často barevně odlišeny (např. modře).",
+        "Běžný výpis ukáže názvy, ale bez barev z něj typ položky spolehlivě nepoznáte.",
+        "Zjistěte v nápovědě k příkazu `ls`, který přepínač zapíná dlouhý výpis.",
+        "Otevřete nápovědu pomocí `ls --help` nebo `man ls` a hledejte výraz 'long listing'.",
+        "Spusťte `ls -l`: řádek adresáře začíná `d`, řádek běžného souboru `-`.",
     ]
     start_directory = ""
-    success_message = "Správně! Našli jste adresář odpovídající vzoru."
+    fixture = WorkspaceFixture(
+        clean=("data", "dog", "dome"),
+        directories=("delta", "dome"),
+        files=(FileFixture("data"), FileFixture("dog")),
+    )
+    success_message = "Správně! Podle prvního znaku výpisu `ls -l` jste rozlišili adresář od souboru."
     completion = Completion(
         answer=ExactAnswer(
             "delta",
             mistakes={
-                "data.txt": "To je soubor, ne adresář. Hledejte adresář začínající na 'd' a končící na 'a'.",
-                "dog.md": "To je soubor, ne adresář. Hledejte adresář začínající na 'd' a končící na 'a'.",
-                "drama.log": "To je soubor, ne adresář. Hledejte adresář začínající na 'd' a končící na 'a'.",
-                "data": "'data' končí na 'a', ale není to adresář. Zkuste 'ls -F' pro rozlišení adresářů.",
+                "data": "'data' odpovídá názvem, ale není to adresář: jeho řádek v 'ls -l' začíná '-'.",
+                "dome": "'dome' je adresář, ale jeho název nekončí na 'a'.",
             },
-            required_message="Musíte zadat odpověď. Odevzdejte název adresáře: shellgame submit <název>",
+            required_message="Musíte zadat název adresáře: shellgame submit <hodnota>",
         ),
     )
 
@@ -262,7 +272,7 @@ class DeepDiveLevel(Level):
 
 @section.level(6)
 class MultiLevelAscentLevel(Level):
-    solution = Solution(steps=(PerformCd("../../.."),), answer="deep")
+    solution = Solution(steps=(PerformCd("../../.."),))
     title = "Víceúrovňový výstup"
     instructions = """
         ### Cíl
@@ -274,22 +284,20 @@ class MultiLevelAscentLevel(Level):
         ### Úkol
         1. ShellGame vás na začátku umístí do správného adresáře (nemusíte řešit, kde jste skončili minule).
         2. Vraťte se o 3 úrovně výše **JEDNÍM** příkazem
-        3. Odevzdejte název adresáře, kde jste skončili
+        3. V cíli spusťte pouze `shellgame submit`
         """
     hints = [
         "Cesty lze řetězit: každé '..' představuje posun o jednu úroveň nahoru.",
         "Pro posun o tři úrovně najednou spojte tři segmenty: 'cd ../../..'.",
-        "Odevzdejte název adresáře, ve kterém jste skončili. Ověřte si ho příkazem 'pwd'.",
+        "Polohu si ověřte příkazem 'pwd'. Pokud jste správně, spusťte jen 'shellgame submit'.",
     ]
     start_directory = "gamma/deep/a/b/c"
     success_message = "Správně! Úspěšně jste vystoupali o 3 úrovně."
     completion = Completion(
-        answer=ExactAnswer("deep"),
         requirements=(
             AtDirectory("gamma/deep"),
             CdEvidence("Vraťte se o tři úrovně jedním příkazem `cd ../../..`."),
         ),
-        allow_empty=True,
     )
     fixture = WorkspaceFixture(directories=("gamma/deep/a/b/c",))
     cd_policy = CdPolicy(rules=(RequireExactCommand("../../..", "Použijte jeden příkaz 'cd ../../..'."),))
@@ -335,58 +343,71 @@ def maze_marker_text(name: str) -> str:
 
 
 _MAZE_TRAP = "YOU_ARE_NOT_SUPPOSED_TO_BE_HERE"
-# The maze layout uses thematic, non-sequential names to prevent guessing
-# or accidental solutions, while reinforcing navigation with cd .., relative jumps,
-# decoy paths, dead-ends, and loops.
-# Progression flows deeper through connected branches (entry -> nexus -> passages -> catacombs -> labyrinth)
-# with local backtracking and dead ends, avoiding repeated bounces back to the top-level maze root.
+# The long route is deliberate practice: repeated inspection and navigation,
+# several local backtracks, compound upward moves, branching, and decoys.
 _MAZE_STRUCTURE: dict[str, tuple[str, ...]] = {
-    # --- Entrance area ---
+    # Entrance area
     "entry": ("GO_TO_DIR_hall", "dungeon", "courtyard"),
     "entry/courtyard": (_MAZE_TRAP,),
     "entry/dungeon": (_MAZE_TRAP,),
     "entry/hall": ("GO_TO_DIR_nexus", "alcove", "side_door"),
     "entry/hall/alcove": (_MAZE_TRAP,),
-    "entry/hall/side_door": ("GO_UP_1",),  # local backtrack loop to entry/hall
-    # --- Nexus hub (under entry/hall) ---
+    "entry/hall/side_door": ("GO_UP_1",),
+    # Nexus hub
     "entry/hall/nexus": ("GO_TO_DIR_passages", "sanctum", "rotunda", "archives"),
     "entry/hall/nexus/sanctum": (_MAZE_TRAP,),
     "entry/hall/nexus/archives": (_MAZE_TRAP,),
-    "entry/hall/nexus/rotunda": ("GO_UP_1",),  # local backtrack to nexus
-    # --- Passages branch (under entry/hall/nexus) ---
+    "entry/hall/nexus/rotunda": ("GO_UP_1",),
+    # Passages branch
     "entry/hall/nexus/passages": ("GO_TO_DIR_tunnel", "gallery", "shaft"),
     "entry/hall/nexus/passages/gallery": (_MAZE_TRAP,),
-    "entry/hall/nexus/passages/shaft": ("GO_UP_1",),  # local backtrack to passages
+    "entry/hall/nexus/passages/shaft": ("GO_UP_1",),
     "entry/hall/nexus/passages/tunnel": ("GO_TO_DIR_cavern", "crevice"),
     "entry/hall/nexus/passages/tunnel/crevice": (_MAZE_TRAP,),
     "entry/hall/nexus/passages/tunnel/cavern": ("GO_TO_DIR_depths", "grotto", "abyss"),
     "entry/hall/nexus/passages/tunnel/cavern/grotto": (_MAZE_TRAP,),
     "entry/hall/nexus/passages/tunnel/cavern/abyss": (_MAZE_TRAP,),
-    # Deep dead-end in passages that requires ascending 2 levels back to tunnel
-    # depths is at entry/hall/nexus/passages/tunnel/cavern/depths.
-    # 2 levels up reaches tunnel, then instruction points to an alternate route (catacombs under tunnel)
-    "entry/hall/nexus/passages/tunnel/cavern/depths": ("GO_UP_2_THEN_GO_TO_catacombs", "echoes.txt"),
-    # --- Catacombs (branch off tunnel) ---
+    "entry/hall/nexus/passages/tunnel/cavern/depths": (
+        "GO_UP_2_THEN_GO_TO_catacombs",
+        "echoes.txt",
+    ),
+    # Catacombs branch
     "entry/hall/nexus/passages/tunnel/catacombs": ("GO_TO_DIR_vault", "ossuary", "crypts"),
     "entry/hall/nexus/passages/tunnel/catacombs/ossuary": (_MAZE_TRAP,),
     "entry/hall/nexus/passages/tunnel/catacombs/crypts": ("GO_UP_1",),
-    "entry/hall/nexus/passages/tunnel/catacombs/vault": ("GO_TO_DIR_chamber", "iron_cell", "sepulcher"),
+    "entry/hall/nexus/passages/tunnel/catacombs/vault": (
+        "GO_TO_DIR_chamber",
+        "iron_cell",
+        "sepulcher",
+    ),
     "entry/hall/nexus/passages/tunnel/catacombs/vault/iron_cell": (_MAZE_TRAP,),
     "entry/hall/nexus/passages/tunnel/catacombs/vault/sepulcher": (_MAZE_TRAP,),
-    # vault/chamber has explored deep into catacombs.
-    # Back up 2 levels (vault -> catacombs) to switch to labyrinth under catacombs
-    "entry/hall/nexus/passages/tunnel/catacombs/vault/chamber": ("GO_UP_2_THEN_GO_TO_labyrinth", "relic.txt"),
-    # --- Labyrinth & Final Sanctum (branch off catacombs) ---
-    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth": ("GO_TO_DIR_corridor", "dead_end", "ruins"),
+    "entry/hall/nexus/passages/tunnel/catacombs/vault/chamber": (
+        "GO_UP_2_THEN_GO_TO_labyrinth",
+        "relic.txt",
+    ),
+    # Labyrinth and final sequence
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth": (
+        "GO_TO_DIR_corridor",
+        "dead_end",
+        "ruins",
+    ),
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/dead_end": (_MAZE_TRAP,),
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/ruins": (_MAZE_TRAP,),
-    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor": ("GO_TO_DIR_shrine", "false_exit", "mist"),
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor": (
+        "GO_TO_DIR_shrine",
+        "false_exit",
+        "mist",
+    ),
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/false_exit": (_MAZE_TRAP,),
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/mist": ("GO_UP_1",),
-    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine": ("GO_TO_DIR_final", "mirage", "shadow"),
+    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine": (
+        "GO_TO_DIR_final",
+        "mirage",
+        "shadow",
+    ),
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/mirage": (_MAZE_TRAP,),
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/shadow": (_MAZE_TRAP,),
-    # Versioning pun sequence: final -> final_v2 -> final_final -> opravdu_final_v2_FINAL
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final": (
         "GO_TO_DIR_final_v2",
         "decoy_exit",
@@ -398,18 +419,21 @@ _MAZE_STRUCTURE: dict[str, tuple[str, ...]] = {
         "abandoned_branch",
         "old.bak",
     ),
-    ("entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/abandoned_branch"): (
-        _MAZE_TRAP,
-    ),
+    (
+        "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/"
+        "final/final_v2/abandoned_branch"
+    ): (_MAZE_TRAP,),
     "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/final_final": (
         "GO_TO_DIR_opravdu_final_v2_FINAL",
         "fake_end",
     ),
-    "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/final_final/fake_end": (
-        _MAZE_TRAP,
-    ),
     (
-        "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/final_final/opravdu_final_v2_FINAL"
+        "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/"
+        "final/final_v2/final_final/fake_end"
+    ): (_MAZE_TRAP,),
+    (
+        "entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/"
+        "final/final_v2/final_final/opravdu_final_v2_FINAL"
     ): ("VICTORY.marker",),
 }
 
@@ -473,8 +497,14 @@ class MazeLevel(Level):
                 "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine",
                 "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final",
                 "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2",
-                "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/final_final",
-                "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/final/final_v2/final_final/opravdu_final_v2_FINAL",
+                (
+                    "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/"
+                    "final/final_v2/final_final"
+                ),
+                (
+                    "maze/entry/hall/nexus/passages/tunnel/catacombs/labyrinth/corridor/shrine/"
+                    "final/final_v2/final_final/opravdu_final_v2_FINAL"
+                ),
             )
         ),
     )
@@ -487,13 +517,13 @@ class MazeLevel(Level):
         - Start: `level-1/maze/entry/`
         - Instrukce je v **názvu** souboru `GO_…` (příkaz `ls`)
         - `GO_TO_DIR_x` → `cd x`
-        - `GO_UP_N` → `cd ..` (N-krát)
-        - `GO_UP_N_THEN_GO_TO_x` → `cd ..` (N-krát), potom `cd x`
+        - `GO_UP_N` → jděte pomocí `cd ..` o N úrovní výše
+        - `GO_UP_N_THEN_GO_TO_x` → jděte o N úrovní výše a potom do `x`
         - Během bludiště nemůžete odejít mimo `maze/`
 
         ### Úkol
-        1. Jděte do startu
-        2. Sledujte instrukce až do cíle
+        1. Ze startu sledujte názvy souborů `GO_…`
+        2. Bludiště je záměrně delší: procvičíte opakované `ls`, sestup, návraty i přechod k sourozencům
         3. Jakmile vstoupíte do skutečného cíle, level se automaticky splní
            (případně můžete odevzdat `shellgame submit`)
 
@@ -501,8 +531,9 @@ class MazeLevel(Level):
         """
     hints = [
         "Sledujte pouze názvy souborů začínající na 'GO_'. Vypište je pomocí 'ls'.",
-        "Pro instrukce typu 'GO_UP_2_THEN_GO_TO_catacombs' použijte 'cd ../..' a poté 'cd catacombs'.",
-        "Ignorujte soubory, které nezačínají na 'GO_', jsou to pasti.",
+        "U instrukce 'GO_UP_2_THEN_GO_TO_catacombs' se vraťte o dvě úrovně a vstupte do catacombs.",
+        "Spojený návrat lze zapsat jako 'cd ../..'; potom pokračujte příkazem 'cd catacombs'.",
+        "Ignorujte položky, které nezačínají na 'GO_'; jsou to odbočky nebo pasti.",
         "Pokud se ztratíte, příkaz 'shellgame reset' vás vrátí na start.",
     ]
     start_directory = "maze/entry"
@@ -564,12 +595,12 @@ class AbsoluteCdLevel(Level):
         ### Úkol
         1. Začínáte v `level-1`. Zjistěte celou cestu příkazem `pwd`
         2. Použijte **JEDEN** příkaz `cd` s absolutní cestou do podadresáře `absolute-target`
-        3. Odevzdejte název cílového adresáře
+        3. V cíli spusťte pouze `shellgame submit`
         """
     hints = [
         "Absolutní cesty začínají na /. Použijte 'pwd' pro zobrazení vaší plné cesty.",
         "K celé cestě vypsané příkazem 'pwd' na startu připojte '/absolute-target'.",
-        "Odevzdejte název cílového adresáře.",
+        "Po přesunu ověřte polohu příkazem 'pwd' a spusťte jen 'shellgame submit'.",
         "Za 'cd' napište celou sestavenou cestu od /. Pokud obsahuje mezery, uzavřete ji do uvozovek.",
     ]
     start_directory = ""
@@ -730,35 +761,6 @@ class HomeCheckLevel(Level):
     )
 
 
-@section.level(11)
-class StructureLevel(Level):
-    solution = Solution(answer="absolute-target,alpha,delta,gamma,maze,patterns")
-    title = "Vizualizace struktury"
-    instructions = """
-        ### Cíl
-        Vizualizujte strukturu.
-
-        ### Příkazy
-        - `ls -F` - výpis s typy
-
-        ### Úkol
-        1. Začínáte v `level-1`. Vypište jeho obsah příkazem `ls -F`
-        2. Vyberte pouze adresáře (mají na konci lomítko)
-        3. Odevzdejte jejich názvy bez lomítek, abecedně a oddělené čárkami
-        """
-    hints = [
-        "Začínáte v level-1; spusťte 'ls -F'.",
-        "Vypište názvy adresářů abecedně, oddělené čárkami.",
-        "Ujistěte se, že uvádíte pouze adresáře, ne soubory.",
-        "Lomítko / ve výpisu označuje adresář. Do odpovědi ho nepište.",
-    ]
-    start_directory = ""
-    fixture = WorkspaceFixture(directories=("absolute-target", "maze"))
-    completion = Completion(
-        answer=OrderedListAnswer(("absolute-target", "alpha", "delta", "gamma", "maze", "patterns"))
-    )
-
-
 @section.level(12)
 class SummaryLevel(Level):
     solution = Solution(
@@ -767,7 +769,6 @@ class SummaryLevel(Level):
             Chdir("gamma/deep/a/b/c"),
             PerformCd("../../../.."),
         ),
-        answer="gamma",
     )
     title = "Souhrn"
     instructions = """
@@ -779,7 +780,7 @@ class SummaryLevel(Level):
         1. Začínáte v `level-1`. Zjistěte svou aktuální polohu (`pwd`)
         2. Přejděte do adresáře `gamma/deep/a/b/c`
         3. Vraťte se o 4 úrovně výše jedním příkazem
-        4. Odevzdejte název adresáře, kde jste skončili
+        4. V cíli spusťte pouze `shellgame submit`
 
         ### Shrnutí příkazů
         ```
@@ -793,33 +794,26 @@ class SummaryLevel(Level):
         ```
 
         ### Odevzdání
-        `shellgame submit <název_adresáře>`
+        `shellgame submit`
         """
     hints = [
-        "Ze startu přejděte do c: `cd gamma/deep/a/b/c`.",
-        "Z 'c' o 4 úrovně výše: cd ../../../..",
-        "Spočítejte úrovně: c → b → a → deep → ? Kde jste skončili, ověří 'pwd'.",
+        "Nejdřív si pomocí 'pwd' potvrďte výchozí polohu a cestu rozdělte na jednotlivé adresáře.",
+        (
+            "Při návratu spočítejte, kolik segmentů musíte z adresáře 'c' odstranit. "
+            "Každý segment '..' znamená jednu úroveň."
+        ),
+        "Použijte `cd gamma/deep/a/b/c` a potom `cd ../../../..`. Výsledek ověřte pomocí 'pwd'.",
     ]
     start_directory = ""
     reset_markers = (MarkerManager.PWD_USED,)
     success_message = "Výborně! Ovládáte základy navigace!"
     completion = Completion(
-        answer=ExactAnswer(
-            "gamma",
-            mistakes={
-                "deep": "Téměř! 'deep' je o 3 úrovně nad 'c'. Potřebujete jít o 4 úrovně.",
-                "a": "To není dost vysoko. Vraťte se od startovního 'c' o čtyři úrovně a ověřte polohu pomocí 'pwd'.",
-                "b": "To není dost vysoko. Vraťte se od startovního 'c' o čtyři úrovně a ověřte polohu pomocí 'pwd'.",
-                "c": "To není dost vysoko. Vraťte se od startovního 'c' o čtyři úrovně a ověřte polohu pomocí 'pwd'.",
-            },
-        ),
         requirements=(
             AtDirectory("gamma"),
             CdEvidence(
                 "Nejdřív použijte `pwd`, přejděte do `c` a vraťte se jedním příkazem o čtyři úrovně.",
             ),
         ),
-        allow_empty=True,
     )
     fixture = WorkspaceFixture(directories=("gamma/deep/a/b/c",))
 

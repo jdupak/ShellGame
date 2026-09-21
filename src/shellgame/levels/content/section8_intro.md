@@ -1,58 +1,52 @@
-# Sekce 8: Přesměrování a roury (pipes)
+# Sekce 8: Vstup, výstup a stav příkazů
 
-Většina příkazů vypisuje svůj výstup na obrazovku (standardní výstup - stdout).
-Tento výstup můžete přesměrovat do souboru nebo poslat jinému příkazu.
+Příkaz obvykle posílá výstup na obrazovku. Tři operátory rozhodnou, kam poteče dál:
 
-## 🎯 Proč je to důležité?
+```text
+příkaz > soubor       výstup přepíše soubor
+příkaz >> soubor      výstup se přidá na konec
+příkaz | další        výstup se stane vstupem dalšího příkazu
+```
 
-### Automatizace a skripty
+## Tři mentální modely
+
+- `>` je **nový zápis**. Starý obsah cílového souboru zmizí.
+- `>>` je **připojení**. Dosavadní obsah zůstane.
+- `|` je **roura mezi příkazy**. Nevytváří soubor, jen předává data dál.
+
 ```bash
-# Denní záloha - výstup do logu
-./backup.sh > /var/log/backup_$(date +%F).log
-
-# Monitorování serveru
-uptime >> server_stats.txt
+ls > seznam.txt
+echo "další řádek" >> seznam.txt
+grep ERROR access.log | wc -l
 ```
 
-### Analýza dat
+Má-li text nebo název souboru mezery, uzavřete každou takovou část zvlášť:
+
 ```bash
-# Kolik unikátních IP adres přistoupilo na web?
-cut -d' ' -f1 access.log | sort -u | wc -l
-
-# Najdi 10 největších souborů
-du -ah /home | sort -rh | head -10
+echo "Ahoj svete" > "muj pozdrav.txt"
 ```
 
-> 💡 **Tip:** Nepoužívejte `cat soubor | prikaz`, když `prikaz` umí číst soubor
-> přímo (`prikaz soubor`). Zbytečný `cat` navíc spouští další proces.
-> Také `sort | uniq` lze zkrátit na `sort -u`.
+---
 
-### Filtrování výstupu
-```bash
-# Příliš mnoho výstupu? Najdi jen chyby:
-make 2>&1 | grep -i error
-```
+# Klávesnicový vstup a stav příkazu
 
-## Přesměrování vizuálně
-```
-Bez přesměrování:           S přesměrováním:
-┌─────────┐                 ┌─────────┐
-│ příkaz  │──── stdout ───▶ │ příkaz  │──── > ───▶ soubor.txt
-└─────────┘      │          └─────────┘
-                 ▼
-            obrazovka
-```
+`cat > soubor` čte řádky z klávesnice. **Ctrl+D** oznámí EOF, tedy konec vstupu,
+a `cat` řádně skončí. **Ctrl+C** je interrupt: běžící příkaz přeruší.
 
-## `>` vs `>>` vs `|`
-```
->   přepíše soubor (pozor na ztrátu dat!)
->>  přidá na konec souboru
-|   pošle výstup dalšímu příkazu (roura/pipe)
-```
+Každý příkaz také vrací stavový neboli návratový kód:
 
-## Co se naučíte:
-- Uložit výstup příkazu do souboru (`>`)
-- Přidat výstup na konec souboru (`>>`)
-- Propojovat příkazy pomocí rour (`|`)
-- Zobrazovat části souborů (`head`, `tail`)
-- Počítat řádky, slova a znaky (`wc`)
+- `0` znamená úspěch,
+- nenulový kód znamená neúspěch,
+- `první && druhý` pokračuje jen po úspěchu,
+- `první || druhý` pokračuje jen po neúspěchu.
+
+`&&` a `||` můžete takto používat přímo v podporovaném Bash i Fish.
+
+## Co se naučíte
+
+- ukládat a přidávat výstup pomocí `>` a `>>`
+- správně citovat víceslovný text i názvy souborů
+- zapisovat interaktivní vstup přes `cat` a ukončit jej pomocí EOF
+- propojovat příkazy pomocí `|`
+- filtrovat a zpracovávat text přes `grep`, `head`, `tail`, `wc`, `sort` a `uniq`
+- reagovat na úspěch či neúspěch příkazu pomocí `&&` a `||`
