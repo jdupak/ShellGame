@@ -87,6 +87,23 @@ move you back to the level's start directory):
 shellgame reset
 ```
 
+List all available levels (number and name):
+
+```sh
+shellgame levels
+```
+
+Resume from a specific level (becomes your saved position, so quitting and
+launching `shellgame` again continues from there):
+
+```sh
+shellgame resume <section>.<level>
+```
+
+Example: `shellgame resume 1.4`
+
+Running `shellgame resume` without a level lists the available levels.
+
 Repeat assignment (without resetting):
 
 ```sh

@@ -49,17 +49,37 @@ def _load_template(relative_path: str) -> str:
     return resources.files(package).joinpath(relative_path).read_text(encoding="utf-8")
 
 
+def _quote_for_fish(argument: str) -> str:
+    """Single-quote an argument for fish.
+
+    fish's single quotes are literal apart from `\\` and `'`, which is a
+    different rule from POSIX shells, so `shlex.quote` cannot be reused here.
+    """
+    escaped = argument.replace("\\", "\\\\").replace("'", "\\'")
+    return f"'{escaped}'"
+
+
+def _autostart_command(shell_name: str, pending_command: list[str] | None) -> str:
+    """Render `pending_command` so the integration's autostart can run it."""
+    if not pending_command:
+        return ""
+    quote = _quote_for_fish if shell_name == "fish" else shlex.quote
+    return " ".join(quote(token) for token in pending_command)
+
+
 def _render_template(
     template_text: str,
     *,
     binary_path: str,
     dev_shortcuts: str,
     cd_hook: str,
+    autostart_args: str = "",
 ) -> str:
     return Template(template_text).safe_substitute(
         binary_path=binary_path,
         dev_shortcuts=dev_shortcuts,
         cd_hook=cd_hook,
+        autostart_args=autostart_args,
     )
 
 
@@ -128,7 +148,7 @@ def get_parent_shell() -> str:
     return "unknown"
 
 
-def get_fish_integration(binary_path: str, devmode: bool = False) -> str:
+def get_fish_integration(binary_path: str, devmode: bool = False, *, pending_command: list[str] | None = None) -> str:
     template_text = _load_template("fish_integration.template")
 
     dev_shortcuts = ""
@@ -142,10 +162,11 @@ def get_fish_integration(binary_path: str, devmode: bool = False) -> str:
         binary_path=binary_path,
         dev_shortcuts=dev_shortcuts,
         cd_hook=cd_hook,
+        autostart_args=_autostart_command("fish", pending_command),
     )
 
 
-def get_bash_integration(binary_path: str, devmode: bool = False) -> str:
+def get_bash_integration(binary_path: str, devmode: bool = False, *, pending_command: list[str] | None = None) -> str:
     template_text = _load_template("bash_integration.template")
 
     dev_shortcuts = ""
@@ -159,6 +180,7 @@ def get_bash_integration(binary_path: str, devmode: bool = False) -> str:
         binary_path=binary_path,
         dev_shortcuts=dev_shortcuts,
         cd_hook=cd_hook,
+        autostart_args=_autostart_command("bash", pending_command),
     )
 
 
@@ -181,12 +203,14 @@ def _get_launcher_argv(devmode: bool) -> list[str]:
     return launcher_argv
 
 
-def _create_integration_script(shell_name: str, binary_path: str, devmode: bool) -> str:
+def _create_integration_script(
+    shell_name: str, binary_path: str, devmode: bool, pending_command: list[str] | None = None
+) -> str:
     with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=f".{shell_name}") as f:
         if shell_name == "fish":
-            f.write(get_fish_integration(binary_path, devmode))
+            f.write(get_fish_integration(binary_path, devmode, pending_command=pending_command))
         else:
-            f.write(get_bash_integration(binary_path, devmode))
+            f.write(get_bash_integration(binary_path, devmode, pending_command=pending_command))
         return f.name
 
 
@@ -220,14 +244,14 @@ def _run_subshell(argv: list[str], env: dict[str, str], debug: bool, label: str)
         raise RuntimeError(f"{label.capitalize()} subshell exited with code {proc.returncode}")
 
 
-def launch_subshell(shell_name: str, devmode: bool = False) -> None:
+def launch_subshell(shell_name: str, devmode: bool = False, *, pending_command: list[str] | None = None) -> None:
     launcher_argv = _get_launcher_argv(devmode)
 
     binary_path = " ".join(shlex.quote(p) for p in launcher_argv)
 
     debug = (os.environ.get("SHELLGAME_SUBSHELL_DEBUG") or "").strip() == "1"
 
-    script_path = _create_integration_script(shell_name, binary_path, devmode)
+    script_path = _create_integration_script(shell_name, binary_path, devmode, pending_command)
     fd_hook_path: str | None = None
 
     try:
