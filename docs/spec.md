@@ -29,6 +29,9 @@ ShellGame is a local, single-binary, Linux terminal learning experience for firs
 | `shellgame status` | Show progress, time per level, hints used |
 | `shellgame hint --repeat` | Reprint already revealed hints without consuming a new one |
 | `shellgame skip` | Advance past a bonus (optional or extension) level |
+| `shellgame levels` | List every level with its number and name |
+| `shellgame resume LEVEL` | Jump to `LEVEL` (e.g. `1.4`) and save it as the current position |
+| `shellgame resume` | With no level, lists the levels to choose from |
 | `shellgame repeat` | Re-show a level or a section intro |
 | `shellgame show --level` / `--section` | Re-show the current level or the current section intro |
 | `shellgame exit` | Leave the ShellGame subshell |

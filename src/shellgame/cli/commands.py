@@ -19,7 +19,7 @@ from rich.console import Console
 from shellgame.cli.boot import boot_if_needed
 from shellgame.core.services import GameServices
 from shellgame.core.session import GameSession
-from shellgame.levels.registry import LevelRegistry
+from shellgame.levels.registry import LevelRegistry, parse_level_id
 from shellgame.messages import Messages
 from shellgame.paths import current_directory
 from shellgame.shell.client import ShellClient
@@ -100,6 +100,61 @@ class CzechGroup(click.Group):
             ctx.exit(1)
 
 
+def _pending_command(ctx: click.Context) -> list[str]:
+    """The subcommand this invocation asked for, as argv tokens.
+
+    Running `shellgame <command>` from an ordinary terminal has to launch the
+    game subshell first, which ends this process before the subcommand ever
+    runs. The tokens are handed to the subshell so it can run them once it is
+    up, instead of silently dropping what the player typed.
+    """
+    if ctx.invoked_subcommand is None:
+        return []
+
+    argv = sys.argv[1:]
+    try:
+        start = argv.index(ctx.invoked_subcommand)
+    except ValueError:
+        # The name reaching the group differs from what was typed; forwarding a
+        # guess would be worse than the plain start the player already gets.
+        return []
+    return argv[start:]
+
+
+#: Commands that only print something. They need no workspace, no `cd` hooks
+#: and no game shell, so launching one would trap the player in a subshell they
+#: never asked for and have to `exit` out of.
+_NO_GAME_SHELL_COMMANDS = frozenset({"levels"})
+
+
+def _resume_targets_a_real_level(args: list[str]) -> bool:
+    """Whether `resume` will actually move the player into a level.
+
+    Anything else — no ID, a malformed one, an unknown one, `--help` — only
+    prints, so it must not drag a subshell up behind it.
+    """
+    if len(args) != 1:
+        return False
+
+    level_id = args[0]
+    if parse_level_id(level_id) is None:
+        return False
+    return cast(LevelRegistry, _module_attr("level_registry")).get(level_id) is not None
+
+
+def _runs_without_game_shell(ctx: click.Context) -> bool:
+    command = _pending_command(ctx)
+    if not command:
+        return False
+
+    name, *args = command
+    if name in _NO_GAME_SHELL_COMMANDS:
+        return True
+    if name == "resume":
+        return not _resume_targets_a_real_level(args)
+    return False
+
+
 @click.group(cls=CzechGroup, invoke_without_command=True)
 @click.option("--devmode", is_flag=True, hidden=True, help="Enable developer mode")
 @click.option(
@@ -120,8 +175,13 @@ def cli(ctx: click.Context, devmode: bool, forced_shell: str | None) -> None:
     if forced_shell:
         os.environ["SHELLGAME_FORCE_SHELL"] = forced_shell.lower()
 
+    if not wrapped and _runs_without_game_shell(ctx):
+        # Runs here and the process ends, instead of booting a shell the player
+        # would then have to leave by hand.
+        return
+
     try:
-        boot = boot_if_needed(wrapped=wrapped, devmode=devmode)
+        boot = boot_if_needed(wrapped=wrapped, devmode=devmode, pending_command=_pending_command(ctx))
     except Exception as e:
         cast(Console, _module_attr("console")).print(
             f"[bold red]CHYBA: Nepodařilo se spustit herní shell ({e})[/bold red]"
@@ -179,6 +239,21 @@ def skip() -> None:
 def reset() -> None:
     """Obnovit strukturu aktuálního levelu."""
     _get_session().reset()
+
+
+@cli.command()
+def levels() -> None:
+    """Vypsat všechny dostupné levely."""
+    _get_session().levels()
+
+
+@cli.command()
+@click.argument("level_id", required=False)
+@click.pass_context
+def resume(ctx: click.Context, level_id: str | None) -> None:
+    """Pokračovat ve hře od zvoleného levelu (např. 1.4)."""
+    if not _get_session().resume(level_id):
+        ctx.exit(1)
 
 
 @cli.command()

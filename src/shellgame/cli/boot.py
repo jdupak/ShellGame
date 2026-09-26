@@ -17,7 +17,7 @@ class BootResult:
     exit_code: int = 0
 
 
-def boot_if_needed(*, wrapped: bool, devmode: bool) -> BootResult:
+def boot_if_needed(*, wrapped: bool, devmode: bool, pending_command: list[str] | None = None) -> BootResult:
     if wrapped:
         return BootResult(should_exit=False)
 
@@ -28,5 +28,5 @@ def boot_if_needed(*, wrapped: bool, devmode: bool) -> BootResult:
         detected = detect_interactive_shell()
         target_shell = detected if detected in ("fish", "bash") else "bash"
 
-    launch_subshell(target_shell, devmode)
+    launch_subshell(target_shell, devmode, pending_command=pending_command)
     return BootResult(should_exit=True, exit_code=0)
