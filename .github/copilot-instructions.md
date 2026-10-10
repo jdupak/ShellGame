@@ -1,453 +1,248 @@
 # Copilot Instructions — ShellGame
 
-You are working in **ShellGame**, an interactive terminal learning game written in **Python** using **Click** (CLI) and **Rich** (UI). The game runs inside a wrapped **subshell** (bash or fish) to control navigation, observe commands, and persist progress.
+You are working in **ShellGame**, an interactive terminal learning game written in **Rust**. The game runs inside a wrapped **subshell** (bash or fish) to control navigation, observe commands, and persist progress.
 
-Your job is to make changes that preserve existing UX and gameplay rules. Prefer small, targeted edits and keep user-facing text concise (Czech).
+Player-facing text is **Czech**. Code, identifiers, comments, docs and commit messages are English.
 
-**Before making shell integration changes, read this entire section carefully.**
+Your job is to make changes that preserve existing UX and gameplay rules. Prefer small, targeted edits and keep player-facing text concise.
+
+Read first: `ARCHITECTURE.md` (the whole picture), `docs/AUTHORING.md` (before adding or changing a level or section) and `docs/protocols/SHELL_PROTOCOL.md` (before any shell integration change). **Before touching the shell scripts, read section 4.2 below carefully.**
 
 ---
 
-## 1) Tech stack (what to assume)
+## 1) Tech stack and commands
 
-- Language: **Python 3.10+**
-- Dependency Management: **uv** (use `uv sync`, `uv add`, etc.)
-- Task Runner: **make** (use `make test`, `make lint`, etc.)
-- CLI: **Click**
-- UI: **Rich** panels + consistent helper notes
-- Tests: **pytest** (run via `make test`)
-- Shell integration: wrapped subshell (**bash**/**fish**) — see section 3.2 for critical details
-- Persistence: state saved/loaded between sessions
+- **Rust**, edition 2024, Unix only (Linux and macOS). One crate at the repo root: library plus a thin `main`. The toolchain is pinned in `rust-toolchain.toml`; `Cargo.lock` is committed and CI builds with `--locked`.
+- CLI: **clap** (derive), with Czech help. `cd-hook` and `fd-hook` are parsed by hand before clap, because a `cd` target can be `""`, `-`, `-P` or a directory named `pre`.
+- State: serde, serde_json, indexmap, chrono. UI: anstyle and anstream, pulldown-cmark and our own text layout. rustix for termios and `fstat`.
+- Shell integration: a wrapped **bash** or **fish** (see 4.2).
+- Run before you finish:
+
+```bash
+cargo fmt
+cargo clippy --all-targets -- -D warnings
+cargo test
+```
+
+The suite drives real shells: bash is required, and fish, shellcheck, python3 (pseudo-terminal tests), curl and tar are used when present. There is no Python, uv, PyInstaller or Makefile any more.
 
 ---
 
 ## 2) Where code lives (edit the right place)
 
-### Common responsibilities
-
-- CLI flow, teleport:
-  - `src/shellgame/cli/commands.py`
-
-- Subshell launch, shell detection:
-  - `src/shellgame/cli/subshell.py`
-
-- Shell integration templates (bash/fish):
-  - `src/shellgame/cli/templates/bash_integration.template`
-  - `src/shellgame/cli/templates/fish_integration.template`
-
-- UI panels, wording consistency, indentation, paging:
-  - `src/shellgame/ui/display.py`
-
-- Level setup + validation rules + shell hooks (OOP):
-  - `src/shellgame/levels/sections/section*.py`
-  - Logic specific to a level (hooks, validation) must live in the `Level` class, not global handlers.
-
-- Declarative level infrastructure:
-  - `src/shellgame/levels/collector.py` — section registration and stable local IDs
-  - `src/shellgame/levels/fixture.py` — repeatable workspace setup/cleanup
-  - `src/shellgame/levels/completion.py` — answers and unconditional requirements
-  - `src/shellgame/levels/cdpolicy.py` — declarative `cd` restrictions
-  - `src/shellgame/levels/solution.py` — reference solutions that prove a level is solvable
-  - `src/shellgame/paths.py` — the single path-containment implementation
-
-- Authoring guide (read before adding a level or section):
-  - `docs/AUTHORING.md`
-
-- Section intro markdown (content only; supports paging via `---`):
-  - `src/shellgame/levels/content/section*_intro.md`
-
-- Persistent progress model/load/save:
-  - `src/shellgame/state/manager.py`
-  - Missing state may initialize a game; corrupt state must raise an error and must not be overwritten.
-  - State-changing actions should perform one atomic save.
+| You change | Edit |
+| --- | --- |
+| level content, hints, fixtures, solutions | `src/levels/sNN_<topic>/mod.rs` and the level's `NN-slug.md` |
+| level logic that no builder method expresses | next to the level (`s01_navigace/maze.rs`, `walk.rs`) |
+| the builder, answers, requirements, fixtures, `cd` policies | `src/engine/` (`level.rs`, `answer.rs`, `require.rs`, `fixture.rs`, `cd.rs`, `fd.rs`) |
+| catalog lints | `src/engine/lint.rs` (`Catalog::validate`) |
+| path containment | `src/paths.rs` (the only implementation) |
+| evidence markers | `src/markers.rs` |
+| shared Czech messages | `src/messages.rs` |
+| commands: parsing, then behaviour | `src/cli.rs`, then `src/session.rs` |
+| screens, panels, wording, paging, prompts | `src/ui/screens.rs`, `src/ui/panel.rs`, `src/ui/prompt.rs` |
+| Markdown rendering of assignments | `src/ui/markdown.rs` |
+| persistence | `src/state.rs` |
+| shell scripts | `src/shell/bash.sh` **and** `src/shell/fish.fish` |
+| the protocol, launching, shell detection | `src/shell/protocol.rs`, `launch.rs`, `render.rs`, `detect.rs` |
+| the process environment | `src/env.rs` |
 
 ### Level IDs
-- Declare the persistent section number with `Section(number, ...)`.
-- Declare each stable level suffix locally with `@section.level(number)`.
-- Never derive IDs from declaration order; IDs are persisted in player state.
-- Section intros end with `.0` (e.g., `1.0`, `2.0`) and support paging.
-- Regular levels are `X.Y`.
-- Sections have no `get_levels()` trailer; the loader reads the module-level
-  `section` object. Do not reintroduce one.
+
+- IDs are explicit: `level(8, "...")` in section 2 is `2.8`. Never derive an ID from declaration order, never renumber, never reuse a retired number (section 1 has no `1.11`). IDs are persisted in player state.
+- Section intros are `N.0` and are created with `intro(..)`. Sections are numbered 0, 1, 2, ... without gaps. Inserting a section into existing numbers needs a state migration.
+- A new section is a module `sNN_<topic>` with `pub fn section()`, registered in `catalog()` in `src/levels/mod.rs`.
 
 ---
 
-## 3) Architectural Principles
+## 3) Architectural principles
 
-### 3.1 OOP over Special Casing
-- **Encapsulate logic in Level classes**: Do not hardcode level IDs in `session.py` or `commands.py`.
-- **Use overrides**: If a level needs special behavior (e.g., custom validation, hooks), override the corresponding method in its class.
-- **Declarative configuration**: Regular levels should combine
-  `WorkspaceFixture`, `Completion`, typed answer rules, and typed requirements.
-  Override `setup()` or `validate()` only for genuinely custom behavior.
-- **Unconditional safeguards**: Put filesystem, cwd, permissions, and evidence
-  checks in `Completion.requirements`. Correct or empty answers must never
-  bypass these checks.
-- **Exact completion locations**: Navigation levels must use `AtDirectory`
-  with a section-root-relative path. Never validate only `Path.cwd().name`,
-  because a same-named directory outside the workspace must not satisfy the
-  level.
-- **One path vocabulary**: every path a level declares — `start_directory`,
-  fixtures, requirements, solution steps — is relative to that level's section
-  root. `""` is the section root; use the `WORKSPACE_ROOT` sentinel for the
-  rare level that starts above its own section. Never restate the section
-  directory name inside a level, and never build a path with `state.workspace /
-  ...` in a section module.
-- **Fresh evidence**: Runtime level activation goes through `Level.prepare()`,
-  which clears declarative evidence, applies the section fixture, applies the
-  level fixture, and then runs custom setup. Do not call `setup()` directly
-  from session orchestration.
-- **Safe fixtures**: Fixture paths are relative to the section root. Absolute
-  paths, `..`, cleanup of the fixture root, and symlink escapes are rejected.
-  All containment goes through `paths.resolve_within()`; do not add a second
-  implementation. Declare exact directory modes with `DirectoryFixture` in
-  `WorkspaceFixture.directory_fixtures`; modes are applied after child files so
-  parent permission recovery cannot overwrite the requested final mode.
-- **Declarative movement rules**: strict navigation levels declare a
-  `cd_policy` (`levels/cdpolicy.py`) instead of writing `_handle_cd`. The
-  engine then applies the anti-soft-lock contract structurally. Write a custom
-  `_handle_cd` only for stateful grading that a policy cannot express (level
-  1.9 is the sole example).
-- **Level-local evidence**: a `cd` policy derives its marker from the level ID
-  (`cd_marker("1.4")` → `cd-1.4`). Do not add global marker constants and do
-  not invent ad-hoc dotfile names.
-- **Prove solvability**: a level with custom `validate()`/`setup()`, a
-  `cd_policy`, evidence, or a filesystem requirement must declare a `Solution`
-  (`levels/solution.py`). It is replayed against a throwaway workspace, both
-  fresh and after `reset()`.
+### 3.1 Declarative levels, plain Rust for the exceptions
 
-### 3.2 Thin Shell Integration
-- **Minimal templates**: Keep bash/fish templates as small as possible.
-- **Delegate to Python**: Shell scripts should only capture events (like `cd`) and forward them to Python via hooks or protocol directives.
-- **No game logic in shell**: Do not implement validation or state management in shell scripts.
+- A level is one builder chain: `level(n, title).text(..).start(..).hints([..]).file(..).answer(..).require(..).cd(..).solution(..)`. Where the vocabulary falls short, use an ordinary Rust function (`check`, `.feedback`, `.rule`, `.on_move`, `exact_with`, `.solution_with`). Do not reintroduce a data format for levels.
+- Do not hardcode level IDs in `session.rs` or `cli.rs`. Behaviour specific to a level lives with the level.
+- **Unconditional safeguards.** Filesystem, location, permission and evidence checks are `.require(..)`. They run before the answer, so a correct or empty answer never bypasses them.
+- **Exact completion locations.** Navigation levels use `at(path)`, which compares canonical paths. Never validate only the last directory name: a same-named directory elsewhere must not satisfy the level.
+- **One path vocabulary.** Every path a level declares (`.start`, fixtures, requirements, `cd` rules) is relative to the level's section root. `""` and `"."` are the root; `.start_at_workspace()` is for a level above its section. Never restate the section directory in a level. The lint enforces it.
+- **Fresh evidence.** A level becomes active through `Level::prepare()`: it clears every marker the level references, repairs the section root, then applies the section fixture and the level fixture. Do not apply fixtures by hand from session code.
+- **Safe fixtures.** Absolute paths, `..`, symlinked components and a fixture that targets its own root are rejected. All containment goes through `paths::resolve_within`; do not add a second implementation. Exact directory modes use `.dir_mode(..)`, applied after the files.
+- **Declarative movement rules.** Strict navigation is a `policy()` on the level. The engine performs the anti-soft-lock contract. There is no hand-written shell `cd` logic. Stateful grading (the 1.9 walk) uses `.rule(..)`, `.on_move(..)` and `.manual_evidence()` inside that contract.
+- **Level-local evidence.** The `cd` and `fd` markers derive from the level ID (`.cd-1.4`, `.fd-10.4`). Do not add global marker names or ad-hoc dotfiles; `Marker::Pwd` is the only shared one.
+- **Prove solvability.** Every regular level has a solution, a shell script that the replay runs through the real game shell in bash and fish. Derive answers with the commands the level teaches.
+
+### 3.2 No ambient state
+
+Everything the game needs from the process is in `Env`, built once in `main`. Engine and session code never read `std::env`, the process working directory or `HOME`; they take a `Ctx` or an `Env`. Tests therefore run in parallel with no `chdir` and no `set_var` (`set_var` is `unsafe` in Rust 2024).
+
+### 3.3 Feedback is data
+
+A wrong answer or an unmet requirement is `Check::Fail(text)`, not an error. Errors are for real failures (state, filesystem). Text for the player is printed as written; only a level's `.text(..)` goes through the Markdown renderer.
+
+### 3.4 Thin shell integration
+
+- Keep both scripts as small as possible. They capture events (`cd`, `pwd`) and forward them to the binary through hooks and protocol directives.
+- No game logic, validation or state in shell scripts. The `cd` function is static: it never changes between levels.
 
 ---
 
 ## 4) Hard UX rules (do not break)
 
 ### 4.1 Teleport notices
-ShellGame may auto-`cd` the user to a level start directory.
 
-Rules:
-- Show a teleport notice **only if cwd actually changed**.
-- Notice formatting:
-  - message in **yellow**
-  - destination path in **violet**
-  - **no** “from -> to”
-  - **no** “reason” text
-- Helper must remain: `_teleport_notice(destination: Path)` in `commands.py`
-- Do not change the signature; call sites must not pass `reason=...`.
+The game may `cd` the player to a level's start directory.
 
-### 4.2 Subshell startup (CRITICAL — read carefully)
+- Show the notice **only if the directory actually changed**. The session tracks the player's directory in memory and updates it when it emits a `cd`.
+- Format (`screens::teleport_notice`): the message in **yellow**, the destination in **violet**, **no** "from -> to", **no** reason text.
 
-Both bash and fish use a **single integration template** that includes:
-1. Shell setup (disable interfering features)
-2. Function definitions (`shellgame`, `pwd`, `cd` hooks, `__shellgame_eval`)
-3. Autostart block **at the end** (calls `shellgame` function after it's defined)
+### 4.2 Shell startup (CRITICAL)
 
-#### Bash launch flags
-```bash
-bash --rcfile <integration_script> -i
+Both shells use **one integration script** that does, in order: setup, helper functions, `pwd`, `cd`, the `shellgame` function, completions, **autostart last**.
+
+```text
+bash --rcfile <script> -i
+fish --init-command 'function fish_greeting; end; source $SHELLGAME_INIT'
 ```
 
-**CRITICAL**: Do NOT use `--norc` — it disables `--rcfile` entirely!
-**CRITICAL**: Do NOT use `--noprofile` — let users keep their PATH/env setup.
+- **Never** add `--norc` (it disables `--rcfile`) or `--noprofile` (the player keeps their PATH and environment).
+- The script is the rcfile; there is no second template. Paths reach the shell through `SHELLGAME_BIN`, `SHELLGAME_INIT` and `SHELLGAME_FD_HOOK`, never pasted into script text.
+- Autostart must be the last block, after the `shellgame` function exists. Calling the binary earlier would print protocol lines on the terminal. Never call `shellgame` in the fish init-command.
+- **Protocol.** The binary writes `__SHELLGAME_EXEC__v1 <verb> [base64...]` lines to **stderr only**. The `shellgame` function captures stderr, executes the closed set `cd`, `export`, `echo`, `pwd`, `exit`, and prints other lines unchanged. No `eval`, no generic verb: arguments stay base64 until a verb handler decodes them.
+- **`remove`** closes the shell through the `exit` directive the binary emits. No command name is special-cased in the shell. A declined `remove` must exit non-zero.
+- **The `cd` hook** is one static function: `cd-hook pre <pwd> <prev> -- <args>` before the move (exit status 3 blocks, anything else allows: fail-open), `cd-hook post <old> <new> -- <args>` after a successful move. Teleports use the shell's own `cd` and never run the hook.
+- **fd evidence.** Scripts run `"$SHELLGAME_FD_HOOK"`; never the `shellgame` function, which captures stderr.
+- The workspace comes only from `$SHELLGAME_WORKSPACE`. Never reconstruct it from `$USER` in a script: a stale or foreign directory could collect evidence.
+- **bash 3.2** (macOS) must keep working: no associative arrays, `mapfile`, `${x,,}`, `&>>`, `|&`. Newer `shopt` options stay guarded.
+- **Keep bash and fish in parity.** A change to one script is made in the other, with a `shell_test!` in `tests/shell.rs` that runs in both. New commands also go into the completion word lists of both scripts.
 
-The integration script is used directly as the rcfile. There is NO separate rc template.
+### 4.3 One unified "Press Enter to continue"
 
-#### Fish launch
-```bash
-fish --init-command "function fish_greeting; end; source <integration_script>"
-```
-
-Fish greeting is suppressed inline. Autostart happens inside the integration template.
-
-#### Why autostart is at the end of the template
-The `shellgame` **function** (defined in the template) captures stderr and processes protocol directives (`__SHELLGAME_EXEC__...`). If autostart called the external binary directly (before the function is defined), protocol directives would leak to the terminal.
-
-#### Protocol directives
-Python emits versioned operations to stderr using:
-`__SHELLGAME_EXEC__v1 <verb> [base64-argument...]`.
-The shell wrapper function:
-1. Captures stderr to a temp file
-2. Decodes and dispatches only supported verbs (`cd`, `export`, `echo`, `pwd`, `exit`)
-3. Echoes other stderr lines normally
-
-Do not add a generic `eval` fallback. Protocol arguments must remain encoded
-until the shell-specific verb handler decodes them.
-
-#### `remove` command special handling
-The `shellgame remove` command deletes the workspace (which may be the user's cwd). To avoid `getcwd` errors and leaked protocol lines, the **shell wrapper detects `remove` success and exits the subshell directly** — we do NOT rely on a protocol directive for this.
-
-### 4.3 One unified “Press Enter to continue”
-- Exact text: `Stiskněte Enter pro pokračování...`
-- Use UI helper: `Display.wait_for_continue()`
-- Do not reintroduce custom prompts in CLI code.
+- Exact text: `Stiskněte Enter pro pokračování...`, from `ui::prompt` (`enter_prompt`, `wait_for_enter`). Do not write custom prompts in session code.
+- Prompts print to stdout and appear only when stdin and stdout are terminals, so piped input is never swallowed.
+- Prompts read in non-canonical mode with `ISIG` off: Ctrl-C is a key, not a signal. The process always exits normally.
+- Therefore the `export` and `cd` directives of a level are emitted **before** any prompt.
 
 ### 4.4 Section intro paging (`.0` levels)
-- Intro markdown pages are split by a line containing only `---`
-- Show pages in the standard instruction flow
-- Between pages call `Display.wait_for_continue()`
-- After the last page the engine waits once more, then auto-submits. Intros
-  continue with **Enter**, never `shellgame submit`.
-- Intro copy and intro hints must say Enter. `shellgame submit` is only for
-  real levels.
 
-### 4.5 Hints: progressive + repeat semantics
-- `shellgame hint` reveals the **next** hint and increments hint counter.
-- `shellgame hint --repeat` reprints already revealed hints **without consuming new ones**.
+- Pages are split by a line containing only `---` (`ui::split_pages`), shown in order with the Enter prompt between them. After the last page the session waits once more, then submits automatically.
+- Intro text and hints say **Enter**, never `shellgame submit`. An intro has no answer, requirements or `cd` policy.
 
-Formatting + footers:
-- Under hint panels, helper text must use `Display.note(...)` (indent handled programmatically).
-- Do not bake leading spaces into helper strings.
-- When using `--repeat`:
-  - do **not** print per-hint helper footers repeatedly
-  - print the repeat tip **once at the end**
-  - only show “Potřebujete další pomoc? …” if another hint still exists
-- Render level-authored hint text literally. Rich markup must not consume shell
-  syntax such as `[ab]` or `[a-z]`, in either normal or repeated hints.
+### 4.5 Hints: progressive plus repeat
 
-No-more-hints UX:
-- Show a **yellow framed** panel containing:
-  - `Pro tento level již nejsou k dispozici žádné další nápovědy.`
-- Under it, show a *note* with the tip containing the command in violet:
-  - `[violet]shellgame hint --repeat[/violet]`
-- Do **not** show “To jsou všechny nápovědy…” in this flow.
+- `shellgame hint` reveals the next hint and counts it only when newly revealed. `hint --repeat` reprints the revealed hints without consuming a new one.
+- Helper text under hint panels goes through the screen's note helper (indent handled in code); do not bake leading spaces into strings.
+- With `--repeat`, print no per-hint footers, the repeat tip **once at the end**, and "Potřebujete další pomoc? ..." only if another hint exists.
+- Hint text is printed literally. `[ab]`, `[a-z]` and `*` must survive, in normal and repeated hints.
+- No more hints: a **yellow** panel `Pro tento level již nejsou k dispozici žádné další nápovědy.` with a note under it showing `shellgame hint --repeat` in violet.
+- Zero revealed and zero available are different states. `--repeat` with nothing revealed must show `screens::no_hints_revealed` and never `hints[0]`, which would be a free hint and desynchronise the counter in `shellgame status`. A level with no hints at all uses `screens::no_hints_available`.
+- Hints scaffold progressively: concept, then structure, then the specific command. Hint 1 does not reveal the full command.
 
-Zero-revealed and zero-available are **different** states:
-- `--repeat` with nothing revealed yet must call `Display.show_no_hints_revealed()`.
-  It must **never** print `hints[0]`, which would be a free hint and would
-  desynchronise the hint counter shown by `shellgame status`.
-- A level with no hints at all uses `Display.show_no_hints_available()`.
+### 4.6 Success and failure panels
 
-### 4.6 Success/failure panels
-- Success: **green framed panel**, centered text (`Display.show_success`)
-- Failure: **red framed panel**, centered text (`Display.show_failure`)
-- Prefer panels for major state changes rather than raw console lines.
-- `Display.show_success` must be given the level's own message plus
-  `time_sec` / `hints_used` / `attempts`. Never substitute a generic
-  “Správně!” for a level's `success_message`.
-- `attempts` counts **failed** attempts, so it is labelled `Chybné pokusy`.
+- Success is a **green** centred panel (`screens::success`) with the level's **own** success text and `time`, `hints` and `attempts`. Never substitute a generic "Správně!" for a level's text.
+- `attempts` counts **failed** attempts only (`Chybné pokusy`).
+- Failure is a **red** centred panel (`screens::failure`). A blocked `cd` is a red panel titled `ShellGame (<id>)` plus `messages::CD_RECOVERY_TIP`.
+- Prefer panels for major state changes over raw lines.
 
 ### 4.7 Skipping bonus levels
-- `Level.is_bonus` is `optional or extension`.
-- `shellgame skip` advances only on bonus levels; core levels must show
-  `Display.show_not_skippable(...)`.
-- Skipping is not a completion: it must not write to `levels_complete` and
-  must not show a success panel.
-- Instructions for bonus levels advertise `shellgame skip` via `Display.note`.
+
+- `Level::is_bonus()` is `optional`. `shellgame skip` advances only bonus levels; others get `screens::not_skippable`.
+- Skipping is not a completion: no `levels_complete` entry and no success panel. The bonus panel advertises `shellgame skip` by itself.
 
 ### 4.8 Terminal state
-- Completing the last level sets `GameState.completed_at`.
-- `submit`, `skip`, `hint`, and `show_current_level` must then be inert and
-  only re-show `Display.show_game_complete(state)`.
+
+Completing the last level sets `completed_at`. After that `submit`, `skip`, `hint` and showing the level are inert and only re-display `screens::game_complete`.
 
 ---
 
 ## 5) Level validation rules (gameplay correctness)
 
-### 5.1 “Empty submit” policy (do not workaround in CLI)
-Some levels require an explicit answer argument; `shellgame submit` must not silently succeed.
+### 5.1 Empty submit policy
 
-Enforced expectations:
-- Level **1.1** requires `shellgame submit level-1` (empty submit is invalid)
-- Level **1.4** requires explicit answer
-- Level **1.5** requires explicit answer
-- Level **1.3** requires user to be in directory `alpha` when submitting
+A level that takes an answer must not complete on a bare `shellgame submit`. Give its answer `.required("Musíte zadat ...: shellgame submit <hodnota>")` with the example command. Use `.allow_empty()` only where the file system is the real answer. Never let internals (`None`, `Debug` output, Rust error names) reach the player.
 
-If you need to change this behavior, configure the level's `Completion`; use a
-custom `validate()` only when the result cannot be expressed declaratively.
+### 5.2 Never soft-lock the player
 
-### 5.2 Never leak `None` to the player
-If a level expects an answer and `answer is None`, configure the answer rule's
-`required_message` with a dedicated, friendly message such as:
-- “Musíte zadat odpověď…” plus an example command.
+Strict `cd` levels accept one command shape. That must never become a dead end.
 
-Do not generate user-facing strings that include `None` (e.g., `"'None' ..."`)—special-case it.
-(Level **1.2** already demonstrates this pattern.)
+- Use `.cd(policy()...)`; the engine applies the contract: moves out of scope are allowed, a move to the start directory is always allowed, moves are allowed once the level's `cd` marker exists, and a block always carries the `shellgame reset` tip.
+- `shellgame reset` rebuilds the level **and** moves the player back to its start. Never remove the teleport from `reset`.
+- Lifting movement restrictions is safe because requirements still gate `submit`.
+- The catalog test `every_cd_policy_blocks_something_and_never_traps_the_player` enforces this. Do not weaken it.
+- Fixtures must be able to restore a level after anything a player did (`chmod 000`, a file where a directory belongs, a removed file), so `reset` always works. Do not remove the repair rules in `src/engine/fixture.rs`.
 
-### 5.3 Never soft-lock the player
-Strict `cd` levels only accept one command shape. That must never become a
-dead end.
+### 5.3 Never reveal the answer
 
-- **Prefer `cd_policy`.** A declared policy applies everything below
-  structurally, so a new level cannot forget it. The rules below are the
-  contract a custom `_handle_cd` must honour by hand.
-- Reject a move only through `block_cd(self.id, message)`, which always adds
-  the `shellgame reset` recovery tip.
-- Before rejecting, call
-  `self.cd_enforcement_lifted(<marker>, target=target, pwd=pwd, state=state)`.
-  It lifts enforcement once the evidence marker exists (the drill is done) or
-  when the move returns the player to the level start directory.
-- `shellgame reset` re-exports shell context and re-teleports the player.
-  Do not remove `ensure_user_in_reasonable_place()` from `GameSession.reset()`.
-- Lifting *movement* restrictions is safe because `Completion.requirements`
-  still gate submission.
-- `tests/test_cd_hooks_no_softlock.py` enforces all of the above and fails if a
-  new blocking hook is added without coverage.
+- A wrong submission must not print the expected value. The default is the terse `Nesprávně.`. Write a specific `.error(..)`, `.mistake(..)`, `.feedback(..)` or requirement message only when it teaches without giving the answer away.
+- Failed `at(..)` requirements must not name the target directory. The lint checks answers in messages, `.secret()` answers in hints, and custom `at` messages.
+- Discovery hints teach how to *find* the answer. Command examples are fine for explicitly assigned filesystem tasks.
 
-### 5.4 Never reveal the answer in an error
-A wrong submission must not print the expected value. Answer rules take
-`error_message: str | None = None`; leaving it `None` yields the terse
-`Messages.INCORRECT`. Only write an explicit `error_message` when it teaches
-without giving the answer away.
-`tests/test_level_invariants.py` enforces the default path.
-- This also applies to `mistakes` feedback and failed navigation requirements.
-  `AtDirectory` must not name the expected directory in its default error.
-- Discovery hints teach how to find the answer instead of printing it; retain
-  command examples for explicitly assigned filesystem tasks.
+### 5.4 "Consistency is maintained by the game"
 
-### 5.5 “Consistency is maintained by the game”
-Do not rely on “where the user ended last time”.
-If a level needs a specific start directory, enforce it via:
-- `start_directory` attribute in the level class, and/or
-- a declarative fixture
+Do not rely on where the player ended last time. If a level needs a start directory, declare `.start(..)` and a fixture. Avoid instructions that tell the player to fix state the game can guarantee.
 
-Avoid instructions that tell the user to manually correct state the game can guarantee.
-- Write navigation commands relative to the declared start directory, and never
-  hard-code a workspace username. For `cd -` tasks, ensure the instructed moves
-  establish the intended previous directory.
-- When a command prints a path as the answer, state its reference directory or
-  accept equivalent output after reasonable navigation. Path suffix matching
-  must respect `/` component boundaries.
+- Write navigation commands relative to the start directory. Never hard-code a user name; for `cd -` tasks, spell out the moves that make the previous directory predictable.
+- When a command prints a path as the answer, state its reference directory or accept equivalent output. Suffix matching respects `/` boundaries (`suffix(..)`).
 
-### 5.6 Shell-specific syntax
-- Explicitly mark Bash-only syntax in the affected level and section intro.
-  Do not present Bash's `?` or `[...]` globs as portable to Fish.
-- For filesystem-only exercises, offer `bash -c 'command'` from Fish, then
-  submit in the existing wrapped shell. Do not recommend an unwrapped
-  interactive Bash, which would lose the game's hooks.
-- Portable exercises remain usable in Fish. Displayed command replays must
-  exit successfully, not merely leave a final state that passes validation.
-- Use explicit symbolic `chmod` targets (`u+x`, `a-w`) so the taught outcome
-  does not depend on the player's `umask`.
+### 5.5 Shell-specific syntax
 
-### 5.7 Discovery fixtures
-- Confirm discovery answers using the actual tool taught by the lesson.
-  Binary signatures alone do not guarantee that `file` recognizes an image.
-  Define whether text counts exclude scripts containing `ASCII text`.
-- Teach directory types through the first character of a long listing (`ls -l`
-  or `ls -la` for hidden entries); `d` denotes a directory. Counting fixtures
-  must remove extra entries on reset so their answers stay
-  consistent, and decoy counts should differ from the correct count.
+- Mark bash-only syntax in the affected level and in the section intro. Do not present bash's `?` or `[...]` globs as portable to fish.
+- For filesystem-only exercises, offer `bash -c 'command'` to fish players and let them submit from the wrapped shell. Do not recommend an unwrapped bash: it would lose the game's hooks.
+- Solutions must be valid in both shells (or use `.solution_bash(..)`). Use explicit symbolic `chmod` targets (`u+x`, `a-w`), so the outcome does not depend on `umask`.
+
+### 5.6 Discovery fixtures
+
+- Confirm discovery answers with the tool the lesson teaches. Magic bytes alone may not make `file` print "image", and a script's description also contains `ASCII text`.
+- Teach directory types through the first character of `ls -l`. Counting fixtures remove extra entries on reset (`.clean(..)`), and decoy counts differ from the right one.
 
 ---
 
-## 6) CLI behavior constraints: `repeat` and `show`
-- `repeat` can re-display arbitrary level/section content via options.
-- `show` is intentionally restricted:
-  - only current level (`--level`) OR current section intro (`--section`)
-  - does not accept arbitrary IDs
-- Validate exactly **one** flag is provided.
-- Keep wording concise and user-friendly.
-- When adding a command, also add it to the completion word list in **both**
-  `bash_integration.template` and `fish_integration.template`.
+## 6) CLI behaviour constraints
+
+- Bare `shellgame` shows the current level; outside the game shell it launches the game shell instead. Other commands run directly outside it, with protocol output off.
+- `repeat` can show any level or section. `show` is intentionally restricted to the current level (`--level`) or the current section's intro (`--section`), and needs exactly one flag.
+- `submit` joins several words and accepts a leading `-`.
+- Exit statuses: 0 for all normal gameplay (a wrong answer included), 1 for errors and a declined `remove`, 2 for usage errors, 3 only from `cd-hook pre` when a move is blocked.
+- A game shell started by the Python version may still be running after the binary is replaced. Keep the legacy `cd-hook [TARGET] [PWD]` and `cd-hook --post-move [PWD]` forms, the `SHELLGAME_LEVEL` export and the `--devmode` prefix working.
 
 ---
 
-## 7) How to work effectively (agent checklist)
+## 7) Tests: keep what protects players
 
-When implementing a change:
-
-1. Identify the category:
-   - **UI text/panels** → `ui/display.py`
-   - **shell / teleport / subshell** → `cli/commands.py`
-   - **level rules** → `levels/sections/section*.py`
-   - **shared answer/requirement rule** → `levels/completion.py`
-   - **workspace setup/reset declaration** → `levels/fixture.py`
-   - **`cd` restriction** → `levels/cdpolicy.py`
-   - **reference solution** → `levels/solution.py`
-   - **intro content** → `levels/content/*.md`
-   - **progress/persistence** → `state/manager.py`
-
-   When adding a level or a section, follow `docs/AUTHORING.md`.
-
-2. Preserve established UX:
-   - use `Display.note(...)` for helper notes
-   - use `Display.wait_for_continue()` for pauses
-   - keep Czech text short; style commands in violet when shown as tips
-
-3. After changes, run a quick regression pass:
-   - Run tests: `make test`
-   - Check linting: `make lint`
-   - Verify `shellgame hint` and `shellgame hint --repeat` behaviors above
-   - submit behavior when `answer is None`
-   - teleport notice prints only on actual cwd change
-   - `.0` intro paging via `---`
-   - bash/fish startup suppression still holds
+- Prefer one generic, data-driven check over per-level hand-written cases. A solution replay or a catalog lint covers every level at once.
+- Do not add tests that pin wording or current content, grep source text, or mock the thing under test. Do add a regression test for a bug that could hurt a player.
+- Every behaviour of the shell scripts is tested once per shell (`shell_test!`). Engine rules are unit-tested next to the code.
+- Adding a level needs no new test: its solution and the lints are the test. If a lint fails, the lint is usually right.
 
 ---
 
 ## 8) Known gotchas (avoid regressions)
 
-- `_teleport_notice(destination: Path)` signature must not change.
-- Ensure `shell.cd(...)` is always invoked with parentheses.
-- A level may make its own files read-only (`chmod`). Fixtures must still be
-  able to restore them, so `shellgame reset` keeps working — replace files,
-  never write into an existing read-only one.
-- Fixtures repair file/directory mixups at declared paths, including parent
-  directories, without replacing their root or following symlinks.
-  `DirectoryFixture` may unlink and rebuild a symlink at one of its declared
-  path components, but must never target the fixture root or follow or modify
-  the symlink target.
-  `overwrite=False` preserves existing regular files, not incorrect types.
-  Custom generated files should also use `FileFixture` for this recovery.
-  Fixture cleanup and replacement recursively recover traverse/write permissions
-  so `reset()` succeeds even after `chmod 000` or read-only directories.
-- Use `DirectoryPermissionMode` for an exact directory mode. Like every
-  filesystem requirement, its path is section-root-relative and the level must
-  declare a `Solution`; `Chmod` works for directory solution steps.
-- `Level.prepare()` cleans up accidental non-directory files and restores
-  `stat.S_IRWXU` on the section root directory if damaged, ensuring `shellgame reset`
-  works even if the player damages the section root itself.
-- `Messages.FILE_READ_ERROR` must always include the `shellgame reset` recovery tip.
-- Hints should scaffold progressively (Concept -> Scaffolding/structure -> Specific command)
-  rather than revealing the full command in Hint 1.
-- `FileExists` and `DirectoryExists` with `should_exist=False` check that no
-  entry (file, directory, or symlink) remains at the path.
-- Structural invariant tests must discover levels through
-  `get_registry().list_levels()`, never by grepping method source. Source-based
-  discovery silently stops covering a level the moment its behaviour moves from
-  a hand-written method to a declaration.
-- Never blind-regex the section modules: they mix code paths with user-facing
-  Czech text containing the same literals. Edit them AST-precisely or by hand.
-
-### Shell integration gotchas (IMPORTANT)
-- **NEVER** add `--norc` to bash launch — it disables `--rcfile`.
-- **NEVER** split bash into two templates (integration + rc) — use one template directly as rcfile.
-- **NEVER** call `shellgame` in fish init-command directly — autostart must be inside the template after the function is defined.
-- **NEVER** emit `shell.exit()` from `remove` — the wrapper handles exit directly to avoid protocol leakage.
-- Protocol directives go to **stderr only** — do not emit to stdout.
-- Scripts that must preserve inherited stdout/stderr use the executable path
-  in `$SHELLGAME_FD_HOOK`; do not call the exported `shellgame` wrapper, which
-  captures stderr by design.
-- Marker files live in `state.workspace`; do not reconstruct workspace paths from `$USER`.
-- The shell templates read the workspace **only** from `$SHELLGAME_WORKSPACE`.
-  Never reintroduce a `/tmp/shellgame-$USER` fallback: a stale or foreign
-  directory could then collect evidence markers.
-- The bash protocol dispatch relies on word splitting; keep it wrapped in
-  `set -f` / `set +f` so a payload can never glob against the filesystem.
-- Command-specific tasks that distinguish *how* an outcome is reached must use
-  a level hook plus marker evidence; final-state validation is sufficient only
-  when equivalent commands are intentionally accepted.
-- Fish and bash templates should follow the same pattern: setup → functions → autostart at end.
-- Do not label every filesystem exception as a deleted cwd. Show the actual
-  filesystem failure; use `Messages.CWD_MISSING` only when cwd is unavailable.
+- A level may make its own files read-only (`chmod`). Fixtures replace files and never write into an existing read-only one, so `reset` keeps working.
+- `.keep_file(..)` preserves an existing regular file, not an incorrect type. `no_file(..)` and `no_dir(..)` require that nothing remains, a symlink included.
+- Fixtures end with explicit modes (`0755` directories, `0644` files) unless declared, so a level that grades or depends on permissions declares the modes it needs.
+- A deleted working directory is a normal failure: `Env::cwd` is `None` and rules report `messages::CWD_MISSING`. Show the real filesystem error otherwise; do not label every error as a deleted directory.
+- Read failures include the `shellgame reset` tip (`messages::FILE_READ_ERROR`).
+- State: `state.json` is schema 2.1 and byte-compatible with the earlier Python version (golden files in `tests/state/`). A schema change needs a new version and a migration. Missing state starts a game; **corrupt or unsupported state is an error and is never overwritten**. Every state-changing action performs **one** atomic save, and advancing saves before the next level is prepared.
+- `shellgame remove` deletes a workspace only strictly inside `/tmp` or `$TMPDIR`.
+- Marker files live in the workspace saved in the state; do not reconstruct workspace paths from `$USER`.
+- Command-specific tasks that distinguish *how* an outcome was reached use a `cd` policy or `fd` evidence. Final-state validation is enough only when equivalent commands are intentionally accepted.
+- Do not edit `src/levels/` text with blind search and replace: the modules mix code paths with Czech text containing the same literals.
 
 ### Isolated playtesting
-- Use a throwaway HOME, XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_CACHE_HOME and
-  workspace. Set them before importing modules that create global services.
-- Create a new `StateManager` after isolation is configured, and assert its
-  `state_file` is inside the owned temporary root before any save or CLI run.
-  Changing environment variables does not relocate an existing manager.
-- Never read, overwrite, remove or restore a player's real save during
-  playtesting. Clean only paths created within the isolated test root.
+
+- Use a throwaway `HOME`, `XDG_CONFIG_HOME` and `SHELLGAME_WORKSPACE` (and `TMPDIR` if you test `remove`). Build first and run `target/debug/shellgame`; `cargo run` needs the real `HOME` for cargo and rustup.
+- Check that the state directory is inside the sandbox before the first save. Never read, overwrite, remove or restore a player's real save. Clean only paths you created in the sandbox.
+- Try both shells (`--shell bash`, `--shell fish`). `--devmode` adds the shortcuts `j <id>`, `n`, `p`, `r`, `s`, `e`, `g`.
 
 ---
 
-## 9) Maintenance (keep this file current)
+## 9) Working checklist
 
-- If you change architectural patterns (e.g., moving configuration from CLI to Level classes), **update this file**.
-- If you add new hard UX rules, **add them here**.
-- If you introduce new project values or principles, **update this file**.
-- This file is the source of truth for future agents; keep it accurate.
+1. Find the right place in section 2. For a level or section, follow `docs/AUTHORING.md`.
+2. Preserve UX: screens in `ui/screens.rs`, pauses through `ui::prompt`, short Czech text, commands shown in violet in tips.
+3. Run the three commands of section 1. For shell changes, run `cargo test --test shell` with both shells installed.
+4. Spot-check: `hint` and `hint --repeat`, a bare `submit`, the teleport notice on a real change only, intro paging, startup in bash and fish.
+
+## 10) Maintenance
+
+This file is the source of truth for contributors and agents; keep it accurate. If you change an architectural pattern, add a hard UX rule or introduce a new project principle, update it in the same change.

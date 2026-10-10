@@ -8,72 +8,241 @@ on:
 permissions:
   contents: read
 
+env:
+  CARGO_TERM_COLOR: always
+  # macOS archives are built on every release run, but they are only attached to the GitHub release
+  # when this is "true". Flip it once the macOS content review (GNU-only spots in the levels such
+  # as `ls --help`, `wc` padding, `file` wording and bracket globs under locale collation) has made
+  # the macOS level replay green and `rust-test-macos` is blocking.
+  PUBLISH_MACOS: "false"
+
 jobs:
-  test:
+  rust-test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.14"]
+    # The tests drive real interactive shells; do not let a hang burn the 6 hour default.
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v6
-        with:
-          python-version: ${{ matrix.python-version }}
+      # rust-toolchain.toml pins the toolchain and its components (rustfmt, clippy). Depending on
+      # the rustup version, `show` either installs them itself or only reports that the toolchain
+      # is missing; in that case `toolchain install` (no arguments) installs what the file asks for.
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Install shell tooling
         run: sudo apt-get update && sudo apt-get install --yes fish shellcheck
 
-      - name: Install dependencies
-        run: uv sync --extra dev
-
-      - name: Lint and type-check
-        run: make lint
+      - name: Lint installer
+        run: shellcheck scripts/install.sh
 
       - name: Check formatting
-        run: make format-check
+        run: cargo fmt --check
 
-      - name: Run tests
-        run: make test
+      - name: Lint
+        run: cargo clippy --all-targets --locked -- -D warnings
 
-  build-and-release:
-    if: github.event_name == 'push'
-    needs: test
+      - name: Test
+        run: cargo test --locked
+
+  # Non-blocking until the macOS content review has made the macOS level replay green;
+  # then drop `continue-on-error` and flip PUBLISH_MACOS above.
+  rust-test-macos:
+    runs-on: macos-latest
+    continue-on-error: true
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install shell tooling
+        run: brew install fish shellcheck
+
+      # Players on macOS get the system bash 3.2. Runner images (and Homebrew) can put a bash 5
+      # first on PATH, which would hide bash 3.2 incompatibilities, so shadow it with /bin/bash.
+      # $GITHUB_PATH entries apply to the following steps only, hence the separate check step.
+      - name: Put the system bash first on PATH
+        run: |
+          mkdir -p "$RUNNER_TEMP/system-bash"
+          ln -sf /bin/bash "$RUNNER_TEMP/system-bash/bash"
+          echo "$RUNNER_TEMP/system-bash" >> "$GITHUB_PATH"
+
+      - name: Check shell versions
+        run: |
+          version="$(bash -c 'echo "$BASH_VERSION"')"
+          echo "bash: $(command -v bash) ($version)"
+          fish --version
+          shellcheck --version | sed -n '1,2p'
+          case "$version" in
+            3.2.*) ;;
+            *)
+              echo "::error::expected the system bash 3.2 first on PATH, found $version"
+              exit 1
+              ;;
+          esac
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Lint
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+  # Release binaries, one per target, each built on a native runner. Runs on pushes to the default
+  # branch and on manual dispatch (a dry run on any branch: the archives are uploaded as workflow
+  # artifacts but nothing is published).
+  build:
+    name: build (${{ matrix.target }})
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
+    needs: rust-test
+    runs-on: ${{ matrix.runner }}
+    # macOS legs must not block Linux releases before the macOS content review of the levels;
+    # drop this together with flipping PUBLISH_MACOS.
+    continue-on-error: ${{ matrix.os == 'macos' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            os: linux
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            os: linux
+            arch: aarch64
+          # The arm64 macOS runner builds both macOS architectures.
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+            os: macos
+            arch: aarch64
+          - runner: macos-latest
+            target: x86_64-apple-darwin
+            os: macos
+            arch: x86_64
+    env:
+      # Embedded into the binary at compile time (option_env!) and reported by `--version`.
+      SHELLGAME_BUILD: build-${{ github.run_number }}
+      TARGET: ${{ matrix.target }}
+      ASSET_OS: ${{ matrix.os }}
+      ASSET_ARCH: ${{ matrix.arch }}
+      ASSET_NAME: shellgame-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Add compilation target
+        run: rustup target add "$TARGET"
+
+      # No C dependencies today, so rustc's bundled musl is enough. musl-gcc is cheap insurance for
+      # a future crate with a C build script.
+      - name: Install musl tools
+        if: matrix.os == 'linux'
+        run: sudo apt-get update && sudo apt-get install --yes musl-tools
+
+      # No build cache: release archives are built from a clean target directory.
+      - name: Build
+        run: cargo build --release --locked --target "$TARGET"
+
+      # Run `--version` when this runner can execute the binary: natively, or the x86_64 macOS
+      # binary under Rosetta when the arm64 runner has it. The output must carry SHELLGAME_BUILD.
+      - name: Smoke test
+        run: |
+          bin="target/${TARGET}/release/shellgame"
+          check() {
+            out="$("$@" "$bin" --version)"
+            echo "$out"
+            case "$out" in
+              *"$SHELLGAME_BUILD"*) ;;
+              *)
+                echo "::error::--version does not report $SHELLGAME_BUILD"
+                exit 1
+                ;;
+            esac
+          }
+          host_arch="$(uname -m)"
+          if [ "$host_arch" = arm64 ]; then
+            host_arch=aarch64
+          fi
+          if [ "$host_arch" = "$ASSET_ARCH" ]; then
+            check
+          elif [ "$ASSET_OS" = macos ] && [ "$ASSET_ARCH" = x86_64 ] && arch -x86_64 /usr/bin/true 2>/dev/null; then
+            check arch -x86_64
+          else
+            echo "::notice::Smoke test skipped: this runner cannot execute $TARGET binaries"
+          fi
+
+      # One `shellgame` file per archive: install.sh and `shellgame update` extract exactly that.
+      - name: Package
+        env:
+          COPYFILE_DISABLE: "1" # keep bsdtar on macOS from adding AppleDouble (._shellgame) entries
+        run: |
+          mkdir -p dist/package
+          cp "target/${TARGET}/release/shellgame" dist/package/shellgame
+          tar -czf "$ASSET_NAME" -C dist/package shellgame
+          contents="$(tar -tzf "$ASSET_NAME")"
+          echo "$ASSET_NAME: $contents"
+          if [ "$contents" != "shellgame" ]; then
+            echo "::error::$ASSET_NAME must contain exactly one file, shellgame"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ASSET_NAME }}
+          path: ${{ env.ASSET_NAME }}
+          if-no-files-found: error
+
+  # Publishes the archives of one run as one GitHub release. install.sh downloads
+  # releases/latest/download/shellgame-<os>-<arch>.tar.gz, so the asset names are an interface.
+  publish:
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/download-artifact@v4
         with:
-          python-version: "3.12"
+          pattern: shellgame-*
+          path: dist
+          merge-multiple: true
 
-      - name: Install build dependencies
-        run: uv sync --extra build
+      - name: Hold back macOS archives
+        if: env.PUBLISH_MACOS != 'true'
+        run: rm -fv dist/shellgame-macos-*.tar.gz
 
-      - name: Build Linux binary
-        run: |
-          uv run pyinstaller shellgame.spec
-          mkdir -p dist/package
-          cp dist/shellgame dist/package/shellgame
-          tar -czf shellgame-linux-x86_64.tar.gz -C dist/package shellgame
+      - name: List release assets
+        run: ls -l dist
 
-      - name: Upload release archive
-        uses: actions/upload-artifact@v4
-        with:
-          name: shellgame-linux-x86_64.tar.gz
-          path: shellgame-linux-x86_64.tar.gz
-
-      - name: Publish GitHub release asset
-        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: ShellGame build ${{ github.run_number }}
-          files: shellgame-linux-x86_64.tar.gz
+          # Tag the commit that was built, not whatever the default branch points to by now.
+          target_commitish: ${{ github.sha }}
+          files: dist/shellgame-*.tar.gz
+          fail_on_unmatched_files: true
           draft: false
           prerelease: false
           generate_release_notes: true
