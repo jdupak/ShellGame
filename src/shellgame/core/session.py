@@ -17,7 +17,7 @@ from typing import Any, Protocol
 from shellgame.core.navigation import NavigationManager
 from shellgame.core.progress import ProgressTracker
 from shellgame.levels.base import Level
-from shellgame.levels.registry import LevelRegistry, UnknownLevelError
+from shellgame.levels.registry import LevelRegistry, UnknownLevelError, parse_level_id
 from shellgame.paths import ContainedPathError
 from shellgame.shell.client import ShellClient
 from shellgame.state.manager import GameState, LevelCompletion, StateLoadError, StateManager
@@ -254,6 +254,69 @@ class GameSession:
         self._display.show_instructions(level)
         self._export_shell_context(workspace=state.workspace, level_id=level.id)
         self._navigation_manager.ensure_user_in_reasonable_place(state)
+
+    def levels(self) -> None:
+        """List every level a player can resume into."""
+        registered = self._level_registry.list_levels()
+        if not registered:
+            self._display.show_no_levels_available()
+            return
+
+        state = self._state_manager.load()
+        self._display.show_levels(
+            registered,
+            current_level=state.current_level if state else None,
+            completed=set(state.levels_complete) if state else set(),
+        )
+
+    def resume(self, level_id: str | None) -> bool:
+        """Move the player to `level_id` and make it their saved position.
+
+        Unlike `repeat`, which only reprints an assignment, this rewrites
+        `current_level`, so quitting and launching ShellGame again starts here.
+
+        Returns whether the player was actually moved, so the CLI can exit
+        non-zero when they were not.
+        """
+        # Missing ID is a usage error, but the IDs are the one thing a player
+        # cannot guess, so the listing comes with it rather than just a refusal.
+        if level_id is None:
+            self._display.show_missing_level_id()
+            self.levels()
+            return False
+
+        state = self._state_manager.load()
+        if not state:
+            self._display.show_not_initialized()
+            return False
+
+        # Resolved against the request, never against the saved level: an
+        # explicit target must win even when the save points at a level that
+        # this version renumbered away.
+        if parse_level_id(level_id) is None:
+            self._display.show_invalid_level_id(level_id)
+            return False
+
+        if self._level_registry.get(level_id) is None:
+            self._display.show_unknown_level(level_id)
+            return False
+
+        self._restore_workspace_if_missing(state)
+
+        if not self._prepare_level(level_id, state):
+            return False
+
+        state.current_level = level_id
+        # A finished run makes every gameplay command print the completion
+        # screen instead. Resuming into a level reopens the run, otherwise the
+        # player would land on the level but be unable to play it.
+        state.completed_at = None
+        self._progress_tracker.ensure_level_started(state, level_id=level_id)
+        self._state_manager.save(state)
+
+        self._display.show_resumed(level_id)
+        self.show_current_level()
+        return True
 
     def repeat(self, *, section_num: int | None, level_id: str | None) -> None:
         state = self._state_manager.load()

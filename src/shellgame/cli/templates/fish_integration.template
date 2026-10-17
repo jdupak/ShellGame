@@ -6,6 +6,9 @@
 # We set it without quotes so Fish parses it as a list.
 set -gx SHELLGAME_BINARY $binary_path
 
+# Command forwarded from outside the game shell; empty for a plain launch.
+set -g SHELLGAME_AUTOSTART_LIST $autostart_args
+
 # Ensure SHELLGAME_FD_HOOK exists so scripts (e.g. buggy.sh) can invoke fd-hook directly
 if not set -q SHELLGAME_FD_HOOK; or not test -x "$SHELLGAME_FD_HOOK"
     set -g _sg_fd_hook (mktemp -t sg-fd-hook-XXXXXX.sh 2>/dev/null; or mktemp /tmp/sg-fd-hook-XXXXXX.sh)
@@ -164,12 +167,15 @@ end
 complete -c shellgame -f
 
 # Root commands
-complete -c shellgame -n "__fish_shellgame_needs_command" -a "init hint submit skip status reset repeat show remove exit"
+complete -c shellgame -n "__fish_shellgame_needs_command" -a "init hint submit skip status reset resume levels repeat show remove exit"
 complete -c shellgame -s h -l help -d "Zobrazit nápovědu"
 
 # Options for hint
 complete -c shellgame -n "__fish_seen_subcommand_from hint" -s r -l repeat -d "Zobrazit znovu všechny již zobrazené nápovědy"
 complete -c shellgame -n "__fish_seen_subcommand_from hint" -s h -l help -d "Zobrazit nápovědu"
+
+# Options for resume
+complete -c shellgame -n "__fish_seen_subcommand_from resume" -s h -l help -d "Zobrazit nápovědu"
 
 # Options for repeat
 complete -c shellgame -n "__fish_seen_subcommand_from repeat" -l section -d "Číslo sekce ke zopakování"
@@ -195,5 +201,8 @@ complete -c g -w shellgame
 # This must be at the end so the shellgame function is already defined.
 if test "$SHELLGAME_AUTO_STARTED" = "0"
     set -gx SHELLGAME_AUTO_STARTED 1
-    shellgame
+    # A command typed outside the game shell (e.g. `shellgame resume 6.2`)
+    # cannot run before this shell exists, so Python injects it here as a list
+    # and it is replayed once the shell is up. Empty for a plain launch.
+    shellgame $SHELLGAME_AUTOSTART_LIST
 end

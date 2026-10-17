@@ -12,6 +12,13 @@ shopt -s globasciiranges 2>/dev/null || true
 declare -a SHELLGAME_BINARY_ARR
 eval "SHELLGAME_BINARY_ARR=($binary_path)"
 
+# Command forwarded from outside the game shell; empty for a plain launch.
+# Python injects already-quoted tokens, which are valid bash source here, so
+# this must NOT go through eval: the quoting would be parsed a second time and
+# arguments containing quotes would lose them.
+declare -a SHELLGAME_AUTOSTART_ARR
+SHELLGAME_AUTOSTART_ARR=($autostart_args)
+
 # Ensure SHELLGAME_FD_HOOK exists so scripts (e.g. buggy.sh) can invoke fd-hook directly
 if [ -z "${SHELLGAME_FD_HOOK:-}" ] || [ ! -x "${SHELLGAME_FD_HOOK:-}" ]; then
     _sg_fd_hook="$(mktemp "${TMPDIR:-/tmp}/sg-fd-hook-XXXXXX.sh" 2>/dev/null || mktemp /tmp/sg-fd-hook-XXXXXX.sh)"
@@ -162,7 +169,7 @@ _shellgame_completions()
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
 
-  local commands="init hint submit skip status reset repeat show remove exit"
+  local commands="init hint submit skip status reset resume levels repeat show remove exit"
 
   if [ "$COMP_CWORD" -eq 1 ]; then
     if [[ "${cur}" == -* ]]; then
@@ -205,12 +212,15 @@ export -f shellgame
 # This must be at the end so the shellgame function is already defined.
 if [ -z "${SHELLGAME_AUTO_STARTED:-}" ]; then
     export SHELLGAME_AUTO_STARTED=1
+    # A command typed outside the game shell (e.g. `shellgame resume 6.2`)
+    # cannot run before this shell exists, so Python injects it here as argv
+    # and it is replayed once the shell is up. Empty for a plain launch.
     if [ "${SHELLGAME_SUBSHELL_DEBUG:-}" = "1" ]; then
-        echo "[shellgame][debug][bash] autostarting shellgame..." >&2
+        echo "[shellgame][debug][bash] autostarting shellgame ${SHELLGAME_AUTOSTART_ARR[*]:-}..." >&2
         set -x
-        shellgame
+        shellgame ${SHELLGAME_AUTOSTART_ARR[@]+"${SHELLGAME_AUTOSTART_ARR[@]}"}
         { set +x; } 2>/dev/null || true
     else
-        shellgame
+        shellgame ${SHELLGAME_AUTOSTART_ARR[@]+"${SHELLGAME_AUTOSTART_ARR[@]}"}
     fi
 fi

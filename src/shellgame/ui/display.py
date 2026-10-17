@@ -294,6 +294,70 @@ class Display:
     def show_reset(self, level_id: str) -> None:
         self.console.print(f"[green]✓ Level {level_id} byl resetován.[/green]\n")
 
+    def show_resumed(self, level_id: str) -> None:
+        self.console.print(f"[green]✓ Pokračujete od levelu {level_id}.[/green]\n")
+
+    _LEVEL_LIST_TIP = "[dim]Seznam všech levelů: [violet]shellgame levels[/violet][/dim]"
+
+    def show_invalid_level_id(self, level_id: str) -> None:
+        self.console.print(f"[red]Chyba: Neplatné ID levelu: {level_id}[/red]")
+        self.note(
+            "[dim]Použijte formát [violet]sekce.level[/violet], například: [violet]shellgame resume 1.4[/violet][/dim]"
+        )
+        self.note(self._LEVEL_LIST_TIP)
+        self.console.print()
+
+    def show_missing_level_id(self) -> None:
+        self.console.print("[red]Chyba: Chybí ID levelu.[/red]")
+        self.note(
+            "[dim]Použití: [violet]shellgame resume <LEVEL_ID>[/violet], "
+            "například: [violet]shellgame resume 1.4[/violet][/dim]"
+        )
+        self.console.print()
+
+    def show_unknown_level(self, level_id: str) -> None:
+        self.console.print(f"[red]Chyba: Level {level_id} neexistuje.[/red]")
+        self.note(self._LEVEL_LIST_TIP)
+        self.console.print()
+
+    def show_levels(
+        self,
+        levels: list[Any],
+        *,
+        current_level: str | None = None,
+        completed: set[str] | None = None,
+    ) -> None:
+        """List every level, grouped by section, with the player's position.
+
+        The section intro (`X.0`) carries the section's name, so it titles the
+        group instead of becoming a row of its own.
+        """
+        done = completed or set()
+
+        table = Table(title="Dostupné levely")
+        table.add_column("Level", style="cyan", no_wrap=True)
+        table.add_column("Název")
+        table.add_column("", no_wrap=True)
+
+        for level in sorted(levels, key=lambda item: _level_sort_key((item.id, item))):
+            marker = ""
+            if level.id == current_level:
+                marker = "[bold yellow]▸ zde[/bold yellow]"
+            elif level.id in done:
+                marker = "[green]✓[/green]"
+
+            name = level.title
+            if getattr(level, "is_intro", False):
+                name = f"[bold]{name}[/bold]"
+            elif getattr(level, "is_bonus", False):
+                name = f"{name} [dim](nepovinný)[/dim]"
+
+            table.add_row(level.id, name, marker)
+
+        self.console.print(table)
+        self.note("[dim]Pokračovat od zvoleného levelu: [violet]shellgame resume 1.4[/violet][/dim]")
+        self.console.print()
+
     def show_current_directory(self, path: str | Path) -> None:
         self.console.print(f"[dim]Aktuální adresář: {path}[/dim]")
 
