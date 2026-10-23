@@ -72,8 +72,10 @@ chmod() {
 # passed on unchanged. The arguments come from the player, so shellcheck sees none.
 # shellcheck disable=SC2120
 shellgame() {
-    local stderr_file line payload exit_code=0
+    local stderr_file line payload cr exit_code=0
     local -a words
+    # A carriage return made by printf: a literal one would garble `type shellgame` on screen.
+    printf -v cr '\r'
     stderr_file="$(command mktemp)" || return 1
 
     "$SHELLGAME_BIN" "$@" 2>"$stderr_file" || exit_code=$?
@@ -81,7 +83,7 @@ shellgame() {
     # `exit` removes the file while it is read; the open descriptor stays valid.
     # shellcheck disable=SC2094
     while IFS= read -r line || [ -n "$line" ]; do
-        line="${line%$'\r'}" # exactly one CR; stderr is otherwise replayed as it is
+        line="${line%"$cr"}" # exactly one CR; stderr is otherwise replayed as it is
         if [[ "$line" == __SHELLGAME_EXEC__* ]]; then
             # Split on single spaces, never evaluate. The sentinel space keeps an empty last argument.
             payload="${line#__SHELLGAME_EXEC__} "
