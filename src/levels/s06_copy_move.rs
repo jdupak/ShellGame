@@ -333,7 +333,7 @@ pub const SECTION: Section = Section {
                 test -n "$BASH_VERSION" && shopt -s expand_aliases
                 alias hra='shellgame'
                 type hra
-                hra submit "$(type shellgame | head -n 1 | cut -d' ' -f4)"
+                hra submit "$(type -t shellgame)"
             "#,
             success: "Výborně! Příkaz type ukáže, co se skrývá za jménem příkazu. Alias hra vám teď ušetří psaní.",
             ..LEVEL
