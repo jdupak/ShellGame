@@ -17,7 +17,7 @@ use crate::game::Pos;
 use crate::sandbox;
 use crate::session::{BLOCKED, FAILURE, Flow, Halt, OK, Session};
 use crate::shell::{self, Directives, ENV_PENDING, LaunchOptions, ShellKind};
-use crate::ui::{BOLD_RED, Term, screens};
+use crate::ui::{BOLD_RED, RED, Term, screens};
 
 const BUILD: &str = match option_env!("SHELLGAME_BUILD") {
     Some(build) => build,
@@ -171,6 +171,41 @@ fn parse(args: &[OsString]) -> Result<Cli, clap::Error> {
     Cli::from_arg_matches(&matches)
 }
 
+/// Prints a command-line error and returns its status. Help and the version go out as clap writes
+/// them; a mistyped command, argument or value is told in Czech (clap's words are English).
+fn usage(error: clap::Error) -> i32 {
+    use clap::error::{ContextKind as K, ContextValue, ErrorKind};
+    let value = |kind| match error.get(kind)? {
+        ContextValue::String(text) => Some(text.clone()),
+        ContextValue::Strings(texts) => Some(texts.join(", ")),
+        _ => None,
+    };
+    let similar = |kind| value(kind).map(|name| format!(" Měli jste na mysli '{name}'?"));
+    let what = match error.kind() {
+        ErrorKind::InvalidSubcommand => value(K::InvalidSubcommand).map(|name| {
+            format!(
+                "Neznámý příkaz '{name}'.{}",
+                similar(K::SuggestedSubcommand).unwrap_or_default()
+            )
+        }),
+        ErrorKind::UnknownArgument => value(K::InvalidArg).map(|arg| {
+            format!("Nečekaný argument '{arg}'.{}", similar(K::SuggestedArg).unwrap_or_default())
+        }),
+        ErrorKind::InvalidValue => value(K::InvalidValue)
+            .zip(value(K::ValidValue))
+            .map(|(given, valid)| format!("Neplatná hodnota '{given}'. Možnosti: {valid}.")),
+        _ => None,
+    };
+    let Some(what) = what else {
+        let _ = error.print();
+        return error.exit_code();
+    };
+    let term = Term::stderr();
+    term.print(&screens::say(&term, RED, &format!("Chyba: {what}")));
+    term.print(&screens::cmd_note(&term, "Přehled příkazů: ", "shellgame --help"));
+    error.exit_code()
+}
+
 /// The hook commands of the game shell; `None` for everything else.
 fn hook(args: &[OsString], env: &Env) -> Option<i32> {
     let (name, rest) = args.split_first()?;
@@ -288,10 +323,7 @@ pub fn main() -> i32 {
     }
     let cli = match parse(&args) {
         Ok(cli) => cli,
-        Err(error) => {
-            let _ = error.print();
-            return error.exit_code();
-        }
+        Err(error) => return usage(error),
     };
     if cli.version {
         let _ = writeln!(io::stdout(), "{}", version_line());
@@ -311,10 +343,7 @@ pub fn main() -> i32 {
         let args: Vec<OsString> = pending.split('\u{1f}').map(OsString::from).collect();
         match parse(&args) {
             Ok(parsed) => command = parsed.command,
-            Err(error) => {
-                let _ = error.print();
-                return error.exit_code();
-            }
+            Err(error) => return usage(error),
         }
     }
     let result = dispatch(&mut session, command);

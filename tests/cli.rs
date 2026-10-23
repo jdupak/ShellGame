@@ -525,6 +525,15 @@ fn the_hooks_fail_open() {
 }
 
 #[test]
+fn a_mistyped_command_names_what_was_typed_and_what_was_meant() {
+    let g = World::new();
+    let r = g.run(&["sumbit", "x"]);
+    assert!(r.code == 2 && r.err.contains("'sumbit'") && r.err.contains("'submit'"), "{r:#?}");
+    let r = g.run(&["--shell", "zsh"]);
+    assert!(r.code == 2 && r.err.contains("'zsh'") && r.err.contains("bash, fish"), "{r:#?}");
+}
+
+#[test]
 fn update_replaces_the_binary_with_the_downloaded_release() {
     if !have("curl") || !have("tar") {
         return eprintln!("SKIPPED: curl and tar are needed");
