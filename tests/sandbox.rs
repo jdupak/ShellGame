@@ -122,6 +122,11 @@ fn play(w: &World, shell: ShellKind, sandbox: bool, python: bool) -> String {
     let [input, out, err] = ["input", "stdout", "stderr"].map(|name| w.root.join(name));
     fs::write(&input, script).unwrap();
     let options = LaunchOptions { shell, binary: BIN.into(), state_dir: w.state.clone(), sandbox };
+    // A fish player has fish's own directories (see `World::new`); fish 3.3 warns when it cannot
+    // make them, and the sandbox forbids that.
+    for dir in ["CONFIG/fish", "DATA/fish"] {
+        fs::create_dir_all(w.out.join(dir)).unwrap();
+    }
 
     let status = launch_with(&options, |command| {
         command.stdin(File::open(&input).unwrap()).current_dir(&w.cwd);
