@@ -84,10 +84,22 @@ jobs:
 
       # "required" turns "Landlock is unavailable" from a skip into a failure, so the sandbox tests
       # cannot be skipped unnoticed on these runners.
+      # --no-fail-fast: a failing suite must not hide the failures of the suites after it.
       - name: Test
         env:
           SHELLGAME_TEST_LANDLOCK: required
-        run: cargo test --locked
+        run: cargo test --locked --no-fail-fast
+
+      # Students play in a Czech locale, which changes the output of tools the levels lean on
+      # (sort order, `ls --help`, bash's own messages): replay the course there too.
+      - name: Test the course in the Czech locale
+        if: matrix.lint
+        env:
+          SHELLGAME_TEST_LANDLOCK: required
+          SHELLGAME_TEST_LOCALE: cs_CZ.UTF-8
+        run: |
+          sudo locale-gen cs_CZ.UTF-8
+          cargo test --locked --test e2e
 
   # Players on macOS get the system bash 3.2, the oldest bash the integration script supports: the
   # shell tests run there and block a release. The rest is non-blocking until the macOS content

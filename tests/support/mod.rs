@@ -46,10 +46,14 @@ pub fn landlock() -> bool {
     works
 }
 
-/// `C.UTF-8` where the system has it (level texts are Czech), else `C`.
+/// `$SHELLGAME_TEST_LOCALE` (students play in `cs_CZ.UTF-8`), else `C.UTF-8` where the system has
+/// it (level texts are Czech), else `C`.
 fn locale() -> &'static str {
     static LOCALE: OnceLock<&str> = OnceLock::new();
     LOCALE.get_or_init(|| {
+        if let Ok(locale) = std::env::var("SHELLGAME_TEST_LOCALE") {
+            return locale.leak();
+        }
         let charmap = Command::new("locale").arg("charmap").env("LC_ALL", "C.UTF-8").output();
         let utf8 = charmap.is_ok_and(|o| String::from_utf8_lossy(&o.stdout).trim() == "UTF-8");
         if utf8 { "C.UTF-8" } else { "C" }
