@@ -1,0 +1,65 @@
+# Publishes `cargo doc` (the README as the front page, the course with each section's learning
+# goals, the code) to GitHub Pages once CI has succeeded on a push to main, for the commit CI tested.
+# Needs Settings > Pages > Source: "GitHub Actions". `workflow_run` only fires for this file as it is
+# on the default branch.
+name: Docs
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: Build docs
+        run: cargo doc --no-deps --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+      - name: Add a root page
+        run: |
+          rm -f target/doc/.lock
+          echo '<meta http-equiv="refresh" content="0; url=shellgame/index.html">' > target/doc/index.html
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: target/doc
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

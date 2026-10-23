@@ -1,70 +1,35 @@
-# ShellGame shell integration for Bash
-#
-# The launcher (src/shell/launch.rs) starts `bash --rcfile <this file> -i` and hands over everything
-# this script needs through the environment, so no path is ever pasted into this text:
-#   SHELLGAME_WRAPPER   1: the binary knows it runs inside the game shell
-#   SHELLGAME_BIN       absolute path of the shellgame binary
-#   SHELLGAME_INIT      path of this script
-#   SHELLGAME_FD_HOOK   path of the fd-hook launcher (level scripts execute it)
-# The binary itself exports SHELLGAME_WORKSPACE and SHELLGAME_LEVEL through the protocol below.
-#
-# This file must stay compatible with bash 3.2 (the system bash on macOS): no associative arrays,
-# mapfile/readarray, case modification (${x,,}), &>> or |&.
+# shellcheck shell=bash
+# ShellGame integration for bash: `bash --rcfile <this file> -i`; the contract is in src/shell/mod.rs.
+# Must stay bash 3.2 compatible (no associative arrays, mapfile, ${x,,}, &>>, |&). Functions use
+# `cmd || rc=$?`, not `cmd; rc=$?`, so they keep working when the player has run `set -e`.
 
-# Disable shell features that can interfere with the game.
+# Features that would interfere with the game.
 unset PROMPT_COMMAND
 set +o histexpand
 shopt -u checkwinsize 2>/dev/null || true
 shopt -s globasciiranges 2>/dev/null || true
 
-@DEV_SHORTCUTS@
-
-# Decode one base64-encoded protocol argument.
 __shellgame_decode() {
     printf '%s' "$1" | base64 --decode
 }
 
-# Execute one closed protocol operation.
-# Arguments: <stderr file> <version> <verb> [<base64 argument>...]
-# Uses `builtin cd` to bypass the user-facing cd hook when the game teleports.
+# Runs one directive: <stderr file> <version> <verb> [<base64 argument>...]. A closed set, never eval.
 __shellgame_eval() {
-    local stderr_file="$1"
-    [ "$#" -ge 3 ] || return 2
-    local version="$2"
-    local verb="$3"
+    local stderr_file="$1" version="${2-}" verb="${3-}" name value
+    [ "$#" -ge 3 ] && [ "$version" = v1 ] || return 2
     shift 3
-
-    if [ "$version" != "v1" ]; then
-        return 2
-    fi
-
-    case "$verb" in
-        cd)
-            [ "$#" -eq 1 ] || return 2
-            local destination
-            destination="$(__shellgame_decode "$1")" || return 2
-            builtin cd -- "$destination"
+    case "$verb:$#" in
+        cd:1)
+            value="$(__shellgame_decode "$1")" || return 2
+            builtin cd -- "$value" || return
             ;;
-        export)
-            [ "$#" -eq 2 ] || return 2
-            local name value
+        export:2)
             name="$(__shellgame_decode "$1")" || return 2
             value="$(__shellgame_decode "$2")" || return 2
             [[ "$name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || return 2
-            printf -v "$name" '%s' "$value"
-            export "$name"
+            export "$name=$value"
             ;;
-        echo)
-            [ "$#" -eq 1 ] || return 2
-            __shellgame_decode "$1"
-            printf '\n'
-            ;;
-        pwd)
-            [ "$#" -eq 0 ] || return 2
-            builtin pwd
-            ;;
-        exit)
-            [ "$#" -eq 0 ] || return 2
+        exit:0)
             command rm -f "$stderr_file"
             builtin exit 0
             ;;
@@ -74,76 +39,51 @@ __shellgame_eval() {
     esac
 }
 
-# Status handling below uses `cmd || rc=$?` instead of `cmd; rc=$?`, so these functions also work
-# when the player has run `set -e` in the shell: a failing command must not end the shell before
-# the function has done its job (replayed the output, allowed the move, cleaned up).
-
+# Records that the player used `pwd`, for the levels that ask for it. The workspace is only ever
+# supplied by the game; never guess it.
 pwd() {
     local rc=0
     builtin pwd "$@" || rc=$?
-    # Record usage for game verification.
-    # The workspace is only ever supplied by the game; never guess it.
-    if [ "$rc" -eq 0 ] && [ -n "${SHELLGAME_WORKSPACE:-}" ] && [ -d "$SHELLGAME_WORKSPACE" ]; then
-        command touch "$SHELLGAME_WORKSPACE/.pwd_used"
-    fi
+    [ "$rc" -eq 0 ] && [ -d "${SHELLGAME_WORKSPACE:-}" ] && command touch "$SHELLGAME_WORKSPACE/.pwd_used"
     return "$rc"
 }
 
-# The one `cd` hook for every level. The binary decides from its saved state whether a move is
-# allowed, so this function never changes between levels.
+# The one `cd` hook for every level: the binary decides. Status 3 blocks; any other status, a crash
+# or a missing binary allows the move, so a broken hook can never lock the player in.
 cd() {
     local before="$PWD" rc=0
-
-    # Ask the binary whether this move is allowed: `cd-hook pre <pwd> <previous dir> -- <cd args>`.
-    # It runs directly, not through `shellgame`, so its explanation reaches the terminal live and
-    # nothing is relocated or replayed. Exit status 3 means "blocked"; every other status
-    # (0, a crash, a missing binary) allows the move, so a broken hook can never lock the player in.
     "$SHELLGAME_BIN" cd-hook pre "$before" "${OLDPWD:-}" -- "$@" || rc=$?
-    if [ "$rc" -eq 3 ]; then
-        return 1
-    fi
-
+    [ "$rc" -eq 3 ] && return 1
     rc=0
     builtin cd "$@" || rc=$?
-
-    # Report the completed move so the level can track progress. `$PWD` is where we really are.
-    if [ "$rc" -eq 0 ]; then
-        "$SHELLGAME_BIN" cd-hook post "$before" "$PWD" -- "$@" >/dev/null 2>&1 || true
-    fi
-
+    [ "$rc" -eq 0 ] && { "$SHELLGAME_BIN" cd-hook post "$before" "$PWD" -- "$@" >/dev/null 2>&1 || true; }
     return "$rc"
 }
 
+# A typed chmod outside /tmp is refused (status 3); anything else, also a broken binary, runs it.
+chmod() {
+    local rc=0
+    command "$SHELLGAME_BIN" guard -- "$@" || rc=$?
+    [ "$rc" -eq 3 ] && return 1
+    command chmod "$@"
+}
+
+# Runs the binary with stderr captured, then replays it: directive lines are executed, the rest is
+# passed on unchanged. The arguments come from the player, so shellcheck sees none.
+# shellcheck disable=SC2120
 shellgame() {
-    local stderr_file
+    local stderr_file line payload exit_code=0
+    local -a words
     stderr_file="$(command mktemp)" || return 1
 
-    # If the current working directory was deleted, relocate before running the binary.
-    if [ ! -d "$PWD" ]; then
-        if [ -n "${SHELLGAME_WORKSPACE:-}" ] && [ -d "$SHELLGAME_WORKSPACE" ]; then
-            builtin cd -- "$SHELLGAME_WORKSPACE" 2>/dev/null || builtin cd /tmp 2>/dev/null || true
-        else
-            builtin cd /tmp 2>/dev/null || true
-        fi
-    fi
-
-    # stdin and stdout stay on the terminal; only stderr is captured and replayed below.
-    # The binary is executed as argv, never via eval/string splitting.
-    local exit_code=0
     "$SHELLGAME_BIN" "$@" 2>"$stderr_file" || exit_code=$?
 
-    local line payload
-    local -a words
+    # `exit` removes the file while it is read; the open descriptor stays valid.
+    # shellcheck disable=SC2094
     while IFS= read -r line || [ -n "$line" ]; do
-        # Keep exact output except for removing a single trailing CR.
-        # Do NOT trim generally; it can corrupt legitimate stderr.
-        line="${line%$'\r'}"
-
-        # Only treat lines that start with the marker as directives.
-        # This prevents leaking protocol lines to the user.
+        line="${line%$'\r'}" # exactly one CR; stderr is otherwise replayed as it is
         if [[ "$line" == __SHELLGAME_EXEC__* ]]; then
-            # Split the payload on single spaces without ever evaluating it. The sentinel space
-            # keeps an empty last argument (an empty base64 string) as an empty word.
+            # Split on single spaces, never evaluate. The sentinel space keeps an empty last argument.
             payload="${line#__SHELLGAME_EXEC__} "
             words=()
             while [ -n "$payload" ]; do
@@ -157,60 +97,35 @@ shellgame() {
     done < "$stderr_file"
 
     command rm -f "$stderr_file"
-
-    # The binary asks for the game shell to close with the `exit` directive (for example after
-    # `shellgame remove`), so no command name is special-cased here.
     return "$exit_code"
 }
 
-_shellgame_completions()
-{
-  local cur subcmd
-  COMPREPLY=()
-  cur="${COMP_WORDS[COMP_CWORD]}"
-
-  local commands="init hint submit skip status reset repeat show remove exit update"
-
-  if [ "$COMP_CWORD" -eq 1 ]; then
-    if [[ "${cur}" == -* ]]; then
-      COMPREPLY=( $(compgen -W "--help" -- "${cur}") )
-    else
-      COMPREPLY=( $(compgen -W "${commands}" -- "${cur}") )
-    fi
-    return 0
-  fi
-
-  subcmd="${COMP_WORDS[1]}"
-  case "${subcmd}" in
-    hint)
-      COMPREPLY=( $(compgen -W "-r --repeat --help" -- "${cur}") )
-      ;;
-    repeat)
-      COMPREPLY=( $(compgen -W "--section --level --help" -- "${cur}") )
-      ;;
-    show)
-      COMPREPLY=( $(compgen -W "--section --level --help" -- "${cur}") )
-      ;;
-    submit)
-      COMPREPLY=( $(compgen -f -- "${cur}") )
-      ;;
-    dev)
-      if [ "$COMP_CWORD" -eq 2 ]; then
-        COMPREPLY=( $(compgen -W "jump next prev reload start" -- "${cur}") )
-      fi
-      ;;
-    *)
-      ;;
-  esac
+# Sets COMPREPLY to the lines a command prints, one word each, spaces kept (bash 3.2 has no mapfile).
+__shellgame_reply() {
+    local word
+    COMPREPLY=()
+    while IFS= read -r word; do COMPREPLY+=("$word"); done < <("$@")
 }
-complete -F _shellgame_completions shellgame sg g
 
-# Export the functions so `shellgame` also works in child bash processes
-# (SHELLGAME_BIN is exported by the launcher). The protocol helpers must travel with it.
+_shellgame_completions() {
+    local cur="${COMP_WORDS[COMP_CWORD]}" opts="--help"
+    if [ "$COMP_CWORD" -eq 1 ]; then
+        case "$cur" in
+            -*) ;;
+            *) opts="hint submit status reset show levels resume remove exit update" ;;
+        esac
+    elif [ "${COMP_WORDS[1]}" = submit ]; then
+        __shellgame_reply compgen -f -- "$cur"
+        return 0
+    fi
+    __shellgame_reply compgen -W "$opts" -- "$cur"
+}
+complete -F _shellgame_completions shellgame
+
+# Child bash processes can call `shellgame` too (SHELLGAME_BIN is exported by the launcher).
 export -f __shellgame_decode __shellgame_eval shellgame
 
-# Autostart block (runs once when integration is sourced).
-# This must be at the end so the shellgame function is already defined.
+# Autostart: last, so that everything above is defined.
 if [ -z "${SHELLGAME_AUTO_STARTED:-}" ]; then
     export SHELLGAME_AUTO_STARTED=1
     shellgame

@@ -1,159 +1,197 @@
-//! Level content: the whole course, one module per section.
+//! The whole course, in order: twelve sections from the welcome ([`s00_welcome`]) to searching
+//! ([`s11_search`]), listed once in [`COURSE`]. Each section's page below states its goals.
 //!
-//! A section module (`s04_vytvareni`, ...) has a `section()` that lists its levels, one small
-//! function per level, and next to it the assignment of every level as a Markdown file
-//! (`NN-slug.md`, the intro is `00-uvod.md`) that the level includes with `include_str!`.
-//! Level ids are explicit, so the 1.11 gap stays a gap and reordering never renumbers.
+//! **Audience.** First-semester students new to the shell. Players read Czech, the rest is English.
 //!
-//! [`catalog()`] collects the sections; `Catalog::validate` lints the result.
+//! **Structure.** A [`Section`] is a title, an intro (pages split by `---`) and its levels. A
+//! [`Level`](crate::game::Level) is one struct literal: the assignment, escalating hints, the
+//! files it sets up, how it is judged (an answer, checks on files and location, or both) and a
+//! solution script that the tests replay.
+//!
+//! **Numbers are positions.** "S.L" is the L-th level of the S-th section of [`COURSE`]; there are
+//! no ids, so adding, moving or removing a level or section renumbers what follows and shifts saved
+//! games. Section S works in `level-S` of the workspace.
+//!
+//! **Progression.** Linear and cumulative: a section may use what earlier ones taught and asks for
+//! nothing that a later one teaches, except a few tools its text hands over ready-made (`file *` in
+//! [`s05_inspect`], `mv *.log logs/` in [`s06_copy_move`], `grep` in [`s09_redirection`]). Each
+//! section file starts with its goals, and every level has to fit them. Solution scripts may use
+//! plumbing (`cut`, `grep`, `wc`) that the student is not asked to type.
 
-use crate::engine::catalog::Catalog;
+pub mod s00_welcome;
+pub mod s01_navigation;
+pub mod s02_files;
+pub mod s03_hidden;
+pub mod s04_create;
+pub mod s05_inspect;
+pub mod s06_copy_move;
+pub mod s07_wildcards;
+pub mod s08_permissions;
+pub mod s09_redirection;
+pub mod s10_streams;
+pub mod s11_search;
 
-mod s00_uvod;
-mod s01_navigace;
-mod s02_soubory;
-mod s03_skryte;
-mod s04_vytvareni;
-mod s05_zkoumani;
-mod s06_kopirovani;
-mod s07_zoliky;
-mod s08_opravneni;
-mod s09_vstup_vystup;
-mod s10_chyby;
-mod s11_vyhledavani;
+use crate::game::Section;
 
-/// The whole course.
-pub fn catalog() -> Catalog {
-    Catalog::new(vec![
-        s00_uvod::section(),
-        s01_navigace::section(),
-        s02_soubory::section(),
-        s03_skryte::section(),
-        s04_vytvareni::section(),
-        s05_zkoumani::section(),
-        s06_kopirovani::section(),
-        s07_zoliky::section(),
-        s08_opravneni::section(),
-        s09_vstup_vystup::section(),
-        s10_chyby::section(),
-        s11_vyhledavani::section(),
-    ])
-}
-
-/// A solution script from its lines: what a student would type, one command per line, run in
-/// the level's start directory. It must be valid in bash and fish.
-fn script<const N: usize>(lines: [&str; N]) -> String {
-    lines.join("\n")
-}
+pub static COURSE: &[Section] = &[
+    s00_welcome::SECTION,
+    s01_navigation::SECTION,
+    s02_files::SECTION,
+    s03_hidden::SECTION,
+    s04_create::SECTION,
+    s05_inspect::SECTION,
+    s06_copy_move::SECTION,
+    s07_wildcards::SECTION,
+    s08_permissions::SECTION,
+    s09_redirection::SECTION,
+    s10_streams::SECTION,
+    s11_search::SECTION,
+];
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::engine::prelude::*;
     use std::fs;
     use std::path::PathBuf;
 
-    #[test]
-    fn the_catalog_is_sound() {
-        let catalog = catalog();
-        assert!(catalog.validate().is_empty(), "{:#?}", catalog.validate());
-    }
+    use super::COURSE;
+    use crate::game::paths::split;
+    use crate::game::testing::World;
+    use crate::game::{CD_DONE, CdMove, Level, Pos, cd, dedent};
 
-    /// A workspace whose path contains a space (as in the solution replay) and a home.
-    struct World {
-        _tmp: tempfile::TempDir,
-        workspace: PathBuf,
-        home: PathBuf,
-    }
-
-    impl World {
-        fn new() -> Self {
-            let tmp = tempfile::tempdir().unwrap();
-            let base = fs::canonicalize(tmp.path()).unwrap();
-            let home = base.join("home/ada");
-            fs::create_dir_all(&home).unwrap();
-            Self {
-                workspace: base.join("shellgame workspace"),
-                home,
-                _tmp: tmp,
-            }
-        }
-
-        /// Prepare a level; its context has the player in the start directory (if it has one).
-        fn start<'a>(&'a self, section: &Section, level: &Level) -> Ctx<'a> {
-            level.prepare(section, &self.workspace).unwrap();
-            let root = section.section_root(&self.workspace).unwrap();
-            let cwd = level.start_dir(&self.workspace, &root);
-            if let Some(dir) = &cwd {
-                assert!(dir.is_dir(), "{}: the start {dir:?} must exist", level.id);
-            }
-            section
-                .ctx(level, &self.workspace, cwd, &self.home)
-                .unwrap()
-        }
+    fn levels() -> impl Iterator<Item = (Pos, &'static Level)> {
+        Pos::all().map(|pos| (pos, pos.level()))
     }
 
     #[test]
-    fn every_section_opens_with_its_intro_and_lists_its_levels_in_order() {
-        let catalog = catalog();
-        for (index, section) in catalog.sections().iter().enumerate() {
-            assert_eq!(usize::from(section.number), index, "sections 0, 1, 2, ...");
+    fn everything_a_player_reads_is_there_and_every_level_can_be_completed() {
+        for section in COURSE {
+            assert!(!section.title.is_empty() && !section.intro.trim().is_empty());
+        }
+        for (pos, level) in levels() {
+            assert!(!level.title.is_empty() && !level.text.trim().is_empty(), "{pos}");
             assert!(
-                section.levels[0].is_intro(),
-                "section {} opens with an intro",
-                section.number
+                !level.hints.is_empty() && level.hints.iter().all(|h| !h.trim().is_empty()),
+                "{pos}: hints"
             );
-            let numbers: Vec<u16> = section.levels.iter().map(|level| level.id.number).collect();
-            assert!(
-                numbers.windows(2).all(|pair| pair[0] < pair[1]),
-                "section {} lists its levels in order: {numbers:?}",
-                section.number
-            );
+            assert!(level.answer.is_set() || !level.check.is_empty(), "{pos}: nothing to complete");
+            // Judging drops trailing slashes, so an answer that ends in one could not be given.
+            let (secrets, _) = level.answer.secrets_and_texts();
+            assert!(secrets.iter().all(|secret| !secret.ends_with('/')), "{pos}: {secrets:?}");
+            let solution = dedent(level.solution);
+            let last = solution.lines().last().unwrap_or_default();
+            // The last line submits, through `shellgame` or an alias of it.
+            assert_eq!(last.split_whitespace().nth(1), Some("submit"), "{pos}: {last:?}");
         }
     }
 
     #[test]
-    fn every_level_has_text_and_every_task_has_hints() {
-        for (_, level) in catalog().iter() {
-            assert!(!level.text.trim().is_empty(), "{}: no text", level.id);
-            if !level.is_intro() {
-                assert!(!level.hints.is_empty(), "{}: no hints", level.id);
+    fn declared_paths_are_relative_without_dotdot() {
+        for (pos, level) in levels() {
+            let setup = level.setup.iter().filter_map(|setup| setup.path());
+            let checks = level.check.iter().flat_map(|check| check.paths());
+            let clauses = level.cd.iter().flat_map(|clause| clause.paths());
+            for path in setup.chain(checks).chain(clauses).chain([level.start]) {
+                assert!(split(path).is_ok(), "{pos}: {path:?}");
             }
         }
     }
 
+    /// A reply to a wrong answer or to a failed check never contains the answer, and a failed `at`
+    /// does not name where to go.
     #[test]
-    fn preparing_every_level_in_one_workspace_works_and_starts_in_an_existing_directory() {
-        // In course order and in the same workspace, as a real game does: fixtures of one
-        // level must not break another's.
-        let world = World::new();
-        let catalog = catalog();
-        for (section, level) in catalog.iter() {
-            world.start(section, level);
+    fn a_failure_never_reveals_the_answer() {
+        let contains =
+            |text: &str, secret: &str| text.to_lowercase().contains(&secret.to_lowercase());
+        let mut leaks = vec![];
+        for (pos, level) in levels() {
+            let (secrets, mut texts) = level.answer.secrets_and_texts();
+            texts.extend(level.check.iter().flat_map(|check| check.texts()));
+            for secret in secrets.iter().filter(|secret| secret.chars().count() >= 4) {
+                if let Some(text) = texts.iter().find(|text| contains(text, secret)) {
+                    leaks.push(format!("{pos}: {secret:?} appears in {text:.60?}"));
+                }
+            }
+            for check in level.check {
+                let Some(name) = check.target_dir().and_then(|dir| split(dir).ok()?.pop()) else {
+                    continue;
+                };
+                if let Some(text) = check.texts().into_iter().find(|text| contains(text, name)) {
+                    leaks.push(format!("{pos}: a failed `at` names {name:?}: {text:.60?}"));
+                }
+            }
         }
+        assert!(leaks.is_empty(), "{}", leaks.join("\n"));
     }
 
     #[test]
-    fn nothing_is_completed_by_submitting_at_the_start() {
-        // Requirements are unconditional: an empty submission never completes a task, and a
-        // known answer does not either while the work is not done.
-        let world = World::new();
-        let catalog = catalog();
-        for (section, level) in catalog.iter().filter(|(_, level)| !level.is_intro()) {
-            let ctx = world.start(section, level);
-            assert!(
-                level.validate(&ctx, None).is_fail(),
-                "{}: an empty submission completes the level right after it starts",
-                level.id
-            );
-            if level.requirements.is_empty() {
-                continue;
-            }
-            if let Some(answer) = level.answer.as_ref().and_then(Answer::static_answer) {
+    fn raw_strings_are_indented_blocks() {
+        let intros = COURSE.iter().map(|section| ("intro", section.intro));
+        let blocks = levels().flat_map(|(_, level)| {
+            [("text", level.text), ("solution", level.solution), ("success", level.success)]
+        });
+        for (what, block) in intros.chain(blocks) {
+            assert!(!block.contains('\t'), "{what}: tabs ({block:.40})");
+            // A one-line solution or success may be a plain string; every other block starts on
+            // the line after its opener and ends with the closing delimiter on a line of its own.
+            if !matches!(what, "solution" | "success") || block.contains('\n') {
                 assert!(
-                    level.validate(&ctx, Some(&answer)).is_fail(),
-                    "{}: the answer {answer:?} completes the level without the work",
-                    level.id
+                    block.starts_with('\n'),
+                    "{what} must start on the line after the opener: {block:.40}"
+                );
+                assert!(
+                    block.rsplit('\n').next().unwrap().chars().all(|c| c == ' '),
+                    "{what}: {block:.40}"
+                );
+                let text = dedent(block);
+                assert!(!text.starts_with('\n') && !text.ends_with('\n'), "{what}: {text:.40}");
+            }
+        }
+    }
+
+    #[test]
+    fn mentions_of_levels_and_sections_match_their_position() {
+        let mentions = |text: &str| -> Vec<usize> {
+            let found = ["level-", "Sekce ", "Sekci "]
+                .iter()
+                .flat_map(|prefix| text.match_indices(prefix).map(|(at, _)| at + prefix.len()));
+            found
+                .filter_map(|at| {
+                    text[at..].split(|c: char| !c.is_ascii_digit()).next()?.parse().ok()
+                })
+                .collect()
+        };
+        for (number, section) in COURSE.iter().enumerate() {
+            assert!(
+                mentions(section.intro).iter().all(|found| *found == number),
+                "intro of section {number}"
+            );
+            // The intro panel's title already shows "Sekce N: <title>"; don't repeat it in the text.
+            assert!(
+                !dedent(section.intro).starts_with('#'),
+                "intro of section {number} starts with a heading"
+            );
+        }
+        for (pos, level) in levels() {
+            let text = format!("{}\n{}\n{}", level.text, level.hints.join("\n"), level.success);
+            for found in mentions(&text) {
+                assert_eq!(
+                    found, pos.section,
+                    "{pos} mentions {found}: another section is named by its title"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn every_level_prepares_in_course_order_and_nothing_completes_at_its_start() {
+        let world = World::new();
+        for (pos, level) in levels() {
+            let ctx = world.start(pos);
+            assert!(level.judge(&ctx, None).is_err(), "{pos}: an empty submission completes it");
+            if let (false, Some(answer)) = (level.check.is_empty(), level.answer.sample()) {
+                assert!(
+                    level.judge(&ctx, Some(&answer)).is_err(),
+                    "{pos}: {answer:?} completes it without the work"
                 );
             }
         }
@@ -161,92 +199,39 @@ mod tests {
 
     #[test]
     fn every_cd_policy_blocks_something_and_never_traps_the_player() {
-        use crate::paths::RelPath;
-        use std::path::Path;
-
         let world = World::new();
-        let catalog = catalog();
-        let strict: Vec<_> = catalog
-            .iter()
-            .filter(|(_, level)| level.cd.is_some())
-            .collect();
-        assert!(
-            !strict.is_empty(),
-            "the course teaches `cd` with strict levels"
-        );
-        for (section, level) in strict {
-            let ctx = world.start(section, level);
-            let policy = level.cd.as_ref().unwrap();
+        for (pos, level) in levels().filter(|(_, level)| !level.cd.is_empty()) {
+            let ctx = world.start(pos);
             let start = ctx.cwd.clone().unwrap();
-            // Where the policy cares about the player: the start and the directories it names.
-            let places: Vec<PathBuf> = std::iter::once(start.clone())
-                .chain(
-                    policy
-                        .paths()
-                        .into_iter()
-                        .filter_map(|path| RelPath::parse(path).ok())
-                        .map(|path| path.under(&ctx.section_root)),
-                )
+            let named = level.cd.iter().flat_map(|clause| clause.paths());
+            let places: Vec<PathBuf> = [start.clone()]
+                .into_iter()
+                .chain(named.map(|p| ctx.section_root.join(p)))
                 .collect();
-            let decide = |place: &Path, target: &str| {
-                let args: Vec<String> = if target.is_empty() {
-                    Vec::new()
-                } else {
-                    vec![target.to_owned()]
-                };
-                level.cd_pre_move(&CdMove::new(&ctx, target, &args, place))
+            let decide = |place: &PathBuf, target: &str| {
+                cd::before(pos, &CdMove { target, pwd: place, prev: None, dest: None, ctx: &ctx })
             };
-
             let attempts = ["/etc", "..", "../..", "/", "", "elsewhere", "-"];
-            let blocked: Vec<(&PathBuf, &str)> = places
+            let blocked: Vec<_> = places
                 .iter()
-                .flat_map(|place| attempts.iter().map(move |target| (place, *target)))
-                .filter(|(place, target)| decide(place, target).is_block())
+                .flat_map(|place| attempts.map(move |target| (place, target)))
+                .filter(|(place, target)| decide(place, target).is_err())
                 .collect();
-            assert!(
-                !blocked.is_empty(),
-                "{}: the policy blocks nothing",
-                level.id
-            );
-
-            // The recovery move: back to the start directory is allowed from anywhere.
-            let start_text = start.to_string_lossy();
+            assert!(!blocked.is_empty(), "{pos}: the policy blocks nothing");
             for place in &places {
+                let back = decide(place, &start.to_string_lossy());
                 assert_eq!(
-                    decide(place, &start_text),
-                    CdDecision::Allow,
-                    "{}: the move to the start directory is blocked from {place:?}",
-                    level.id
+                    back,
+                    Ok(()),
+                    "{pos}: the way back to the start is blocked from {place:?}"
                 );
             }
-
             // Once the drill is done, nothing is blocked any more.
-            ctx.markers().create(&Marker::Cd).unwrap();
+            fs::write(ctx.marker(CD_DONE), "").unwrap();
             for (place, target) in blocked {
-                assert_eq!(
-                    decide(place, target),
-                    CdDecision::Allow,
-                    "{}: `cd {target}` from {place:?} is still blocked after the drill",
-                    level.id
-                );
+                let after = decide(place, target);
+                assert_eq!(after, Ok(()), "{pos}: `cd {target}` from {place:?} after the drill");
             }
-        }
-    }
-
-    #[test]
-    fn every_solution_ends_by_submitting() {
-        let world = World::new();
-        let catalog = catalog();
-        for (section, level) in catalog.iter().filter(|(_, level)| !level.is_intro()) {
-            let ctx = world.start(section, level);
-            let solution = level.solution.as_ref().expect("a solution");
-            let script = solution.script(&ctx);
-            let last = script.lines().last().unwrap_or_default();
-            assert!(
-                last.contains("submit"),
-                "{}: the solution should end with the submission, not {last:?}",
-                level.id
-            );
         }
     }
 }

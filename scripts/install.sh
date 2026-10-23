@@ -1,85 +1,93 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # Installs the latest ShellGame release for this machine (Linux or macOS, x86_64 or aarch64).
 #
 #   curl -fsSL https://raw.githubusercontent.com/jdupak/ShellGame/main/scripts/install.sh | bash
 #
 # Environment overrides:
-#   INSTALL_DIR  directory to install `shellgame` into (default: the current directory)
-#   REPO         GitHub repository to download from (default: jdupak/ShellGame)
+#   SHELLGAME_INSTALL_DIR  directory to install `shellgame` into (default: the current directory)
+#   SHELLGAME_REPO         GitHub repository to download from (default: jdupak/ShellGame)
 #
-# Keep this script compatible with bash 3.2, the system bash on macOS.
-set -euo pipefail
+# Runs in POSIX sh (dash, for `| sh`) and bash 3.2, the system bash on macOS. Everything happens in
+# functions and `main` runs on the last line, so a download cut short runs nothing.
+set -eu
 
-REPO="${REPO:-jdupak/ShellGame}"
-INSTALL_DIR="${INSTALL_DIR:-${PWD}}"
-
-for tool in curl tar; do
-  if ! command -v "${tool}" >/dev/null 2>&1; then
-    echo "'${tool}' is required but was not found in PATH. Install it and run this script again." >&2
-    exit 1
-  fi
-done
-
-case "$(uname -s)" in
-  Linux)
-    os_name="linux"
-    ;;
-  Darwin)
-    os_name="macos"
-    ;;
-  *)
-    echo "Unsupported OS: $(uname -s) (supported: Linux, macOS)" >&2
-    exit 1
-    ;;
-esac
-
-case "$(uname -m)" in
-  x86_64|amd64)
-    arch_name="x86_64"
-    ;;
-  aarch64|arm64)
-    arch_name="aarch64"
-    ;;
-  *)
-    echo "Unsupported architecture: $(uname -m) (supported: x86_64, aarch64/arm64)" >&2
-    exit 1
-    ;;
-esac
-
-# A shell running under Rosetta 2 reports x86_64 even on Apple Silicon. Prefer the native build.
-if [[ "${os_name}" == "macos" && "${arch_name}" == "x86_64" ]] \
-  && [[ "$(sysctl -n hw.optional.arm64 2>/dev/null || true)" == "1" ]]; then
-  arch_name="aarch64"
-fi
-
-asset_name="shellgame-${os_name}-${arch_name}.tar.gz"
-release_url="https://github.com/${REPO}/releases/latest/download/${asset_name}"
-
-mkdir -p "${INSTALL_DIR}"
-INSTALL_DIR="$(CDPATH='' cd -- "${INSTALL_DIR}" && pwd)"
-
-tmp_dir="$(mktemp -d)"
-trap 'rm -rf "${tmp_dir}"' EXIT
-
-echo "Downloading ${release_url}"
-if ! curl -fsSL "${release_url}" -o "${tmp_dir}/${asset_name}"; then
-  echo "Download failed: ${release_url}" >&2
-  echo "Check your connection. A build for ${os_name}/${arch_name} may also not be published yet." >&2
+fail() {
+  echo "$*" >&2
   exit 1
-fi
+}
 
-tar -xzf "${tmp_dir}/${asset_name}" -C "${tmp_dir}"
-install -m 755 "${tmp_dir}/shellgame" "${INSTALL_DIR}/shellgame"
+need() {
+  command -v "$1" >/dev/null 2>&1 ||
+    fail "'$1' is required but was not found in PATH. Install it and run this script again."
+}
 
-# Name the command that starts this copy: by name if INSTALL_DIR is on PATH, otherwise by path.
-if [[ "$(command -v shellgame || true)" == "${INSTALL_DIR}/shellgame" ]]; then
-  run_cmd="shellgame"
-elif [[ "${INSTALL_DIR}" == "${PWD}" ]]; then
-  run_cmd="./shellgame"
-else
-  run_cmd="${INSTALL_DIR}/shellgame"
-fi
+# shellgame-<os>-<arch>.tar.gz, the asset name CI publishes and `shellgame update` downloads.
+asset_name() {
+  case "$(uname -s)" in
+    Linux) os_name=linux ;;
+    Darwin) os_name=macos ;;
+    *) fail "Unsupported OS: $(uname -s) (supported: Linux, macOS)" ;;
+  esac
+  case "$(uname -m)" in
+    x86_64 | amd64) arch_name=x86_64 ;;
+    aarch64 | arm64) arch_name=aarch64 ;;
+    *) fail "Unsupported architecture: $(uname -m) (supported: x86_64, aarch64/arm64)" ;;
+  esac
+  # A shell running under Rosetta 2 reports x86_64 even on Apple Silicon. Prefer the native build.
+  if [ "$os_name" = macos ] && [ "$arch_name" = x86_64 ] &&
+    [ "$(sysctl -n hw.optional.arm64 2>/dev/null || true)" = 1 ]; then
+    arch_name=aarch64
+  fi
+  echo "shellgame-$os_name-$arch_name.tar.gz"
+}
 
-echo "Installed shellgame to ${INSTALL_DIR}/shellgame"
-echo "Start the game with:  ${run_cmd}"
-echo "Update it later with: ${run_cmd} update"
+main() {
+  need curl
+  need tar
+  repo="${SHELLGAME_REPO:-jdupak/ShellGame}"
+  install_dir="${SHELLGAME_INSTALL_DIR:-$PWD}"
+  asset="$(asset_name)"
+  url="https://github.com/$repo/releases/latest/download/$asset"
+
+  mkdir -p "$install_dir"
+  install_dir="$(CDPATH='' cd -- "$install_dir" && pwd)"
+
+  tmp_dir="$(mktemp -d)"
+  trap 'rm -rf "$tmp_dir"' EXIT
+  trap 'exit 1' HUP INT TERM
+
+  echo "Downloading $url"
+  if ! curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 20 --retry 3 \
+    -o "$tmp_dir/$asset" "$url"; then
+    echo "Download failed: $url" >&2
+    fail "Check your connection. A build of $asset may also not be published yet."
+  fi
+
+  tar -xzf "$tmp_dir/$asset" -C "$tmp_dir" shellgame ||
+    fail "The downloaded archive $asset is damaged. Run this script again."
+  # Copied next to its place, tried there (/tmp may forbid running programs) and renamed over the
+  # old copy, which is never half written, not even while it runs.
+  new="$install_dir/.shellgame.new"
+  cp "$tmp_dir/shellgame" "$new"
+  chmod 755 "$new"
+  if ! "$new" --version >/dev/null 2>&1; then
+    rm -f "$new"
+    fail "The downloaded program does not run on this machine ($asset)."
+  fi
+  mv -f "$new" "$install_dir/shellgame"
+
+  # Name the command that starts this copy: by name if it is the one on PATH, otherwise by path.
+  if [ "$(command -v shellgame || true)" = "$install_dir/shellgame" ]; then
+    run_cmd=shellgame
+  elif [ "$install_dir" = "$PWD" ]; then
+    run_cmd=./shellgame
+  else
+    run_cmd="$install_dir/shellgame"
+  fi
+
+  echo "Installed $("$install_dir/shellgame" --version) to $install_dir/shellgame"
+  echo "Start the game with:  $run_cmd"
+  echo "Update it later with: $run_cmd update"
+}
+
+main "$@"

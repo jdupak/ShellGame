@@ -13,17 +13,30 @@ env:
   # macOS archives are built on every release run, but they are only attached to the GitHub release
   # when this is "true". Flip it once the macOS content review (GNU-only spots in the levels such
   # as `ls --help`, `wc` padding, `file` wording and bracket globs under locale collation) has made
-  # the macOS level replay green and `rust-test-macos` is blocking.
+  # the macOS level replay green and the macOS `Test` step is blocking.
   PUBLISH_MACOS: "false"
 
+# Third-party actions are pinned to a commit (the tag it had in the comment); GitHub's own to a tag.
 jobs:
-  rust-test:
-    runs-on: ubuntu-latest
-    # The tests drive real interactive shells; do not let a hang burn the 6 hour default.
+  # The tests drive real interactive shells, so every job has a timeout: a hang must not burn the
+  # 6 hour default.
+  test:
+    name: test (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest supported fish (3.3) comes with ubuntu-22.04; there the level replays whose
+        # solutions use `$(...)` (fish 3.4) are skipped. Formatting, docs and lints do not depend
+        # on the tools, so only the `lint` leg runs them.
+        include:
+          - runner: ubuntu-24.04
+            lint: true
+          - runner: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # rust-toolchain.toml pins the toolchain and its components (rustfmt, clippy). Depending on
       # the rustup version, `show` either installs them itself or only reports that the toolchain
@@ -31,44 +44,74 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
-      - uses: Swatinem/rust-cache@v2
+      # The default cache key has the job id, which both legs share, but not the runner image: add
+      # it, so artifacts built against one image's glibc are not restored on the other.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: ${{ matrix.runner }}
 
       - name: Install shell tooling
         run: sudo apt-get update && sudo apt-get install --yes fish shellcheck
 
-      - name: Lint installer
-        run: shellcheck scripts/install.sh
+      # The sandbox needs Landlock. Print what the runner offers so a failure is easy to read.
+      - name: Show environment
+        run: |
+          uname -r
+          cat /sys/kernel/security/lsm || true
+          bash --version | sed -n '1p'
+          fish --version
+          shellcheck --version | sed -n '1,2p'
+
+      # Every tracked script, including scripts/install.sh and tests/support/mock_shellgame.sh,
+      # which no test checks (`cargo test` checks the game's own bash script).
+      - name: Lint shell scripts
+        if: matrix.lint
+        run: git ls-files -z '*.sh' | xargs -0 shellcheck
 
       - name: Check formatting
+        if: matrix.lint
         run: cargo fmt --check
 
+      - name: Check docs
+        if: matrix.lint
+        run: cargo doc --no-deps --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
+
       - name: Lint
+        if: matrix.lint
         run: cargo clippy --all-targets --locked -- -D warnings
 
+      # "required" turns "Landlock is unavailable" from a skip into a failure, so the sandbox tests
+      # cannot be skipped unnoticed on these runners.
       - name: Test
+        env:
+          SHELLGAME_TEST_LANDLOCK: required
         run: cargo test --locked
 
-  # Non-blocking until the macOS content review has made the macOS level replay green;
-  # then drop `continue-on-error` and flip PUBLISH_MACOS above.
-  rust-test-macos:
+  # Players on macOS get the system bash 3.2, the oldest bash the integration script supports: the
+  # shell tests run there and block a release. The rest is non-blocking until the macOS content
+  # review has made the macOS level replay green; then drop `continue-on-error` from the `Test`
+  # step and the macOS `build` legs, and flip PUBLISH_MACOS above. There is no Landlock on macOS:
+  # the sandbox tests skip there and game shells start with `--unsafe`.
+  test-macos:
     runs-on: macos-latest
-    continue-on-error: true
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
       - name: Install shell tooling
         run: brew install fish shellcheck
 
-      # Players on macOS get the system bash 3.2. Runner images (and Homebrew) can put a bash 5
-      # first on PATH, which would hide bash 3.2 incompatibilities, so shadow it with /bin/bash.
-      # $GITHUB_PATH entries apply to the following steps only, hence the separate check step.
+      # Runner images (and Homebrew) can put a bash 5 first on PATH, which would hide bash 3.2
+      # incompatibilities, so shadow it with /bin/bash. $GITHUB_PATH entries apply to the following
+      # steps only, hence the separate check step.
       - name: Put the system bash first on PATH
         run: |
           mkdir -p "$RUNNER_TEMP/system-bash"
@@ -89,13 +132,11 @@ jobs:
               ;;
           esac
 
-      - name: Check formatting
-        run: cargo fmt --check
-
-      - name: Lint
-        run: cargo clippy --all-targets --locked -- -D warnings
+      - name: Shell integration with bash 3.2
+        run: cargo test --locked --test shell
 
       - name: Test
+        continue-on-error: true
         run: cargo test --locked
 
   # Release binaries, one per target, each built on a native runner. Runs on pushes to the default
@@ -107,8 +148,9 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' &&
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
-    needs: rust-test
+    needs: [test, test-macos]
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     # macOS legs must not block Linux releases before the macOS content review of the levels;
     # drop this together with flipping PUBLISH_MACOS.
     continue-on-error: ${{ matrix.os == 'macos' }}
@@ -137,12 +179,10 @@ jobs:
       # Embedded into the binary at compile time (option_env!) and reported by `--version`.
       SHELLGAME_BUILD: build-${{ github.run_number }}
       TARGET: ${{ matrix.target }}
-      ASSET_OS: ${{ matrix.os }}
-      ASSET_ARCH: ${{ matrix.arch }}
       ASSET_NAME: shellgame-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
@@ -150,43 +190,57 @@ jobs:
       - name: Add compilation target
         run: rustup target add "$TARGET"
 
-      # No C dependencies today, so rustc's bundled musl is enough. musl-gcc is cheap insurance for
-      # a future crate with a C build script.
-      - name: Install musl tools
-        if: matrix.os == 'linux'
-        run: sudo apt-get update && sudo apt-get install --yes musl-tools
-
       # No build cache: release archives are built from a clean target directory.
       - name: Build
         run: cargo build --release --locked --target "$TARGET"
 
-      # Run `--version` when this runner can execute the binary: natively, or the x86_64 macOS
-      # binary under Rosetta when the arm64 runner has it. The output must carry SHELLGAME_BUILD.
+      # Every leg runs on a native runner except x86_64 macOS, whose binary runs under Rosetta when
+      # the arm64 runner has it. The output of `--version` must carry SHELLGAME_BUILD.
       - name: Smoke test
         run: |
-          bin="target/${TARGET}/release/shellgame"
-          check() {
-            out="$("$@" "$bin" --version)"
-            echo "$out"
-            case "$out" in
-              *"$SHELLGAME_BUILD"*) ;;
-              *)
-                echo "::error::--version does not report $SHELLGAME_BUILD"
-                exit 1
-                ;;
-            esac
-          }
-          host_arch="$(uname -m)"
-          if [ "$host_arch" = arm64 ]; then
-            host_arch=aarch64
+          if [ "$TARGET" = x86_64-apple-darwin ]; then
+            arch -x86_64 /usr/bin/true ||
+              { echo "::notice::No Rosetta, smoke test skipped"; exit 0; }
+            set -- arch -x86_64
           fi
-          if [ "$host_arch" = "$ASSET_ARCH" ]; then
-            check
-          elif [ "$ASSET_OS" = macos ] && [ "$ASSET_ARCH" = x86_64 ] && arch -x86_64 /usr/bin/true 2>/dev/null; then
-            check arch -x86_64
-          else
-            echo "::notice::Smoke test skipped: this runner cannot execute $TARGET binaries"
+          out="$("$@" "target/$TARGET/release/shellgame" --version)"; echo "$out"
+          echo "$out" | grep -qF "$SHELLGAME_BUILD" ||
+            { echo "::error::--version does not report $SHELLGAME_BUILD"; exit 1; }
+
+      # The released Linux binary must be static and must start a confined game shell: a command
+      # typed there runs, the game saves its state, and a write to the home is refused. Without
+      # Landlock on the runner (the test job requires it only on x86_64) it starts with --unsafe.
+      - name: Smoke test the game shell
+        if: matrix.os == 'linux'
+        shell: bash
+        run: |
+          bin="target/$TARGET/release/shellgame"
+          file "$bin"
+          file "$bin" | grep -Eq 'statically linked|static-pie linked' ||
+            { echo "::error::$bin is not statically linked"; exit 1; }
+          lsm="$(cat /sys/kernel/security/lsm 2>/dev/null || true)"
+          echo "LSMs: $lsm"
+          set --
+          case ",$lsm," in
+            *,landlock,*) ;;
+            *) echo "::warning::No Landlock on this runner: the game shell starts with --unsafe"; set -- --unsafe ;;
+          esac
+          # Home and state outside /tmp, so that the sandbox has something to protect.
+          smoke="$RUNNER_TEMP/smoke"
+          ws="/tmp/shellgame-smoke-$GITHUB_RUN_ID"
+          mkdir -p "$smoke/home" "$smoke/state"
+          printf '%s\n' 'touch "$SHELLGAME_WORKSPACE/typed"' 'echo x > "$HOME/escaped"' exit |
+            env -i PATH="$PATH" HOME="$smoke/home" USER=smoke LC_ALL=C.UTF-8 \
+              SHELLGAME_STATE_DIR="$smoke/state" SHELLGAME_WORKSPACE="$ws" \
+              "$bin" "$@" --shell bash
+          test -f "$ws/typed" ||
+            { echo "::error::the game shell did not run the typed command"; exit 1; }
+          grep -q '"version": 3' "$smoke/state/state.json" ||
+            { echo "::error::the game saved no state"; exit 1; }
+          if [ "$#" -eq 0 ] && [ -e "$smoke/home/escaped" ]; then
+            echo "::error::the game shell wrote to the home: it is not confined"; exit 1
           fi
+          rm -rf "$ws"
 
       # One `shellgame` file per archive: install.sh and `shellgame update` extract exactly that.
       - name: Package
@@ -203,7 +257,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ env.ASSET_NAME }}
           path: ${{ env.ASSET_NAME }}
@@ -211,31 +265,55 @@ jobs:
 
   # Publishes the archives of one run as one GitHub release. install.sh downloads
   # releases/latest/download/shellgame-<os>-<arch>.tar.gz, so the asset names are an interface.
+  # A new release becomes `latest`, so only the newest commit of the default branch is published,
+  # one run at a time: a run that a newer push overtook, or an old run started again, publishes
+  # nothing instead of handing students an older build.
   publish:
     if: >-
       github.event_name == 'push' &&
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: publish
+      cancel-in-progress: false
     permissions:
       contents: write
 
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Check that this commit is still the tip of the default branch
+        id: tip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          tip="$(gh api "repos/$GITHUB_REPOSITORY/commits/$BRANCH" --jq .sha)"
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "newest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$BRANCH has moved on to $tip: build-$GITHUB_RUN_NUMBER is not published"
+            echo "newest=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v8
+        if: steps.tip.outputs.newest == 'true'
         with:
           pattern: shellgame-*
           path: dist
           merge-multiple: true
 
       - name: Hold back macOS archives
-        if: env.PUBLISH_MACOS != 'true'
+        if: steps.tip.outputs.newest == 'true' && env.PUBLISH_MACOS != 'true'
         run: rm -fv dist/shellgame-macos-*.tar.gz
 
       - name: List release assets
+        if: steps.tip.outputs.newest == 'true'
         run: ls -l dist
 
       - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
+        if: steps.tip.outputs.newest == 'true'
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: build-${{ github.run_number }}
           name: ShellGame build ${{ github.run_number }}
@@ -245,4 +323,5 @@ jobs:
           fail_on_unmatched_files: true
           draft: false
           prerelease: false
+          make_latest: true
           generate_release_notes: true
