@@ -97,6 +97,11 @@ impl World {
         let [home, state, tools] = ["home", "state", "tools"].map(|name| out.join(name));
         let [ws, cwd, tmp] = ["work space", "cwd", "tmp"].map(|name| root.join(name));
         [&home, &tools, &cwd, &tmp].iter().for_each(|dir| fs::create_dir(dir).unwrap());
+        // A fish player's home has fish's own directories (fish makes them on its first start).
+        // fish 3.3 warns on every start when it cannot create them, and the sandbox forbids that.
+        for dir in [".config/fish", ".local/share/fish"] {
+            fs::create_dir_all(home.join(dir)).unwrap();
+        }
         let (bin, env, _dirs) = (BIN.into(), vec![], [outside, inside]);
         World { out, home, state, tools, root, ws, cwd, tmp, bin, env, _dirs }
     }
