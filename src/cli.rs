@@ -16,7 +16,7 @@ use crate::env::Env;
 use crate::game::Pos;
 use crate::sandbox;
 use crate::session::{BLOCKED, FAILURE, Flow, Halt, OK, Session};
-use crate::shell::{self, Directives, ENV_PENDING, LaunchOptions};
+use crate::shell::{self, Directives, ENV_PENDING, LaunchOptions, ShellKind};
 use crate::ui::{BOLD_RED, Term, screens};
 
 const BUILD: &str = match option_env!("SHELLGAME_BUILD") {
@@ -235,6 +235,13 @@ fn boot(cli: &Cli, env: &Env) -> i32 {
         return FAILURE;
     }
     let shell = shell::detect(cli.shell.as_deref(), env.shell.as_deref());
+    // fish makes its own directories on its first start, which the sandbox forbids, and fish 3.3
+    // then warns on every start: make them as fish would, before the shell is confined.
+    if confined && shell == ShellKind::Fish {
+        for home in [&env.config_home, &env.data_home] {
+            let _ = std::fs::create_dir_all(home.join("fish"));
+        }
+    }
     let options =
         LaunchOptions { shell, binary, state_dir: env.state_dir.clone(), sandbox: confined };
     let pending = pending(&cli.command);
