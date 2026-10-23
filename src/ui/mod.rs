@@ -191,8 +191,23 @@ pub fn reflow(pieces: &[Piece], cols: usize) -> Vec<Line> {
     rows.done
 }
 
+/// Words, with every span quoted by `'` or `` ` `` (a command in a hint or message) kept whole.
+fn quoted(text: &str, style: Style) -> Vec<Piece> {
+    let (mut pieces, mut rest) = (vec![], text);
+    while let Some(open) = rest.find(['\'', '`']) {
+        let quote = &rest[open..open + 1];
+        let Some(close) = rest[open + 1..].find(quote) else { break };
+        let end = open + 1 + close + 1;
+        pieces.extend([words(style, &rest[..open]), whole(style, &rest[open..end])]);
+        rest = &rest[end..];
+    }
+    pieces.push(words(style, rest));
+    pieces
+}
+
 /// Text exactly as written, wrapped at spaces (hints and messages are never markdown): newlines
-/// and blank lines stay, and a continuation row repeats its line's indentation.
+/// and blank lines stay, a continuation row repeats its line's indentation, and a quoted command
+/// stays on one row when it fits.
 pub fn wrap_plain(text: &str, cols: usize, style: Style) -> Vec<Line> {
     let mut out = Vec::new();
     for raw in text.lines() {
@@ -201,7 +216,7 @@ pub fn wrap_plain(text: &str, cols: usize, style: Style) -> Vec<Line> {
         if body.trim().is_empty() {
             out.push(Line::new());
         }
-        for mut row in reflow(&[words(style, body.trim_end())], cols - indent) {
+        for mut row in reflow(&quoted(body.trim_end(), style), cols - indent) {
             row.insert(0, span(" ".repeat(indent), PLAIN));
             out.push(row);
         }
@@ -310,7 +325,7 @@ mod tests {
     fn plain_text_is_verbatim_and_spans_are_safe() {
         let hint = "použijte `ls [ab]*.txt` zde\n\n    odsazený řádek je dlouhý";
         let wrapped =
-            ["použijte `ls", "[ab]*.txt` zde", "", "    odsazený", "    řádek je", "    dlouhý"];
+            ["použijte", "`ls [ab]*.txt`", "zde", "", "    odsazený", "    řádek je", "    dlouhý"];
         assert_eq!(text(wrap_plain(hint, 14, PLAIN)), wrapped);
         assert_eq!(span("a\x1b[31mb\tc⚠\u{fe0f}", PLAIN).text, "a\u{fffd}[31mb    c⚠");
         let line = vec![span("příliš ", BOLD), span("žluťoučký", PLAIN)];
