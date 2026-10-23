@@ -28,7 +28,7 @@ pub const SECTION: Section = Section {
         V této sekci se naučíte pracovat s více soubory najednou pomocí žolíků (wildcards).
         Žolíky vám umožní definovat vzory názvů souborů.
 
-        ## Kdy potřebujete Bash?
+        ### Kdy potřebujete Bash?
         Hvězdička `*` funguje v Bashi i ve fish. Otazník `?`, množiny `[...]` a třídy znaků
         jako `[[:lower:]]` jsou ale syntaxe Bashe: fish hranaté závorky jako žolík nezná
         a otazník od verze 4 také ne. Levely s nimi i souhrn sekce proto vyžadují Bash.
@@ -39,7 +39,7 @@ pub const SECTION: Section = Section {
         vzoru: `bash -c 'ls VZOR'`.
         `shellgame submit` pak zadejte jako obvykle ve svém herním shellu.
 
-        ## Přehled žolíků v Bashi
+        ### Přehled žolíků v Bashi
         ```
         *           Jakýkoliv počet znaků (včetně nuly)
         ?           Právě jeden znak
@@ -48,7 +48,7 @@ pub const SECTION: Section = Section {
         [[:lower:]] Jeden znak klasifikovaný jako malé písmeno
         ```
 
-        ## Příklady pro Bash
+        ### Příklady pro Bash
         ```
         *.txt           → všechny .txt soubory
         data?.csv       → data1.csv, data2.csv, ale NE data10.csv
@@ -61,7 +61,7 @@ pub const SECTION: Section = Section {
         > Pro význam „malé písmeno“ proto v levelu o třídách znaků použijete
         > POSIX třídu `[[:lower:]]`; podobně existují `[[:upper:]]` a `[[:digit:]]`.
 
-        ## Jak to funguje?
+        ### Jak to funguje?
         ```
         Vy napíšete:     Shell expanduje na:
         cp *.jpg imgs/   cp foto1.jpg foto2.jpg foto3.jpg imgs/
@@ -69,13 +69,13 @@ pub const SECTION: Section = Section {
                └── žolík ──────────┘ skutečné soubory
         ```
 
-        ## Co se naučíte:
+        ### Co se naučíte
         - Vybírat soubory hvězdičkou (`*`)
         - Přesně jeden znak otazníkem (`?`)
         - Množinu znaků hranatými závorkami (`[abc]`)
         - Rozsahy a locale-odolné třídy znaků (`[a-z]`, `[[:lower:]]`, `[[:digit:]]`)
 
-        ## Pokračování
+        ### Pokračování
         Pro zahájení prvního levelu této sekce stiskněte Enter.
     "#,
     levels: &[
@@ -299,7 +299,7 @@ pub const SECTION: Section = Section {
                 Než začnete kopírovat, předpovězte si odpovídající názvy a vzor ověřte pomocí `ls VZOR`.
 
                 1. Pomocí `*` zkopírujte všechny `.log` soubory do `logs/`.
-                2. Pomocí `?` zkopírujte do `short_data/` jen názvy `data`, jeden znak a `.txt`.
+                2. Pomocí `?` zkopírujte do `short_data/` jen soubory, jejichž název tvoří `data`, jeden znak a `.txt`.
                 3. Pomocí množiny znaků `[...]` zkopírujte do `selected_reports/` reporty s písmenem `a` nebo `b`.
 
                 Originály nechte na místě. Nakonec odevzdejte počty souborů v těchto třech cílových adresářích.
@@ -334,9 +334,9 @@ pub const SECTION: Section = Section {
                 file("challenge/script.sh", "#!/bin/bash\n"),
             ],
             answer: parts(",", &[
-                int(3).error("Počet zkopírovaných logů není správně. Zkontrolujte vzor s '*'."),
-                int(2).error("Počet krátkých datových názvů není správně. Zkontrolujte vzor s '?'."),
-                int(2).error("Počet vybraných reportů není správně. Zkontrolujte množinu znaků '[...]'."),
+                int(3).error("Počet souborů v logs/ není správný. Spočítejte je ve výpisu 'ls logs'."),
+                int(2).error("Počet souborů v short_data/ není správný. Spočítejte je ve výpisu 'ls short_data'."),
+                int(2).error("Počet souborů v selected_reports/ není správný. Spočítejte je ve výpisu 'ls selected_reports'."),
             ])
                 .format("Formát: logy,data,reporty (tři čísla oddělená čárkou)"),
             check: &[

@@ -33,7 +33,7 @@ pub const SECTION: Section = Section {
         příkaz | další        výstup se stane vstupem dalšího příkazu
         ```
 
-        ## Tři mentální modely
+        ### Tři mentální modely
 
         - `>` je **nový zápis**. Starý obsah cílového souboru zmizí.
         - `>>` je **připojení**. Dosavadní obsah zůstane.
@@ -67,7 +67,7 @@ pub const SECTION: Section = Section {
 
         `&&` a `||` fungují stejně v Bashi i ve fish.
 
-        ## Co se naučíte
+        ### Co se naučíte
 
         - ukládat a přidávat výstup pomocí `>` a `>>`
         - správně citovat víceslovný text i názvy souborů
@@ -295,13 +295,13 @@ pub const SECTION: Section = Section {
                 2. Zjistěte první slovo na posledním řádku (pomocí `tail -n 1`)
 
                 ### Odevzdání
-                Odevzdejte obě slova oddělená čárkou: `první,poslední`
-                `shellgame submit <první>,<poslední>`
+                Odevzdejte obě slova oddělená čárkou, nejdřív slovo z prvního řádku:
+                `shellgame submit <slovo1>,<slovo2>`
             "#,
             hints: &[
                 "head -n 1 zobrazí první řádek, tail -n 1 zobrazí poslední.",
                 "Odevzdejte první slovo z každého z těchto dvou řádků.",
-                "Formát odpovědi je 'prvni,posledni' - dvě slova oddělená čárkou, bez mezery.",
+                "Formát odpovědi je 'slovo1,slovo2' - dvě slova oddělená čárkou, bez mezery.",
             ],
             start: "headtail",
             setup: &[
@@ -311,10 +311,10 @@ pub const SECTION: Section = Section {
                 }),
             ],
             answer: parts(",", &[
-                exact("Pelican").nocase().error("První slovo není správně. Použijte 'head -n 1 long_file.txt'."),
-                exact("Walrus").nocase().error("Poslední slovo není správně. Použijte 'tail -n 1 long_file.txt'."),
+                exact("Pelican").nocase().error("Slovo z prvního řádku není správné. Použijte 'head -n 1 long_file.txt'."),
+                exact("Walrus").nocase().error("Slovo z posledního řádku není správné. Použijte 'tail -n 1 long_file.txt'."),
             ])
-                .format("Formát: první_slovo,poslední_slovo (např. AHOJ,SVET)"),
+                .format("Formát: slovo_z_prvního_řádku,slovo_z_posledního_řádku (např. AHOJ,SVET)"),
             solution: r#"shellgame submit "$(head -n 1 long_file.txt | cut -d' ' -f1),$(tail -n 1 long_file.txt | cut -d' ' -f1)""#,
             success: "Správně! Head a tail jsou skvělé pro rychlý náhled do souborů.",
             ..LEVEL
@@ -353,12 +353,12 @@ pub const SECTION: Section = Section {
                     .mistakes(&[
                         ("31", "První číslo má být počet řádků, ne slov — vypadá to, že máte hodnoty prohozené. Pořadí je řádky,slova."),
                     ])
-                    .error("Počet řádků není správně. Použijte 'wc -l article.txt'."),
+                    .error("Počet řádků není správný. Použijte 'wc -l article.txt'."),
                 int(31)
                     .mistakes(&[
                         ("5", "Druhé číslo má být počet slov, ne řádků. Ten už jste zapsali jako první hodnotu."),
                     ])
-                    .error("Počet slov není správně. Použijte 'wc -w article.txt'."),
+                    .error("Počet slov není správný. Použijte 'wc -w article.txt'."),
             ])
                 .format("Formát: řádky,slova (např. 10,50) — na pořadí obou čísel záleží."),
             solution: r#"shellgame submit "$(wc -l < article.txt),$(wc -w < article.txt)""#,
@@ -511,7 +511,7 @@ pub const SECTION: Section = Section {
                 - `první && druhý` spustí druhý jen po úspěchu prvního,
                 - `první || druhý` spustí druhý jen po neúspěchu prvního.
 
-                Příkazy `true` a `false` vracejí právě stav 0 a nenulový stav.
+                Příkaz `true` vrací stav 0 (úspěch), `false` nenulový stav (neúspěch).
 
                 ### Úkol
                 Spusťte postupně oba řetězce; zapíšou do souboru `status.txt` dva řádky:
@@ -541,7 +541,7 @@ pub const SECTION: Section = Section {
                     stav: uspech
                     stav: neuspech
                 "#)
-                    .msg("Soubor musí obsahovat přesně oba řádky ve správném pořadí. Zbyl-li jen jeden řádek, přepsalo druhé přesměrování to první.")
+                    .msg("Soubor musí obsahovat přesně oba řádky ve správném pořadí. Zbyl-li jen jeden řádek, přepsalo druhé přesměrování to první; přebývá-li řádek, první příkaz soubor nepřepsal: použijte u něj '>'.")
                     .missing("Soubor ještě neexistuje. Spusťte oba zadané řetězce příkazů."),
             ],
             solution: r#"

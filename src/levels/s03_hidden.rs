@@ -188,7 +188,10 @@ pub const SECTION: Section = Section {
             start: "backup",
             setup: &[file("backup/.config", ""), file("backup/.data.bak", ""), file("backup/normal.txt", "")],
             answer: suffix(".data.bak")
-                .mistakes(&[("data.bak", "Skoro: úvodní tečka je součástí názvu, odevzdejte název celý i s ní.")]),
+                .mistakes(&[
+                    ("data.bak", "Skoro: úvodní tečka je součástí názvu, odevzdejte název celý i s ní."),
+                    (".data", "Odevzdejte celý název souboru i s příponou."),
+                ]),
             solution: r#"shellgame submit "$(ls -a | grep '\.bak$')""#,
             success: "Správně! Úvodní tečka i přípona jsou součástí názvu, takže se soubor odevzdává celým jménem.",
             ..LEVEL

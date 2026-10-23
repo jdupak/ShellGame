@@ -25,7 +25,7 @@ pub const SECTION: Section = Section {
     intro: r#"
         V Linuxu má každý soubor a adresář nastavená oprávnění, která určují, kdo s ním může co dělat.
 
-        ## Proč je to důležité?
+        ### Proč je to důležité?
 
         ### Bezpečnost systému
         - **Hesla**: Soubor `/etc/shadow` obsahuje hesla - smí ho číst jen root!
@@ -45,7 +45,7 @@ pub const SECTION: Section = Section {
         $ chmod 644 index.html     # Ostatní mohou číst
         ```
 
-        ## Tři typy oprávnění
+        ### Tři typy oprávnění
         ```
         r (read)     → Číst obsah souboru / vypsat obsah adresáře
         w (write)    → Měnit obsah souboru / vytvářet a mazat položky v adresáři
@@ -57,14 +57,14 @@ pub const SECTION: Section = Section {
 
         ---
 
-        ## Tři skupiny uživatelů
+        ### Tři skupiny uživatelů
         ```
         u (user)   → Vlastník souboru (vy)
         g (group)  → Členové skupiny vlastníka
         o (other)  → Všichni ostatní
         ```
 
-        ## Jak číst `ls -l`
+        ### Jak číst `ls -l`
         ```
         -rwxr-xr--  =  vlastník: rwx, skupina: r-x, ostatní: r--
         │└┬┘└┬┘└┬┘
@@ -73,7 +73,7 @@ pub const SECTION: Section = Section {
         └─ typ (- soubor, d adresář)
         ```
 
-        ## Dva způsoby zápisu chmod
+        ### Dva způsoby zápisu chmod
         ```
         Symbolický:              Číselný (oktalový):
         chmod u+x soubor         chmod 755 soubor
@@ -82,7 +82,7 @@ pub const SECTION: Section = Section {
                                  755 = rwx|r-x|r-x
         ```
 
-        ## Co se naučíte:
+        ### Co se naučíte
         - Číst oprávnění (`ls -l`)
         - Měnit oprávnění (`chmod`)
         - Používat symbolický zápis (`u+x`) i číselný zápis (`755`)
@@ -95,14 +95,14 @@ pub const SECTION: Section = Section {
                 Příkaz `ls -l` zobrazuje oprávnění v prvním sloupci (např. `-rw-r--r--`).
                 První trojice práv po znaku typu patří vlastníkovi souboru.
 
-                ## Úkol:
+                ### Úkol
                 V adresáři je několik skriptů. Najděte jediný, který má právo spuštění (`x`)
                 nastavené pro vlastníka. `x` u skupiny nebo ostatních nestačí.
 
-                ## Příkazy:
+                ### Příkazy
                 - `ls -l`: Zobrazí oprávnění
 
-                ## Odevzdání:
+                ### Odevzdání
                 Odevzdejte název spustitelného souboru.
                 `shellgame submit <soubor>`
             "#,
@@ -142,13 +142,13 @@ pub const SECTION: Section = Section {
                 3. Přidáte právo: `chmod u+x muj_skript.sh`
                 4. Nyní funguje: `./muj_skript.sh` ✓
 
-                ## Úkol:
+                ### Úkol
                 Soubor `run_me.sh` nejde spustit. Přidejte mu právo pro spuštění pro vlastníka (`u`).
 
-                ## Příkazy:
+                ### Příkazy
                 - `chmod u+x <soubor>`: Přidá právo spuštění (execute) vlastníkovi (u = user)
 
-                ## Odevzdání:
+                ### Odevzdání
                 Po přidání práva spuštění spusťte:
                 `shellgame submit`
             "#,
@@ -180,15 +180,15 @@ pub const SECTION: Section = Section {
             text: r#"
                 Někdy chcete zabránit nechtěnému přepsání souboru. Můžete mu odebrat právo pro zápis (`w`).
 
-                ## Úkol:
+                ### Úkol
                 Odeberte souboru `config.readonly` právo zápisu pro všechny: vlastníka, skupinu i ostatní.
 
-                ## Příkazy:
+                ### Příkazy
                 - `chmod a-w <soubor>`: Odebere právo zápisu (write) všem (a = all)
 
                 Písmeno `a` nevynechávejte: bez něj výsledek ovlivňuje výchozí maska práv (`umask`).
 
-                ## Odevzdání:
+                ### Odevzdání
                 Po odebrání všech práv zápisu spusťte:
                 `shellgame submit`
             "#,
@@ -222,13 +222,13 @@ pub const SECTION: Section = Section {
                 Zadávají se tři čísla: pro vlastníka, skupinu a ostatní.
                 Např. `755` znamená `rwx` pro vlastníka, `r-x` pro skupinu, `r-x` pro ostatní.
 
-                ## Úkol:
+                ### Úkol
                 Nastavte spouštěcímu skriptu `deploy.sh` oprávnění `755` (`rwxr-xr-x`).
 
-                ## Příkazy:
+                ### Příkazy
                 - `chmod 755 <soubor>`
 
-                ## Odevzdání:
+                ### Odevzdání
                 Po nastavení přesného režimu spusťte:
                 `shellgame submit`
             "#,
@@ -336,7 +336,7 @@ pub const SECTION: Section = Section {
                 projde, nebo selže - a proč. Chybová hláška není překážka, ale hlavní výsledek pokusu; přečtěte si ji celou.
 
                 1. Spusťte `cp source.txt locked/` a porovnejte hlášku se svou předpovědí.
-                2. Ověřte, že čtení ven funguje: `cp locked/report.txt recovered.txt`.
+                2. Ověřte, že z adresáře `locked` lze kopírovat ven: `cp locked/report.txt recovered.txt`.
                 3. Přidejte vlastníkovi adresáře právo zápisu: `chmod u+w locked`.
                 4. Zopakujte `cp source.txt locked/`; tentokrát musí uspět, přestože `source.txt` je pořád jen pro čtení.
 
@@ -362,7 +362,7 @@ pub const SECTION: Section = Section {
             ],
             check: &[
                 same("directory-write/locked/report.txt", "directory-write/recovered.txt")
-                    .missing("Nejdřív zkopírujte existující report z locked ven."),
+                    .missing("Chybí recovered.txt: zkopírujte locked/report.txt ven pod jménem recovered.txt (krok 2)."),
                 same("directory-write/source.txt", "directory-write/locked/source.txt")
                     .missing("Po přidání práva zápisu zkopírujte source.txt do locked/."),
                 mode_has("directory-write/locked", 0o200).msg("Vlastník adresáře locked nemá právo zápisu. Přidejte ho příkazem 'chmod u+w locked'."),
@@ -373,7 +373,7 @@ pub const SECTION: Section = Section {
                 cp source.txt locked/
                 shellgame submit
             "#,
-            success: "Správně! Vytváření a mazání jmen řídí zapisovatelnost nadřazeného adresáře.",
+            success: "Správně! Vytváření a mazání jmen řídí právo zápisu k nadřazenému adresáři.",
             ..LEVEL
         },
         Level {
@@ -413,7 +413,8 @@ pub const SECTION: Section = Section {
             ],
             check: &[
                 at("directory-traverse/parent"),
-                mode_is("directory-traverse/parent", 0o744).msg("Nadřazený adresář nemá režim rwxr--r--: po 'chmod a-x ..' vraťte 'x' jen vlastníkovi příkazem 'chmod u+x ..'."),
+                mode_has("directory-traverse/parent", 0o100).msg("Adresář parent, ve kterém stojíte, nemá právo 'x' pro vlastníka. Přidejte mu ho příkazem 'chmod u+x .'."),
+                mode_lacks("directory-traverse/parent", 0o011).msg("Právo 'x' k adresáři parent, ve kterém stojíte, má mít jen vlastník. Skupině a ostatním ho odeberte příkazem 'chmod go-x .', nebo začněte znovu po 'shellgame reset'."),
             ],
             solution: r#"
                 chmod a-x ..

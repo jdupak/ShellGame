@@ -41,7 +41,7 @@ pub const SECTION: Section = Section {
         │       ├── stažené/
         │       └── projekty/
         ├── tmp/                   ← Dočasné soubory
-        │   └── shellgame-<user>/  ← Váš pracovní prostor pro hru (např. shellgame-student/)
+        │   └── shellgame-<user>/  ← Váš pracovní prostor pro hru
         │       └── level-1/       ← ZDE ZAČÍNÁTE!
         ├── etc/                   ← Systémové konfigurace
         └── usr/                   ← Programy a knihovny
@@ -163,10 +163,10 @@ pub const SECTION: Section = Section {
             ..LEVEL
         },
         Level {
-            title: "Vstup a hlášení (Koncept přípony)",
+            title: "Název bez přípony",
             text: r#"
                 ### Cíl
-                Identifikujte soubor bez přípony.
+                Zjistěte název souboru bez přípony.
 
                 ### Příkazy
                 - `cd <název>` - změnit adresář
@@ -185,7 +185,7 @@ pub const SECTION: Section = Section {
             setup: &[file("alpha/inside.txt", "first step")],
             answer: exact("inside")
                 .mistakes(&[
-                    ("alpha", "'alpha' je název adresáře, ne souboru uvnitř. Nejdřív vstupte do alpha a podívejte se, co je uvnitř."),
+                    ("alpha", "'alpha' je adresář, ve kterém stojíte. Odevzdejte název souboru, který v něm vypíše 'ls', bez přípony."),
                     ("inside.txt", "Odevzdejte název souboru bez přípony: vynechte poslední tečku a část za ní."),
                     ("txt", "To je právě přípona. Odevzdejte tu část názvu, která je před poslední tečkou."),
                     (".txt", "To je právě přípona. Odevzdejte tu část názvu, která je před poslední tečkou."),

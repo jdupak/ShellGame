@@ -26,7 +26,7 @@ pub const SECTION: Section = Section {
         1. **stdout** (fd 1) - standardní výstup pro normální výsledky
         2. **stderr** (fd 2) - chybový výstup pro chybové zprávy
 
-        ## Dva proudy výstupu
+        ### Dva proudy výstupu
         ```
         ┌─────────┐
         │ příkaz  │──── stdout (1) ───▶ Normální výstup
@@ -34,7 +34,7 @@ pub const SECTION: Section = Section {
         └─────────┘
         ```
 
-        ## Operátory přesměrování
+        ### Operátory přesměrování
         ```
         >     Přesměruje stdout (normální výstup)
         2>    Přesměruje stderr (chyby)
@@ -43,7 +43,7 @@ pub const SECTION: Section = Section {
         2>>   Přidá stderr na konec souboru
         ```
 
-        ## Příklad
+        ### Příklad
         ```bash
         ./skript.sh                  # Obojí na obrazovku
         ./skript.sh > out.log        # stdout do souboru, stderr na obrazovku
@@ -52,7 +52,7 @@ pub const SECTION: Section = Section {
         ./skript.sh &> /dev/null     # Zahodí všechno (ticho)
         ```
 
-        ## Co se naučíte:
+        ### Co se naučíte
         - Standardní chybový výstup (stderr)
         - Přesměrování chybových zpráv (`2>`)
         - Přesměrování všeho (`&>`)
@@ -292,8 +292,8 @@ pub const SECTION: Section = Section {
                 "#).mode(0o755),
             ],
             answer: parts(",", &[
-                int(2).error("Počet chyb není správně. Zkontrolujte, že do errors.log směřuje pouze deskriptor 2."),
-                int(3).error("Počet normálních řádků není správně. Zkontrolujte, že do output.log směřuje pouze standardní výstup."),
+                int(2).error("Počet chyb není správný. Zkontrolujte, že do errors.log směřuje pouze deskriptor 2."),
+                int(3).error("Počet normálních řádků není správný. Zkontrolujte, že do output.log směřuje pouze standardní výstup."),
             ])
                 .format("Formát odpovědi: chyby,výstup (např. 3,5)"),
             check: &[

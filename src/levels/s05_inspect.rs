@@ -371,13 +371,14 @@ pub const SECTION: Section = Section {
                 "#),
                 binary("bin/program", b"\x7fELF"),
             ],
-            answer: exact("calc.py")
+            answer: suffix("calc.py")
                 .mistakes(&[
+                    ("calc", "Odevzdejte celý název souboru i s příponou."),
                     ("readme.txt", "To je prostý text, ne skript. Řiďte se přesným popisem z 'file *', ne příponou názvu."),
                     ("run.sh", "To je shellový skript ('shell script'), ne Python. Přečtěte popis z 'file *' celý."),
                     ("program", "To je zkompilovaný program (ELF), ne skript. Porovnejte popisy z 'file *'."),
                 ])
-                .error("To není skript v Pythonu. Rozhoduje přesný popis z 'file *'; právo x z něj nevyčtete — to ukazuje až 'ls -l'."),
+                .error("To není skript v Pythonu. Rozhoduje přesný popis z 'file *', ne přípona názvu."),
             solution: r#"shellgame submit "$(file * | grep 'Python script' | cut -d: -f1)""#,
             success: "Správně! 'file' určí typ souboru podle obsahu; slovo 'executable' znamená jen řádek '#!', právo ke spuštění ukáže až 'ls -l'.",
             ..LEVEL

@@ -260,7 +260,7 @@ pub const SECTION: Section = Section {
                 - `touch <cesta>` pro soubory
 
                 ### Úkol
-                Vytvořte následující strukturu v adresáři `web`:
+                V aktuálním adresáři vytvořte adresář `web` s touto strukturou:
                 - `web/index.html` (soubor)
                 - `web/css/style.css` (soubor v podadresáři)
                 - `web/js` (prázdný adresář)
@@ -325,7 +325,7 @@ pub const SECTION: Section = Section {
                 no_file("mess/junk.tmp").msg("Soubor junk.tmp stále existuje. Smažte ho příkazem 'rm'."),
                 content_is("mess/keep_me.txt", "important")
                     .msg("Soubor keep_me.txt se změnil, a ten měl zůstat netknutý. Level obnovíte příkazem 'shellgame reset'.")
-                    .missing("Soubor keep_me.txt zmizel, a ten měl zůstat. Typická příčina je příliš široký argument jako 'rm *', který smaže všechno v adresáři. Příště si nejdřív vypište, co by takový příkaz zasáhl. Level obnovíte příkazem 'shellgame reset'."),
+                    .missing("Soubor keep_me.txt zmizel, a ten měl zůstat. Typickou příčinou je příliš široký argument jako 'rm *', který smaže všechno v adresáři. Příště si nejdřív vypište, co by takový příkaz zasáhl. Level obnovíte příkazem 'shellgame reset'."),
             ],
             solution: r#"
                 rm error.log temp.dat junk.tmp

@@ -286,7 +286,7 @@ pub fn status(term: &Term, state: &State) -> Vec<Line> {
     let title = vec![span("Postup", BOLD_CYAN)];
     let panel = Panel { border: CYAN, title, pad: (1, 2), ..Panel::default() };
     let line = |text: String, style: Style| vec![span(text, style)];
-    let mut body = vec![line(format!("Aktuální Level: {}", state.level), BOLD), Line::new()];
+    let mut body = vec![line(format!("Aktuální level: {}", state.level), BOLD), Line::new()];
     let mut done = done_levels(state);
     done.sort_by_key(|(key, _)| key.parse::<Pos>().ok());
     if done.is_empty() {

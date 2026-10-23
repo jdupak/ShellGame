@@ -25,20 +25,20 @@ pub const SECTION: Section = Section {
     intro: r#"
         V této závěrečné sekci se naučíte, jak najít text uvnitř souborů a jak najít samotné soubory.
 
-        ## Dva typy hledání
+        ### Dva typy hledání
         ```
         grep = Hledání UVNITŘ souborů (obsah)
         find = Hledání SOUBORŮ samotných (podle názvu, typu, velikosti...)
         ```
 
-        ## grep - hledání textu
+        ### grep - hledání textu
         ```
         grep "error" log.txt           Najde řádky s "error"
         grep -r "TODO" projekt/        Rekurzivně v celém adresáři
         grep -i "warning" *.log        Ignoruje velikost písmen
         ```
 
-        ## find - hledání souborů
+        ### find - hledání souborů
         ```
         find . -type f -name "*.py"          Všechny běžné .py soubory
         find /home -type f -name "config*"   Soubory začínající na "config"
@@ -50,14 +50,14 @@ pub const SECTION: Section = Section {
         v každém prohledávaném adresáři. Ve fish navíc vzor bez uvozovek, který
         v aktuálním adresáři nic nenajde, skončí chybou a příkaz se vůbec nespustí.
 
-        ## Proč je to důležité?
+        ### Proč je to důležité?
         ```
         Ztratili jste soubor?          → find . -type f -name "soubor.txt"
         Hledáte, kde je chyba v kódu?  → grep -r "ERROR" src/
         Kolik poznámek TODO je v kódu? → grep -r "TODO" . | wc -l
         ```
 
-        ## Co se naučíte:
+        ### Co se naučíte
         - Hledat text v souborech (`grep`)
         - Rekurzivní hledání (`grep -r`)
         - Hledat soubory podle typu a názvu (`find -type f -name`)
@@ -189,7 +189,7 @@ pub const SECTION: Section = Section {
                     ("2", "Našli jste jen 'WARNING'. Použijte -i pro nalezení všech variant (warning, Warning...)."),
                     ("1", "Našli jste jen jednu variantu. Přepínač -i ignoruje velikost písmen."),
                 ])
-                .error("Počet není správně. Zkontrolujte, že hledáte bez ohledu na velikost písmen."),
+                .error("Počet není správný. Zkontrolujte, že hledáte bez ohledu na velikost písmen."),
             solution: r#"shellgame submit "$(grep -i warning messages.log | wc -l)""#,
             success: "Správně! Přepínač -i je nepostradatelný pro robustní hledání.",
             ..LEVEL
@@ -221,6 +221,10 @@ pub const SECTION: Section = Section {
                 file("find/messy_dir/a/junk.txt", ""),
             ],
             answer: suffix("a/b/c/d/lost_file.txt")
+                .mistakes(&[
+                    ("messy_dir/a/b/c/d", "To je cesta k adresáři. Odevzdejte celou cestu i s názvem souboru na konci."),
+                    ("./messy_dir/a/b/c/d", "To je cesta k adresáři. Odevzdejte celou cestu i s názvem souboru na konci."),
+                ])
                 .error("To není správná cesta. Odevzdejte ji tak, jak ji vypsal find — včetně všech adresářů, ne jen název souboru. Úvodní './' nevadí."),
             solution: r#"shellgame submit "$(find messy_dir -type f -name 'lost_file.txt')""#,
             success: "Správně! find hledá podle vlastností souboru, takže si poradí i s neznámým umístěním.",
@@ -270,7 +274,7 @@ pub const SECTION: Section = Section {
                     src_code/main.py
                     src_code/utils.py
                 "#)
-                    .msg("Obsah python_files.txt nesedí. Má obsahovat jen cesty k běžným .py souborům v src_code, každou na vlastním řádku, začínající 'src_code/' a seřazené. Bez -type f se přidá adresář archive.py; bez uvozovek kolem vzoru ho shell nahradí jménem setup.py; 'find .' místo 'find src_code' přidá './' a setup.py; a nezapomeňte na sort.")
+                    .msg("Obsah python_files.txt nesedí. Má obsahovat jen cesty k běžným .py souborům v src_code, každou na vlastním řádku, začínající 'src_code/' a seřazené. Bez -type f se přidá adresář archive.py; bez uvozovek kolem vzoru shell vzor nahradí jménem setup.py; 'find .' místo 'find src_code' přidá './' a setup.py; a nezapomeňte na sort.")
                     .missing("Soubor python_files.txt zatím neexistuje. Výstup příkazu uložte pomocí '>'."),
             ],
             solution: r#"
@@ -335,7 +339,7 @@ pub const SECTION: Section = Section {
                 file("final/data.csv", "col1,col2\n"),
             ],
             answer: parts(",", &[
-                int(4).error(r#"Počet .sh souborů není správně. Použijte 'find . -type f -name "*.sh"'."#),
+                int(4).error(r#"Počet .sh souborů není správný. Použijte 'find . -type f -name "*.sh"'."#),
                 exact("NINJA2024")
                     .nocase()
                     .mistakes(&[
@@ -355,18 +359,10 @@ pub const SECTION: Section = Section {
                 shellgame submit "$(find . -type f -name '*.sh' | wc -l),$(grep -rh SECRET_CODE --include='*.sh' . | cut -d= -f2)"
             "#,
             success: r#"
-                GRATULUJEME!
+                Gratulujeme, dokončili jste ShellGame!
 
-                Úspěšně jste dokončili ShellGame!
-
-                Nyní ovládáte základy práce s terminálem:
-                ✓ Navigace v souborovém systému
-                ✓ Práce se soubory a adresáři
-                ✓ Oprávnění a typy souborů
-                ✓ Přesměrování a streamy
-                ✓ Wildcards a vyhledávání
-
-                Jste připraveni na další dobrodružství v Linuxu!
+                Zvládáte navigaci v souborovém systému, práci se soubory a adresáři, oprávnění,
+                přesměrování, žolíky i vyhledávání. Jste připraveni na další dobrodružství v Linuxu!
             "#,
             ..LEVEL
         },

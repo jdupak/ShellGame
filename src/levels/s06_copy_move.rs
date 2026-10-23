@@ -26,7 +26,7 @@ pub const SECTION: Section = Section {
     intro: r#"
         V této sekci se naučíte manipulovat se soubory a adresáři - vytvářet jejich kopie a přesouvat je na jiná místa.
 
-        ## Proč je to důležité?
+        ### Proč je to důležité?
         „Před úpravou konfigurace si udělej zálohu.“ — rada, kterou uslyšíte všude,
         a která se v terminálu vejde do jednoho příkazu.
 
@@ -34,7 +34,7 @@ pub const SECTION: Section = Section {
         Oba umí bez varování přepsat existující cíl — proto se už teď vyplatí
         zvyknout si nejdřív zkontrolovat, co na cílovém místě leží.
 
-        ## `cp` vs `mv` - jaký je rozdíl?
+        ### `cp` vs `mv` - jaký je rozdíl?
         ```
         cp (copy)                      mv (move)
         ─────────────────────────────────────────────
@@ -46,11 +46,11 @@ pub const SECTION: Section = Section {
         └── b.txt  ← nový
         ```
 
-        ## Pozor na existující cíl
+        ### Pozor na existující cíl
         `cp` i `mv` mohou bez dalšího dotazu přepsat existující cílový soubor.
         Předem zkontrolujte cíl pomocí `ls`, případně použijte `cp -i` nebo `mv -i`.
 
-        ## Přejmenování = přesun na stejném místě
+        ### Přejmenování = přesun na stejném místě
         ```
         mv stary_nazev.txt novy_nazev.txt
              │                  │
@@ -58,7 +58,7 @@ pub const SECTION: Section = Section {
                  "přesun" = přejmenování
         ```
 
-        ## Co se naučíte:
+        ### Co se naučíte
         - Kopírovat soubory (`cp`)
         - Kopírovat adresáře (`cp -r`)
         - Přejmenovávat soubory a adresáře (`mv`)
@@ -86,10 +86,10 @@ pub const SECTION: Section = Section {
                 1. Začínáte v `level-6/copying`. Vytvořte zálohu souboru `dulezite.txt`. Kopii pojmenujte `dulezite.bak`.
                 2. Ověřte výsledek pomocí `ls`.
 
-                ## Příkazy:
+                ### Příkazy
                 - `cp <zdroj> <cíl>`: Zkopíruje zdroj do cíle
 
-                ## Odevzdání:
+                ### Odevzdání
                 Po vytvoření zálohy spusťte:
                 `shellgame submit`
             "#,
@@ -114,13 +114,13 @@ pub const SECTION: Section = Section {
                 Bez přepínače `-r` (recursive) příkaz `cp` adresář vůbec nezkopíruje, jen ohlásí, že ho vynechal.
                 S přepínačem zkopíruje adresář i s celým obsahem.
 
-                ## Úkol:
+                ### Úkol
                 Zkopírujte celý adresář `projekt` do nového adresáře `projekt_zaloha`.
 
-                ## Příkazy:
+                ### Příkazy
                 - `cp -r <zdroj> <cíl>`: Zkopíruje adresář
 
-                ## Odevzdání:
+                ### Odevzdání
                 Po zkopírování adresáře spusťte:
                 `shellgame submit`
             "#,
@@ -145,13 +145,13 @@ pub const SECTION: Section = Section {
                 Příkaz `mv` (move) se používá k přesouvání,
                 ale pokud přesouváte soubor ve stejném adresáři na nové jméno, jde o přejmenování.
 
-                ## Úkol:
+                ### Úkol
                 Soubor `spatne_jmeno.txt` má překlep. Přejmenujte ho na `spravne_jmeno.txt`.
 
-                ## Příkazy:
+                ### Příkazy
                 - `mv <staré_jméno> <nové_jméno>`: Přejmenuje soubor
 
-                ## Odevzdání:
+                ### Odevzdání
                 Po přejmenování spusťte:
                 `shellgame submit`
             "#,
@@ -176,17 +176,17 @@ pub const SECTION: Section = Section {
                 Pokud jako cíl příkazu `mv` uvedete existující adresář,
                 soubor se do něj přesune (a zachová si své jméno, pokud neuvedete jiné).
 
-                ## Úkol:
+                ### Úkol
                 Přesuňte soubor `report.pdf` do adresáře `dokumenty`.
 
-                ## Příkazy:
+                ### Příkazy
                 - `mv <soubor> <adresář>/`: Přesune soubor do adresáře
 
-                ## Proč to lomítko na konci?
+                ### Proč to lomítko na konci?
                 Pokud cílový adresář **neexistuje**, `mv` soubor tiše přejmenuje na zadané jméno.
                 S lomítkem `mv` místo toho ohlásí chybu, takže se o překlepu v názvu adresáře dozvíte hned.
 
-                ## Odevzdání:
+                ### Odevzdání
                 Po přesunu souboru spusťte:
                 `shellgame submit`
             "#,
@@ -214,13 +214,13 @@ pub const SECTION: Section = Section {
             text: r#"
                 Příkaz `mv` přesouvá celé adresáře včetně jejich obsahu; přepínač `-r` nepotřebuje.
 
-                ## Úkol:
+                ### Úkol
                 Přesuňte celý adresář `projekt` do existujícího adresáře `archiv`.
 
-                ## Příkazy:
+                ### Příkazy
                 - `mv <adresář> <cílový_adresář>/`
 
-                ## Odevzdání:
+                ### Odevzdání
                 Až bude `projekt` uvnitř `archiv`, spusťte:
                 `shellgame submit`
             "#,
@@ -254,17 +254,17 @@ pub const SECTION: Section = Section {
             text: r#"
                 V adresáři je nepořádek. Všechny soubory s příponou `.log` by měly být v adresáři `logs`.
 
-                ## Úkol:
+                ### Úkol
                 Přesuňte všechny `.log` soubory (`app.log`, `error.log`) do adresáře `logs`.
                 Zvládnete to jedním příkazem, když místo výčtu jmen zadáte vzor se žolíkem `*`.
 
-                ## Příkazy:
+                ### Příkazy
                 - `mv VZOR logs/`: za `VZOR` dosaďte vzor, který vybere právě `.log` soubory
 
                 Vzor si nejdřív ověřte pomocí `ls VZOR` - uvidíte přesně ty soubory, které by `mv` přesunul.
                 Znak `*` je žolík (zástupný znak); celou rodinu žolíků probereme v sekci „Žolíky (Wildcards)“.
 
-                ## Odevzdání:
+                ### Odevzdání
                 Po přesunu zkontrolujte výsledek pomocí `ls logs` a spusťte:
                 `shellgame submit`
             "#,
@@ -305,7 +305,8 @@ pub const SECTION: Section = Section {
                 - **Fish:** `alias hra shellgame`
 
                 Alias ověřte příkazem `type hra`. Příkaz `type` prozradí, čím je dané jméno pro shell:
-                například alias, vestavěný příkaz nebo program uložený na disku.
+                například alias, vestavěný příkaz nebo program uložený na disku. Ve fish je alias
+                ve skutečnosti funkce, proto u něj `type hra` vypíše, že jde o funkci.
 
                 Alias platí jen v aktuálním herním shellu. Po jeho ukončení zmizí,
                 a když hru spustíte znovu, musíte ho zadat znovu.
